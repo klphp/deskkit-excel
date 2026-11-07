@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MsixPackagingToolTemplate
+    xmlns="http://schemas.microsoft.com/msix/packaging/msixpackagingtool/template/2022">
+    <Settings
+        AllowTelemetry="false"
+        ApplyACLsToPackageFiles="true"
+        GenerateCommandLineFile="true"
+        AllowPromptForPassword="false">
+    </Settings>
+    <Installer
+        Path="wails3-base"
+        Arguments=""
+        InstallLocation="C:\Program Files\klphp\Wails3 Base">
+    </Installer>
+    <PackageInformation
+        PackageName="Wails3 Base"
+        PackageDisplayName="Wails3 Base"
+        PublisherName="CN=klphp"
+        PublisherDisplayName="klphp"
+        Version="0.1.0.0"
+        PackageDescription="跨平台桌面应用基础模板">
+        <Capabilities>
+            <Capability Name="runFullTrust" />
+            
+        </Capabilities>
+        <Applications>
+            <Application
+                Id="com.klphp.wails3base"
+                Description="跨平台桌面应用基础模板"
+                DisplayName="Wails3 Base"
+                ExecutableName="wails3-base"
+                EntryPoint="Windows.FullTrustApplication">
+                
+            </Application>
+        </Applications>
+        <Resources>
+            <Resource Language="en-us" />
+        </Resources>
+        <Dependencies>
+            <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+        </Dependencies>
+        <Properties>
+            <Framework>false</Framework>
+            <DisplayName>Wails3 Base</DisplayName>
+            <PublisherDisplayName>klphp</PublisherDisplayName>
+            <Description>跨平台桌面应用基础模板</Description>
+            <Logo>Assets\AppIcon.png</Logo>
+        </Properties>
+    </PackageInformation>
+    <SaveLocation PackagePath="wails3-base.msix" />
+    <PackageIntegrity>
+        <CertificatePath></CertificatePath>
+    </PackageIntegrity>
+</MsixPackagingToolTemplate>

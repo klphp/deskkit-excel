@@ -1,0 +1,163 @@
+# ─────────────────────────────────────────────────────────────
+# 应用配置
+# ─────────────────────────────────────────────────────────────
+
+app:
+  name: DeskKit
+  version: 0.1.0
+  # 打包后的 bundle identifier，Windows 上用作 AppUserModelID
+  identifier: com.klphp.deskkit
+
+  # 禁止多开（单实例锁）。默认 true —— 只有显式写 false 才允许多开。
+  #
+  # 为什么默认开：
+  #   · 多开几乎都是意外：双击两次图标、从终端和 Finder 各启动一次
+  #   · 本模板内嵌了本地 HTTP 服务，两个实例各占一个端口，
+  #     外部程序连哪一个都不对，而且这种情况很难排查
+  #
+  # 第二实例的行为：自行退出，并把主窗口拉到前面（已开着则 Focus + Restore）。
+  #
+  # 关掉它的代价：内嵌服务必须用系统分配端口（server.addr 的端口写 0），
+  # 否则第二个实例会监听失败。没用内嵌服务的应用没有这个限制。
+  #
+  # 调试期小坑：wails3 dev 起的实例和装好的正式版共用同一个锁标识，
+  # 会互相抢。用 APP_INSTANCE_ID 环境变量临时换一个，或 wails3 dev -tags dev。
+  singleInstance: true
+
+# 内嵌本地服务
+#
+# 为什么 Wails 应用还要跑一个 HTTP 服务：
+#
+#   · bindings 只能 Go ↔ 前端直连，**外部程序调不到**（命令行工具、
+#     浏览器书签、别的进程想触发本应用的操作就得走 HTTP）
+#   · 前端做流式响应（SSE）、文件下载、大响应体，走 HTTP 更顺
+#   · 想让应用同时是个「本地 API 服务器」时，配置一行就能开
+#
+# 默认只监听 127.0.0.1 —— 不要改成 0.0.0.0，那等于把本地能力
+# 暴露到局域网，任何同网段设备都能调。
+server:
+  enabled: true
+  addr: 127.0.0.1:0        # 端口 0 = 系统分配空闲端口。
+  # 两个理由：避免和别的程序冲突；以及万一关掉了 app.singleInstance，
+  # 多开的实例也不会因为抢同一个端口而启动失败。
+  # 确实需要固定端口（比如给外部程序写死了地址）时，请保持 app.singleInstance: true。
+  # 需要固定端口时写 127.0.0.1:17890
+  enableCORS: false        # 只有需要浏览器跨域访问时才开
+  logLevel: info
+
+# ─────────────────────────────────────────────────────────────
+# 自更新
+#
+# 基于 Wails v3 内置的 app.Updater，不是自己写的下载器。
+# 默认关闭：enabled 为 false 时整个机制不启用，模板保持干净。
+#
+# 试水阶段（当前推荐）：
+#   enabled: true
+#   provider: github
+#   repository: 你的用户名/仓库名
+#   publicKey: 留空（不验签，零成本）
+#
+# 资产命名会被 DefaultAssetMatcher 按子串匹配，必须同时含
+#   平台：darwin / windows / linux
+#   架构：amd64 / arm64（别名 x86_64 / aarch64 / x64 也认）
+# 例如 myapp-0.1.1-windows-amd64.zip。写成 myapp-win-x64.exe 匹配不上，
+# 会报 "has no asset for darwin/arm64"。
+# ─────────────────────────────────────────────────────────────
+update:
+  enabled: false
+  provider: github
+  repository: ""             # 如 klphp/myapp
+  manifestUrl: ""            # provider: endpoint 时用
+  checksumAsset: ""          # 如 SHA256SUMS，只防下载损坏
+  prerelease: false
+  publicKey: ""              # 留空 = 不验签
+  checkInterval: 6h
+
+# ─────────────────────────────────────────────────────────────
+# 多语言
+#
+# 默认关闭。关着的时候前端只读 zh-CN 的文案，和没有 i18n 完全一样。
+# 要用就 enabled: true，并确保 frontend/src/i18n/locales/ 下有对应文件。
+# 语言切换入口出现在设置窗口，只列出 locales 里的语言。
+# ─────────────────────────────────────────────────────────────
+i18n:
+  enabled: false
+  defaultLocale: zh-CN
+  fallbackLocale: zh-CN
+  locales:
+    - zh-CN
+    # - en-US      # 需要时取消注释；locales/en-US.ts 已经有骨架，
+    #              # 缺的词条会自动回退中文，可以分批翻译
+
+# 官方/第三方 API 对接
+apis:
+  # 示例：一个典型的外部 API
+  example:
+    baseURL: https://api.example.com
+    timeout: 30s
+    # 密钥从环境变量读，不要写在这里 —— 配置文件会进 git
+    apiKeyEnv: EXAMPLE_API_KEY
+    retry:
+      maxAttempts: 3
+      backoff: 500ms
+
+# ─────────────────────────────────────────────────────────────
+# AI 接入
+#
+# 全部走 OpenAI 兼容形态：只要对方实现 /chat/completions + Bearer 鉴权
+# 就能接（OpenAI、DeepSeek、通义、Kimi、Groq、ollama、LM Studio…）。
+# 不为每家写适配器 —— 那等于给它们的字段差异做长期维护。
+#
+# 密钥不进这个文件：它会被打包进二进制、也会进 git。两种来源：
+#   · 环境变量（apiKeyEnv 指定的那个）
+#   · 用户在设置里填的，存用户目录 ai.json（0600）
+# 优先级：用户设置 > 环境变量 > 配置文件。
+#
+# 不配这一段时 ai.enabled 自动为 false，AI 入口在前端隐藏。
+# ─────────────────────────────────────────────────────────────
+ai:
+  enabled: false
+
+  # 默认服务商（下面 providers 里的 key）
+  default: deepseek
+
+  providers:
+    # 云端示例：DeepSeek（国内可直连，价格低，适合做默认）
+    deepseek:
+      kind: openai
+      label: DeepSeek
+      baseURL: https://api.deepseek.com/v1
+      model: deepseek-chat
+      apiKeyEnv: DEEPSEEK_API_KEY
+      timeout: 60s
+      retry:
+        maxAttempts: 3
+        backoff: 800ms
+
+    # 本地示例：Ollama（数据不出机器，是「隐私」卖点的技术前提）
+    # 不需要 key；模型名要让用户在设置里选（或直接写死一个有把握的）
+    ollama:
+      kind: ollama
+      label: 本地 Ollama
+      baseURL: http://127.0.0.1:11434
+      model: qwen2.5:7b
+      timeout: 120s        # 本地小模型首字延迟高，超时给宽一点
+
+    # 需要一个额外请求头的服务商都能这么配，不用改代码
+    # somegateway:
+    #   kind: openai
+    #   baseURL: https://gw.example.com/v1
+    #   model: gpt-4o-mini
+    #   apiKeyEnv: GW_KEY
+    #   headers:
+    #     X-Tenant: my-tenant
+
+  # 本地模型探测：打开设置页时并发 GET 这些地址的模型索引，
+  # 不加载模型、不触发推理，400ms 超时。失败静默。
+  local:
+    enabled: true
+    endpoints:
+      - http://127.0.0.1:11434   # Ollama
+      - http://127.0.0.1:1234    # LM Studio
+      - http://127.0.0.1:8080    # llama.cpp server / 其它
+    probeTimeout: 400ms

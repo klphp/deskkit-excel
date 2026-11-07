@@ -1,0 +1,63 @@
+# ─────────────────────────────────────────────────────────────
+# 窗口定义
+# ─────────────────────────────────────────────────────────────
+# 这里加一段就能多一个窗口，不用改 Go 代码：
+#
+#   Go 侧：  windowManager.Open("settings")
+#   前端：   await WindowService.Open("settings")
+#
+# 每个窗口都是同一个 SPA，靠 url 里的查询参数决定渲染什么页面，
+# 所以新增窗口 = 加配置 + 前端加一个视图分支。
+# ─────────────────────────────────────────────────────────────
+
+windows:
+  # 主窗口：应用启动时自动打开
+  main:
+    title: DeskKit
+    width: 1400
+    height: 900
+    minWidth: 900
+    minHeight: 600
+    url: /
+    frameless: true        # macOS 走系统红绿灯，Windows 走自绘控件
+    main: true             # 标记为主窗口（关闭即退出）
+
+    # 标题栏元素显隐。两个都缺省 true。
+    #
+    # 注意即使 showTitle: false，标题栏本身也还在 —— frameless 下它是唯一
+    # 的拖动入口和窗口按钮载体，整条去掉窗口就没法拖、没法关了。
+    showTitle: true
+    showSettingsButton: true
+
+  # 设置窗口：示例，用来演示「配置即可用」
+  settings:
+    title: 设置
+    # 尺寸尽量贴近实际内容高度：打开后还要按内容自适应重算一次，
+    # 初始值离得太远会看到一次明显的「往下缩」。几个像素的微调没关系。
+    width: 760
+    height: 420
+    minWidth: 600
+    minHeight: 450
+    url: /?view=settings
+    # 统一用自绘标题栏。不设的话 macOS 会显示系统标题栏，和我们的
+    # 标题栏叠成两层，关闭按钮还可能被盖住。
+    frameless: true
+    resizable: true
+    # 同时只允许开一个；从主窗口再点一次会把已有窗口拉到前面
+    singleton: true
+    # 模态：打开后父窗口不能操作，必须在设置窗口里完成或关掉它。
+    # 注意这不是「全局置顶」—— 它只压在父窗口之上，不会盖住别的应用。
+    modal: true
+    parent: main
+
+  # 关于窗口：固定尺寸、不可调整
+  about:
+    title: 关于
+    width: 460
+    height: 360
+    url: /?view=about
+    frameless: true
+    resizable: false
+    singleton: true
+    modal: true
+    parent: main

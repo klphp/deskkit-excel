@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Wails3 Base
+Comment=跨平台桌面应用基础模板
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/wails3-base %u
+Terminal=false
+Type=Application
+Icon=wails3-base
+Categories=Utility;
+StartupWMClass=wails3-base
+
+ 

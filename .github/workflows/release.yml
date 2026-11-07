@@ -1,0 +1,154 @@
+name: Release
+
+# 推一个 v* 标签就出全套产物 + GitHub Release。
+#
+#   git tag v0.1.1 && git push --tags
+#
+# 产物命名必须让 Wails 的 DefaultAssetMatcher 能认出来：文件名小写后
+# 要同时包含平台名（darwin/windows/linux）和架构名（amd64/arm64）。
+# 所以是 deskkit-0.1.1-windows-amd64.zip 这种形式，
+# 写成 deskkit-0.1.1-win-x64.zip 会匹配不上（报 "has no asset for
+# darwin/arm64"）。这一点是自更新能不能用的硬前提。
+
+on:
+  push:
+    tags:
+      - "v*"
+  # 手动触发，方便先验证 workflow 本身而不必真的发版
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          # Windows 用户是主力，amd64 必出
+          - os: windows-latest
+            platform: windows
+            arch: amd64
+          - os: ubuntu-latest
+            platform: linux
+            arch: amd64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Wails CLI 版本跟着 go.mod 里引用的 v3 走，避免 CLI 和库不匹配
+      - name: Install Wails CLI
+        shell: bash
+        run: |
+          version=$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)
+          echo "wails module = $version"
+          go install github.com/wailsapp/wails/v3/cmd/wails3@$version
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Build
+        shell: bash
+        run: |
+          cd frontend && npm ci && cd ..
+          wails3 build
+
+      # ── 打包 ──
+      # 每个平台的产物形状不同：
+      #   macOS  必须是 .zip（内含 .app），Wails 的自更新只认 zip
+      #   Windows 单 exe 或 zip 都行，用 zip 更小且能带说明文件
+      #   Linux   单文件或 tar.gz
+      - name: Package (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd bin
+          # wails3 build 在 macOS 上只出裸二进制，正式 .app 要用 package
+          wails3 package || true
+          TARGET=$(ls -d *.app 2>/dev/null | head -1)
+          if [ -z "$TARGET" ]; then
+            echo "找不到 .app，回退到裸二进制打包"
+            zip -q "../deskkit-${VERSION}-darwin-${ARCH}.zip" deskkit
+          else
+            zip -qry "../deskkit-${VERSION}-darwin-${ARCH}.zip" "$TARGET"
+          fi
+        env:
+          ARCH: ${{ matrix.arch }}
+
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v',''
+          $name = "deskkit-$version-windows-amd64.zip"
+          Compress-Archive -Path bin/deskkit.exe -DestinationPath $name
+
+      - name: Package (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          tar -czf "deskkit-${VERSION}-linux-amd64.tar.gz" -C bin deskkit
+
+      # 校验和文件。注意它只防下载损坏 —— 文件和校验和放在同一个 release
+      # 里，防不住同时改两者的人。要真防篡改得配 Config.PublicKey 签名。
+      - name: Checksums
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(deskkit-*.zip deskkit-*.tar.gz)
+          sha256sum "${files[@]}" > SHA256SUMS-${{ matrix.platform }}-${{ matrix.arch }}.txt || \
+            shasum -a 256 "${files[@]}" > SHA256SUMS-${{ matrix.platform }}-${{ matrix.arch }}.txt
+          cat SHA256SUMS-${{ matrix.platform }}-${{ matrix.arch }}.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            deskkit-*.zip
+            deskkit-*.tar.gz
+            SHA256SUMS-*.txt
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lh dist/
+
+      # 汇总成单个 SHA256SUMS 也一起发出去，配置里的 ChecksumAsset 指向它
+      - name: Merge checksums
+        run: |
+          cd dist
+          cat SHA256SUMS-*.txt > SHA256SUMS 2>/dev/null || true
+          rm -f SHA256SUMS-*.txt
+          cat SHA256SUMS 2>/dev/null || true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
