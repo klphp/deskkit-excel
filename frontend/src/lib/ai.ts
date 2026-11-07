@@ -17,11 +17,30 @@ export { AIService };
 export type { AISettings, ProviderInfo, TestResult };
 
 /** 一轮对话。只保留纯文本 —— 工具调用步骤走事件，不进历史。 */
-export type ChatTurn = { role: "user" | "assistant"; content: string };
+export type ChatTurn = { role: "user" | "assistant" | "system"; content: string };
+
+/** 工具循环推过来的步骤事件（对应 Go 侧 ai.Event）。 */
+export type ToolEvent = {
+  type: "tool_call" | "tool_result";
+  tool?: string;
+  args?: string;
+  result?: string;
+  error?: string;
+  round?: number;
+};
 
 /** 转成 Go 侧的消息结构。 */
 export function toMessages(turns: ChatTurn[]): Message[] {
   return turns.map((turn) => new Message({ role: turn.role, content: turn.content }));
+}
+
+/** 把当前目录作为 system 提示塞进去：模型要调用工具就必须知道绝对路径。 */
+export function withWorkspace(turns: ChatTurn[], dir?: string): ChatTurn[] {
+  if (!dir) return turns;
+  return [
+    { role: "system", content: `当前工作目录：${dir}。调用工具时直接使用这个路径。` },
+    ...turns,
+  ];
 }
 
 /** 组一次请求。provider 为空时后端会用默认值。 */
@@ -41,6 +60,14 @@ export function onDelta(handler: (text: string) => void): () => void {
   return Events.On("ai:delta", (ev) => {
     const payload = ev.data as { content?: string } | undefined;
     if (payload?.content) handler(payload.content);
+  });
+}
+
+/** 订阅工具调用步骤。同样必须退订，否则监听叠加会重复渲染。 */
+export function onTool(handler: (ev: ToolEvent) => void): () => void {
+  return Events.On("ai:tool", (ev) => {
+    const payload = ev.data as ToolEvent | undefined;
+    if (payload?.type) handler(payload);
   });
 }
 

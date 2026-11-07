@@ -2,148 +2,296 @@
 /**
  * Excel 工作台。
  *
- * 布局：左边「文件 + 场景」，右边 AI 面板。
+ * 全部走真实后端：选目录 → 扫文件（excelize 读表头与行数）→ 预览合并 →
+ * 执行合并。没有占位数据，也没有「即将上线」的假按钮。
  *
- * 现状（按实现诚实标注，不画假按钮）：
- *   · 拖入文件并按类型统计 —— 真的，浏览器 File API 本地读
- *   · 场景卡片 —— 真的，把指令填进 AI 输入框
- *   · AI 对话 —— 真的，走 internal/ai 的流式接口
- *   · 「开始处理」—— 还没实现（工具层接入后才有），所以这里不放这个按钮
+ * 一个必须知道的限制：**拖入文件拿不到完整路径**（WebView 的 File 对象
+ * 出于安全不给路径），所以处理文件夹只能走原生目录选择框。
  */
 import { computed, ref } from "vue";
-import { FileSpreadsheet, FolderOpen, Layers, Sparkles, Table2, Wand2 } from "@lucide/vue";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  FileSpreadsheet,
+  FolderOpen,
+  Layers,
+  Loader2,
+  Table2,
+  Wand2,
+} from "@lucide/vue";
 import { useI18n } from "../i18n";
 import AiChatPanel from "./AiChatPanel.vue";
 import { humanSize } from "../lib/ai";
+import * as Tools from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/toolservice";
+import { MergeOptions, type MergeResult, type ScanResult } from "../../bindings/github.com/klphp/excel-batch-tool/internal/tools/excel/models";
 
 const { t } = useI18n();
-
-type Picked = { name: string; size: number };
-
-const files = ref<Picked[]>([]);
-const dragging = ref(false);
 const panel = ref<InstanceType<typeof AiChatPanel> | null>(null);
 
-const totalSize = computed(() => files.value.reduce((sum, f) => sum + f.size, 0));
-const shown = computed(() => files.value.slice(0, 8));
+const dir = ref("");
+const scan = ref<ScanResult | null>(null);
+const busyScan = ref(false);
+const busyPreview = ref(false);
+const busyRun = ref(false);
+const preview = ref<MergeResult | null>(null);
+const done = ref<MergeResult | null>(null);
+const failure = ref("");
+const dedupText = ref("");
 
-/** Excel 相关后缀才算有效输入，其它文件忽略并计数。 */
-const EXCEL_EXT = [".xlsx", ".xls", ".xlsm", ".csv"];
-const ignored = ref(0);
+const files = computed(() => scan.value?.files ?? []);
+const dedupKey = computed(() =>
+  dedupText.value
+    .split(/[,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
 
-function accept(fileList: FileList | null) {
-  if (!fileList) return;
-  const next: Picked[] = [];
-  let skip = 0;
-  for (const f of Array.from(fileList)) {
-    const lower = f.name.toLowerCase();
-    if (EXCEL_EXT.some((ext) => lower.endsWith(ext))) {
-      next.push({ name: f.name, size: f.size });
-    } else {
-      skip += 1;
-    }
+async function pickFolder() {
+  failure.value = "";
+  try {
+    const chosen = await Tools.PickFolder(t("workbench.pickTitle"));
+    if (!chosen) return; // 用户取消
+    dir.value = chosen;
+    await rescan();
+  } catch (err) {
+    failure.value = String(err);
   }
-  files.value = next.slice(0, 500); // 只用于展示，别把几千个名字塞进 DOM
-  ignored.value = skip;
 }
 
-function onDrop(event: DragEvent) {
-  dragging.value = false;
-  accept(event.dataTransfer?.files ?? null);
+async function rescan() {
+  if (!dir.value) return;
+  busyScan.value = true;
+  preview.value = null;
+  done.value = null;
+  failure.value = "";
+  try {
+    scan.value = await Tools.Scan(dir.value);
+  } catch (err) {
+    failure.value = String(err);
+    scan.value = null;
+  } finally {
+    busyScan.value = false;
+  }
 }
 
-function onPick(event: Event) {
-  accept((event.target as HTMLInputElement).files);
+function mergeOptions(dryRun: boolean): MergeOptions {
+  return new MergeOptions({
+    dir: dir.value,
+    dedupKey: dedupKey.value,
+    dryRun,
+  });
 }
 
-/** 场景卡片：把指令填进 AI 输入框，由用户确认后发送。 */
+async function doPreview() {
+  busyPreview.value = true;
+  done.value = null;
+  failure.value = "";
+  try {
+    preview.value = await Tools.Merge(mergeOptions(true));
+  } catch (err) {
+    failure.value = String(err);
+  } finally {
+    busyPreview.value = false;
+  }
+}
+
+async function doMerge() {
+  busyRun.value = true;
+  failure.value = "";
+  try {
+    done.value = await Tools.Merge(mergeOptions(false));
+    preview.value = null;
+  } catch (err) {
+    failure.value = String(err);
+  } finally {
+    busyRun.value = false;
+  }
+}
+
+/** 场景卡片：把带路径的指令填进 AI 输入框，由用户确认后发送。 */
 const scenarios = [
   { key: "merge", icon: Layers },
   { key: "clean", icon: Wand2 },
   { key: "summary", icon: Table2 },
 ] as const;
 
-const scenarioPrompt: Record<string, string> = {
-  merge: "把这些文件合并成一张总表，表头以第一个文件为准，按部门汇总。",
-  clean: "清洗这批表格：去掉空行和重复行，日期统一成 YYYY-MM-DD，数字列去掉文本格式。",
-  summary: "按月份和部门做分组汇总，输出一行一条的汇总表。",
-};
-
 function useScenario(key: string) {
-  panel.value?.prefill(scenarioPrompt[key] ?? "");
+  const target = dir.value ? `目录 ${dir.value}` : "我选的这批表格";
+  const prompts: Record<string, string> = {
+    merge: `${target} 里的表表头不完全一样。先扫描看看情况，再预览合并结果，然后合并成一张总表。`,
+    clean: `${target} 里的数据比较脏。先扫描看情况，告诉我有哪些问题（空行、重复、日期格式），再给方案。`,
+    summary: `${target} 里的表需要按部门汇总。先扫描，再预览合并，如需分组统计请用预览结果告诉我行数与列名。`,
+  };
+  panel.value?.prefill(prompts[key] ?? "");
 }
 </script>
 
 <template>
   <div class="flex h-full min-h-0">
-    <!-- 左：文件与场景 -->
+    <!-- 左：文件与操作 -->
     <section class="flex min-w-0 flex-1 flex-col overflow-y-auto">
-      <div class="space-y-5 p-6">
+      <div class="space-y-4 p-6">
         <header class="space-y-1">
           <h1 class="text-lg font-semibold">{{ t("workbench.title") }}</h1>
           <p class="text-sm text-muted-foreground">{{ t("workbench.subtitle") }}</p>
         </header>
 
-        <!-- 拖入区 -->
-        <div
-          class="rounded-lg border-2 border-dashed px-8 py-12 text-center transition-colors"
-          :class="dragging ? 'border-primary bg-primary/5' : 'border-border bg-card/40'"
-          @dragover.prevent="dragging = true"
-          @dragleave.prevent="dragging = false"
-          @drop.prevent="onDrop"
-        >
-          <FolderOpen :size="28" class="mx-auto mb-3 text-muted-foreground" />
-          <p class="text-sm font-medium">{{ t("workbench.dropTitle") }}</p>
-          <p class="mt-1 text-xs text-muted-foreground">{{ t("workbench.dropHint") }}</p>
-
-          <label
-            class="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent"
-          >
-            <FileSpreadsheet :size="14" />
-            {{ t("workbench.pick") }}
-            <input type="file" multiple class="hidden" @change="onPick" />
-          </label>
-        </div>
-
-        <!-- 已选文件 -->
-        <div v-if="files.length" class="rounded-lg border border-border bg-card p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <p class="text-sm font-medium">
-              {{ t("workbench.filesCount").replace("{n}", String(files.length)) }}
-              <span class="ml-2 font-normal text-muted-foreground">{{ humanSize(totalSize) }}</span>
-            </p>
+        <!-- 目录 -->
+        <div class="rounded-lg border border-border bg-card p-4">
+          <div class="flex items-center gap-3">
             <button
               type="button"
-              class="text-xs text-muted-foreground hover:text-foreground"
-              @click="files = []; ignored = 0"
+              class="inline-flex shrink-0 items-center gap-2 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent"
+              :disabled="busyScan"
+              @click="pickFolder"
             >
-              {{ t("workbench.clear") }}
+              <FolderOpen :size="14" />
+              {{ t("workbench.pick") }}
+            </button>
+            <p class="min-w-0 flex-1 truncate font-mono text-xs" :class="dir ? '' : 'text-muted-foreground'">
+              {{ dir || t("workbench.noDir") }}
+            </p>
+            <button
+              v-if="dir"
+              type="button"
+              class="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+              :disabled="busyScan"
+              @click="rescan"
+            >
+              {{ t("workbench.rescan") }}
             </button>
           </div>
-          <ul class="space-y-1">
-            <li
-              v-for="f in shown"
-              :key="f.name"
-              class="flex items-center justify-between gap-3 text-xs text-muted-foreground"
+
+          <p v-if="busyScan" class="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 :size="12" class="animate-spin" />{{ t("workbench.scanning") }}
+          </p>
+
+          <div v-else-if="scan" class="mt-3 space-y-1 text-xs text-muted-foreground">
+            <p>
+              {{ t("workbench.summary").replace("{files}", String(files.length))
+                 .replace("{rows}", String(scan.totalRows))
+                 .replace("{size}", humanSize(scan.totalSize)) }}
+            </p>
+            <p v-if="scan.ignored">{{ t("workbench.ignoredFiles").replace("{n}", String(scan.ignored)) }}</p>
+            <p v-if="scan.unsupported?.length">
+              {{ t("workbench.unsupported").replace("{files}", (scan.unsupported || []).join("、")) }}
+            </p>
+            <p v-if="scan.truncated" class="text-amber-600">{{ t("workbench.truncated") }}</p>
+          </div>
+        </div>
+
+        <p v-if="failure" class="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">{{ failure }}</p>
+
+        <!-- 文件清单 -->
+        <div v-if="files.length" class="overflow-hidden rounded-lg border border-border">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-muted/40 text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 font-medium">{{ t("workbench.colFile") }}</th>
+                <th class="px-3 py-2 font-medium">{{ t("workbench.colHeaders") }}</th>
+                <th class="px-3 py-2 text-right font-medium">{{ t("workbench.colRows") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="f in files.slice(0, 100)"
+                :key="f.path"
+                class="border-t border-border/60"
+                :class="f.error ? 'bg-destructive/5' : ''"
+              >
+                <td class="max-w-[220px] truncate px-3 py-1.5 font-mono">{{ f.name }}</td>
+                <td class="max-w-[280px] truncate px-3 py-1.5 text-muted-foreground">
+                  <span v-if="f.error" class="text-destructive">{{ f.error }}</span>
+                  <span v-else>{{ f.headers.join(" · ") || "—" }}</span>
+                </td>
+                <td class="px-3 py-1.5 text-right tabular-nums">{{ f.error ? "—" : f.rows }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-if="files.length > 100" class="border-t border-border/60 px-3 py-1.5 text-[11px] text-muted-foreground">
+            {{ t("workbench.moreRows").replace("{n}", String(files.length - 100)) }}
+          </p>
+        </div>
+
+        <!-- 合并 -->
+        <div v-if="files.length" class="rounded-lg border border-border bg-card p-4">
+          <h2 class="flex items-center gap-2 text-sm font-semibold">
+            <FileSpreadsheet :size="14" class="text-muted-foreground" />
+            {{ t("workbench.mergeTitle") }}
+          </h2>
+          <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{{ t("workbench.mergeHint") }}</p>
+
+          <label class="mt-3 flex items-center gap-2">
+            <span class="shrink-0 text-xs text-muted-foreground">{{ t("workbench.dedup") }}</span>
+            <input
+              v-model="dedupText"
+              class="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
+              :placeholder="t('workbench.dedupPlaceholder')"
+            />
+          </label>
+
+          <div class="mt-3 flex gap-2">
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+              :disabled="busyPreview || busyRun"
+              @click="doPreview"
             >
-              <span class="truncate font-mono">{{ f.name }}</span>
-              <span class="shrink-0">{{ humanSize(f.size) }}</span>
-            </li>
-          </ul>
-          <p v-if="files.length > shown.length" class="mt-2 text-[11px] text-muted-foreground">
-            {{ t("workbench.more").replace("{n}", String(files.length - shown.length)) }}
-          </p>
-          <p v-if="ignored" class="mt-2 text-[11px] text-muted-foreground">
-            {{ t("workbench.ignored").replace("{n}", String(ignored)) }}
-          </p>
+              <Loader2 v-if="busyPreview" :size="14" class="animate-spin" />
+              {{ t("workbench.preview") }}
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              :disabled="busyPreview || busyRun"
+              @click="doMerge"
+            >
+              <Loader2 v-if="busyRun" :size="14" class="animate-spin" />
+              {{ t("workbench.run") }}
+            </button>
+          </div>
+
+          <!-- 预览结果 -->
+          <div v-if="preview" class="mt-3 space-y-1 rounded-md bg-muted/40 p-3 text-xs">
+            <p class="flex items-center gap-1.5 font-medium">
+              <AlertTriangle :size="12" class="text-amber-600" />{{ t("workbench.previewTitle") }}
+            </p>
+            <p class="text-muted-foreground">
+              {{ t("workbench.previewBody")
+                  .replace("{files}", String(preview.files))
+                  .replace("{rowsIn}", String(preview.rowsIn))
+                  .replace("{rowsOut}", String(preview.rowsOut))
+                  .replace("{dup}", String(preview.duplicates)) }}
+            </p>
+            <p v-if="preview.columns.length" class="text-muted-foreground">
+              {{ t("workbench.previewCols").replace("{cols}", preview.columns.join(" · ")) }}
+            </p>
+            <ul v-if="preview.warnings?.length" class="list-inside list-disc text-amber-600">
+              <li v-for="w in preview.warnings.slice(0, 5)" :key="w">{{ w }}</li>
+            </ul>
+            <ul v-if="preview.skipped?.length" class="list-inside list-disc text-destructive">
+              <li v-for="s in preview.skipped.slice(0, 5)" :key="s.name">{{ s.name }}：{{ s.reason }}</li>
+            </ul>
+            <p class="text-[11px] text-muted-foreground">{{ t("workbench.previewNoWrite") }}</p>
+          </div>
+
+          <!-- 执行结果 -->
+          <div v-if="done" class="mt-3 space-y-1 rounded-md bg-emerald-500/10 p-3 text-xs">
+            <p class="flex items-center gap-1.5 font-medium text-emerald-700">
+              <CheckCircle2 :size="12" />{{ t("workbench.doneTitle") }}
+            </p>
+            <p class="text-muted-foreground">
+              {{ t("workbench.doneBody")
+                  .replace("{rows}", String(done.rowsOut))
+                  .replace("{ms}", String(done.elapsedMs)) }}
+            </p>
+            <p class="select-text break-all font-mono text-[11px]">{{ done.outputPath }}</p>
+          </div>
         </div>
 
         <!-- 场景 -->
         <div class="space-y-3">
-          <h2 class="flex items-center gap-2 text-sm font-semibold">
-            <Sparkles :size="14" class="text-muted-foreground" />
-            {{ t("workbench.scenarios") }}
-          </h2>
+          <h2 class="text-sm font-semibold">{{ t("workbench.scenarios") }}</h2>
           <div class="grid gap-3 sm:grid-cols-3">
             <button
               v-for="s in scenarios"
@@ -161,17 +309,12 @@ function useScenario(key: string) {
           </div>
           <p class="text-[11px] leading-relaxed text-muted-foreground">{{ t("workbench.scenarioHint") }}</p>
         </div>
-
-        <!-- 空状态：说明接下来会发生什么，而不是留一大片空白 -->
-        <div v-if="!files.length" class="rounded-lg border border-border bg-card/40 p-4">
-          <p class="text-xs leading-relaxed text-muted-foreground">{{ t("workbench.next") }}</p>
-        </div>
       </div>
     </section>
 
     <!-- 右：AI -->
     <aside class="w-[360px] shrink-0 border-l border-border">
-      <AiChatPanel ref="panel" />
+      <AiChatPanel ref="panel" :dir="dir" />
     </aside>
   </div>
 </template>

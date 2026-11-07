@@ -48,6 +48,19 @@ export function Chat($in: $models.ChatInput): $CancellablePromise<$models.ChatRe
 }
 
 /**
+ * ChatAgent 带工具循环的对话 —— 产品的主要交互方式。
+ * 
+ * 与 ChatStream 的区别：模型可以调用工具（扫描目录、预览合并、执行合并），
+ * 循环由 Go 侧驱动（ai.Loop），每一步都通过 ai:tool 事件推给前端，
+ * 用户在界面上能看到「它在做什么」，而不是干等一句结论。
+ */
+export function ChatAgent($in: $models.ChatInput): $CancellablePromise<$models.ChatResult> {
+    return $Call.ByID(697794552, $in).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
  * ChatStream 流式对话。文本增量通过 ai:delta 事件推送。
  * 
  * 返回的 ChatResult 是聚合后的最终结果 —— 前端即使用事件渲染，
@@ -89,6 +102,13 @@ export function Providers(): $CancellablePromise<ai$0.ProviderInfo[]> {
  */
 export function SaveSettings($in: $models.SaveSettingsInput): $CancellablePromise<void> {
     return $Call.ByID(1593569301, $in);
+}
+
+/**
+ * SetRegistry 注入工具集合。
+ */
+export function SetRegistry(r: ai$0.Registry | null): $CancellablePromise<void> {
+    return $Call.ByID(2029610884, r);
 }
 
 /**

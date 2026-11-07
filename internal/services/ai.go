@@ -31,6 +31,9 @@ type AIService struct {
 	mu  sync.RWMutex
 	mgr *ai.Manager
 	app *application.App
+	// registry 是应用注册的工具集合（Excel 合并等）。
+	// 由 main 在装配时注入 —— 服务层不该知道有哪些具体工具。
+	registry *ai.Registry
 }
 
 // BindManager 后置绑定。由 main 在 application.New 之后调用。
@@ -45,6 +48,19 @@ func (s *AIService) BindApp(app *application.App) {
 	s.mu.Lock()
 	s.app = app
 	s.mu.Unlock()
+}
+
+// SetRegistry 注入工具集合。
+func (s *AIService) SetRegistry(r *ai.Registry) {
+	s.mu.Lock()
+	s.registry = r
+	s.mu.Unlock()
+}
+
+func (s *AIService) tools() *ai.Registry {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.registry
 }
 
 func (s *AIService) manager() *ai.Manager {
@@ -261,6 +277,42 @@ func (s *AIService) ChatStream(ctx context.Context, in ChatInput) (ChatResult, e
 			"promptTokens": out.PromptTokens,
 			"outputTokens": out.OutputTokens,
 		},
+	})
+	return out, nil
+}
+
+// ChatAgent 带工具循环的对话 —— 产品的主要交互方式。
+//
+// 与 ChatStream 的区别：模型可以调用工具（扫描目录、预览合并、执行合并），
+// 循环由 Go 侧驱动（ai.Loop），每一步都通过 ai:tool 事件推给前端，
+// 用户在界面上能看到「它在做什么」，而不是干等一句结论。
+func (s *AIService) ChatAgent(ctx context.Context, in ChatInput) (ChatResult, error) {
+	client, e := s.client(ctx, in.Provider)
+	if e != nil {
+		s.emit(EventAIError, map[string]any{"kind": string(e.Kind), "message": e.Message, "hint": e.Hint})
+		return ChatResult{}, errors.New(e.Message)
+	}
+
+	loop := ai.NewLoop(client, s.tools())
+	resp, e := loop.Run(ctx, in.toRequest().Messages, func(ev ai.Event) {
+		switch ev.Type {
+		case ai.EventToolCall, ai.EventToolResult:
+			s.emit(EventAITool, ev)
+		case ai.EventAssistant:
+			// 非流式的回合：整段文字一次推给前端
+			if ev.Text != "" {
+				s.emit(EventAIDelta, map[string]any{"content": ev.Text})
+			}
+		}
+	})
+	if e != nil {
+		s.emit(EventAIError, map[string]any{"kind": string(e.Kind), "message": e.Message, "hint": e.Hint})
+		return ChatResult{}, errors.New(e.Message)
+	}
+
+	out := toChatResult(resp)
+	s.emit(EventAIDone, map[string]any{
+		"content": out.Content, "model": out.Model, "finishReason": out.FinishReason,
 	})
 	return out, nil
 }

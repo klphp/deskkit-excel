@@ -10,19 +10,27 @@
  * 断线时缺尾，返回值才是完整的。
  */
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
-import { Bot, CornerDownLeft, Loader2, Send, Sparkles, X } from "@lucide/vue";
+import { Bot, CheckCircle2, CornerDownLeft, Loader2, Send, Sparkles, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import {
   AIService,
   chatInput,
   errorText,
   onDelta,
+  onTool,
+  withWorkspace,
   type ChatTurn,
   type ProviderInfo,
   type TestResult,
+  type ToolEvent,
 } from "../lib/ai";
 
+const props = defineProps<{ dir?: string }>();
 const { t } = useI18n();
+
+/** 工具调用步骤：让用户看到「它在做什么」，而不是干等一句结论。 */
+type Step = { tool: string; detail: string; done: boolean; ok: boolean };
+const steps = ref<Step[]>([]);
 
 const enabled = ref(false);
 const providers = ref<ProviderInfo[]>([]);
@@ -41,6 +49,7 @@ const scroller = ref<HTMLElement | null>(null);
 const inputEl = ref<HTMLTextAreaElement | null>(null);
 
 let offDelta: (() => void) | null = null;
+let offTool: (() => void) | null = null;
 
 /** 有任一可用服务商才算配好（本地模型不需要密钥）。 */
 const ready = computed(() => providers.value.some((p) => p.ready));
@@ -111,19 +120,51 @@ async function send() {
   streaming.value = "";
   scrollToBottom();
 
+  steps.value = [];
+
   offDelta = onDelta((chunk) => {
     streaming.value += chunk;
     scrollToBottom();
   });
 
+  // 工具步骤：调用时先占一行（转圈），结果回来时补上
+  offTool = onTool((ev: ToolEvent) => {
+    if (ev.type === "tool_call") {
+      // 上一轮的完整话先落进历史，中间推理就不会被吞掉
+      if (streaming.value.trim()) {
+        turns.value.push({ role: "assistant", content: streaming.value });
+        streaming.value = "";
+      }
+      steps.value.push({ tool: ev.tool || "?", detail: ev.args || "", done: false, ok: true });
+    } else if (ev.type === "tool_result") {
+      const last = [...steps.value].reverse().find((s) => s.tool === ev.tool && !s.done);
+      if (last) {
+        last.done = true;
+        last.ok = !ev.error;
+        last.detail = ev.error || ev.result || last.detail;
+      }
+    }
+    scrollToBottom();
+  });
+
   try {
-    const result = await AIService.ChatStream(chatInput(provider.value, model.value, turns.value));
-    turns.value.push({ role: "assistant", content: result.content || streaming.value });
+    const history = withWorkspace(turns.value, props.dir);
+    const result = await AIService.ChatAgent(chatInput(provider.value, model.value, history));
+    if (streaming.value.trim()) {
+      turns.value.push({ role: "assistant", content: streaming.value });
+    } else if (result.content && !result.content.trim().startsWith("{")) {
+      const lastAssistant = [...turns.value].reverse().find((x) => x.role === "assistant");
+      if (lastAssistant?.content !== result.content) {
+        turns.value.push({ role: "assistant", content: result.content });
+      }
+    }
   } catch (err) {
     failure.value = errorText(err);
   } finally {
     offDelta?.();
+    offTool?.();
     offDelta = null;
+    offTool = null;
     busy.value = false;
     streaming.value = "";
     scrollToBottom();
@@ -140,7 +181,10 @@ defineExpose({ prefill });
 onMounted(() => {
   refresh().catch((err) => (failure.value = errorText(err)));
 });
-onUnmounted(() => offDelta?.());
+onUnmounted(() => {
+  offDelta?.();
+  offTool?.();
+});
 </script>
 
 <template>
@@ -252,6 +296,22 @@ onUnmounted(() => offDelta?.());
           </div>
           <p class="whitespace-pre-wrap break-words text-sm leading-relaxed">{{ streaming }}</p>
         </div>
+
+        <ul v-if="steps.length" class="space-y-1 rounded-md bg-muted/40 p-2">
+          <li
+            v-for="(s, i) in steps"
+            :key="i"
+            class="flex items-start gap-1.5 text-[11px] leading-relaxed"
+            :class="s.ok ? 'text-muted-foreground' : 'text-destructive'"
+          >
+            <Loader2 v-if="!s.done" :size="10" class="mt-0.5 shrink-0 animate-spin" />
+            <CheckCircle2 v-else :size="10" class="mt-0.5 shrink-0" />
+            <span class="min-w-0 break-words">
+              <span class="font-mono">{{ s.tool }}</span>
+              <span v-if="s.detail" class="ml-1 opacity-70">{{ s.detail.slice(0, 120) }}</span>
+            </span>
+          </li>
+        </ul>
 
         <p v-if="busy && !streaming" class="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 :size="12" class="animate-spin" />{{ t("ai.thinking") }}

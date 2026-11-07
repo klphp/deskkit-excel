@@ -199,6 +199,29 @@ export class ProviderInfo {
 }
 
 /**
+ * Registry 工具注册表。
+ * 
+ * 这是整个「AI 操作应用」的核心：UI 按钮和 AI 调的是同一批函数，
+ * 所以行为一致、可测试、可批量。AI 不应该去模拟点界面。
+ */
+export class Registry {
+
+    /** Creates a new Registry instance. */
+    constructor($$source: Partial<Registry> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Registry instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Registry {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Registry($$parsedSource as Partial<Registry>);
+    }
+}
+
+/**
  * Tool 是暴露给模型的工具定义。
  */
 export class Tool {

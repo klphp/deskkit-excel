@@ -7,6 +7,7 @@ export {
     Manager,
     Message,
     ProviderInfo,
+    Registry,
     Tool,
     ToolCall
 } from "./models.js";
