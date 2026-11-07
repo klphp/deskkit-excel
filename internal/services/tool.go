@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -57,6 +59,20 @@ func (s *ToolService) PickFolder(title string) (string, error) {
 // Scan 扫描目录，返回文件清单与统计。
 func (s *ToolService) Scan(ctx context.Context, dir string) (excel.ScanResult, error) {
 	return excel.Scan(ctx, dir)
+}
+
+// MakeSample 生成一份示例数据，返回目录与文件清单。
+//
+// 位置在用户配置目录下（~/Library/Application Support/deskkit/sample 一类），
+// 不往桌面或文档里乱写 —— 那个位置用户找不到也不好删。
+func (s *ToolService) MakeSample() (excel.SampleInfo, error) {
+	base := ""
+	if dir, err := os.UserConfigDir(); err == nil {
+		base = filepath.Join(dir, "deskkit")
+	} else {
+		base = os.TempDir()
+	}
+	return excel.EnsureSample(base)
 }
 
 // Clean 清洗。DryRun=true 时只统计不写文件。

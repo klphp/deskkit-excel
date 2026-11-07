@@ -28,7 +28,10 @@ function apply(m: ThemeMode) {
 /** 初始化。在 App 挂载时调一次即可，重复调没有副作用。 */
 export function initTheme() {
   const saved = localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
-  mode.value = saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
+  // 没存过偏好时用浅色：数据类工具长时间盯着看，纯深色底 + 近白字
+  // 对比度太高，反馈是「刺眼」。想要深色的用户可在设置里切换，
+  // 选择会被记住（含 system 跟随系统）。
+  mode.value = saved === "light" || saved === "dark" || saved === "system" ? saved : "light";
   apply(mode.value);
 
   // 只挂一次监听，避免重复注册

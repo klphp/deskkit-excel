@@ -31,25 +31,54 @@ export type ToolEvent = {
 
 /** 转成 Go 侧的消息结构。 */
 export function toMessages(turns: ChatTurn[]): Message[] {
-  return turns.map((turn) => new Message({ role: turn.role, content: turn.content }));
+  return turns.map((turn): Message => ({ role: turn.role, content: turn.content }));
 }
 
-/** 把当前目录作为 system 提示塞进去：模型要调用工具就必须知道绝对路径。 */
-export function withWorkspace(turns: ChatTurn[], dir?: string): ChatTurn[] {
-  if (!dir) return turns;
-  return [
-    { role: "system", content: `当前工作目录：${dir}。调用工具时直接使用这个路径。` },
-    ...turns,
-  ];
+/**
+ * 把当前上下文塞成 system 提示。
+ *
+ * 模型要调工具就必须知道绝对路径，也要知道输出该往哪写 —— 这些事情
+ * 界面上已经选好了，不该让用户每次在话里重复一遍。
+ */
+export type Workspace = {
+  dir?: string;
+  outDir?: string;
+  summary?: string;
+  columns?: string[];
+};
+
+export function withWorkspace(turns: ChatTurn[], ws: Workspace): ChatTurn[] {
+  if (!ws.dir) {
+    return [
+      {
+        role: "system",
+        content: "用户还没选择要处理的文件夹。先请他选择一个目录（界面上的「输入」按钮），再动手。",
+      },
+      ...turns,
+    ];
+  }
+
+  const lines = [
+    `当前输入目录：${ws.dir}`,
+    ws.outDir ? `输出目录：${ws.outDir}` : "",
+    ws.summary ? `文件情况：${ws.summary}` : "",
+    ws.columns?.length ? `这些表的列名（并集）：${ws.columns.join("、")}` : "",
+    "",
+    "调用工具时直接使用上面的绝对路径，不要让用户再提供一次。",
+    "开始动手前先用预览类工具（preview_*）看清会发生什么，把关键数字告诉用户，",
+    "得到同意后再用执行类工具（run_*）落盘。",
+  ].filter(Boolean);
+
+  return [{ role: "system", content: lines.join("\n") }, ...turns];
 }
 
 /** 组一次请求。provider 为空时后端会用默认值。 */
 export function chatInput(provider: string, model: string, turns: ChatTurn[]): ChatInput {
-  return new ChatInput({
+  return {
     provider,
     model,
     messages: toMessages(turns),
-  });
+  };
 }
 
 /**

@@ -24,8 +24,9 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { Events } from "@wailsio/runtime";
 import { initTheme } from "./composables/useTheme";
 import { initI18n, useI18n } from "./i18n";
+import { Info as InfoIcon, Settings as SettingsIcon } from "@lucide/vue";
 import TitleBar from "./components/TitleBar.vue";
-import AppSidebar from "./components/AppSidebar.vue";
+import { openWindow } from "./lib/windows";
 import SettingsView from "./components/SettingsView.vue";
 import AboutView from "./components/AboutView.vue";
 import Workbench from "./components/Workbench.vue";
@@ -228,7 +229,7 @@ watch(
       :show-version="!isSubWindow"
       :show-title="isSubWindow || (appInfo?.showTitle ?? true)"
       :platform="appInfo?.platform ?? ''"
-      @open-settings="active = 'settings'"
+      @open-settings="openWindow('settings')"
     />
 
     <!-- ── 子窗口：只渲染对应视图 ── -->
@@ -244,7 +245,9 @@ watch(
       </div>
     </div>
 
-    <!-- ── 主窗口：侧边栏 + 内容区 ── -->
+    <!-- ── 主窗口：只有一个工作区 ──
+         没有侧边栏：这个应用只有一件事要做，导航除了占地方没有别的用处。
+         设置与关于改由标题栏的图标进入（各自开一个子窗口）。 -->
     <div v-else class="relative flex min-h-0 flex-1">
       <!-- 模态遮罩：吃掉内容区的所有点击，所以子窗口开着时主窗口点不动。
            标题栏在它外面（上方），拖动和窗口按钮不受影响。
@@ -261,23 +264,34 @@ watch(
         @click.stop="onMaskClick"
       />
 
-      <AppSidebar :active="active" @select="active = $event" />
-
       <main class="flex min-w-0 flex-1 flex-col">
-        <div class="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
-          <h1 class="text-base font-semibold">
-            {{ t(`nav.${active}`) }}
-          </h1>
+        <!-- 工具条：应用名 + 当前任务 + 两个次要入口。
+             高度比之前的 48px 略矮，把纵向空间让给内容。 -->
+        <div class="flex h-11 shrink-0 items-center gap-3 border-b border-border px-5">
+          <h1 class="text-[15px] font-semibold tracking-tight">{{ appInfo?.name ?? t("app.name") }}</h1>
+          <span class="text-[13px] text-muted-foreground">{{ t("app.tagline") }}</span>
+          <div class="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              :title="t('nav.settings')"
+              @click="openWindow('settings')"
+            >
+              <SettingsIcon :size="16" />
+            </button>
+            <button
+              type="button"
+              class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              :title="t('nav.about')"
+              @click="openWindow('about')"
+            >
+              <InfoIcon :size="16" />
+            </button>
+          </div>
         </div>
 
-        <!-- 工作台要铺满（右侧 AI 面板独立滚动），其它视图保持常规内边距 -->
-        <div
-          class="min-h-0 flex-1"
-          :class="active === 'workbench' ? 'overflow-hidden' : 'overflow-y-auto p-6'"
-        >
-          <Workbench v-if="active === 'workbench'" />
-          <SettingsView v-else-if="active === 'settings'" :info="appInfo" />
-          <AboutView v-else-if="active === 'about'" :info="appInfo" />
+        <div class="min-h-0 flex-1 overflow-hidden">
+          <Workbench />
         </div>
       </main>
     </div>

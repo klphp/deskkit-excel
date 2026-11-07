@@ -8,7 +8,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
 /**
  * CenterOnParent 把当前窗口重新摆到父窗口正中。
@@ -30,10 +30,8 @@ export function Close(name: string): $CancellablePromise<void> {
 /**
  * Names 配置里定义的全部窗口名（前端可据此动态生成菜单）。
  */
-export function Names(): $CancellablePromise<string[]> {
-    return $Call.ByID(2725376968).then(($result: any) => {
-        return $$createType0($result);
-    });
+export function Names(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2725376968);
 }
 
 /**
@@ -48,11 +46,6 @@ export function Open(name: string): $CancellablePromise<void> {
 /**
  * Opened 当前已打开的窗口名。
  */
-export function Opened(): $CancellablePromise<string[]> {
-    return $Call.ByID(235219089).then(($result: any) => {
-        return $$createType0($result);
-    });
+export function Opened(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(235219089);
 }
-
-// Private type creation functions
-const $$createType0 = $Create.Array($Create.Any);

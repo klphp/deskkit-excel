@@ -1,16 +1,18 @@
 <script setup lang="ts">
 /**
- * AI 对话面板。
+ * 主区对话。
  *
- * 两种状态共用一块区域：
- *   · 还没配好模型 → 就地显示配置表单（不要让用户跑去设置页找）
- *   · 配好了 → 对话区 + 输入框
+ * 这是应用真正的界面：用户用一句人话说要做什么，模型自己在 Go 侧
+ * 的工具循环里挑工具、跑预览、再执行。前端只做三件事 ——
+ *   ① 把现状（目录 / 输出位置 / 有哪些列）交给模型
+ *   ② 把流式文字和工具步骤如实显示出来
+ *   ③ 没配模型时就地让用户配上（不让他跑去设置页找）
  *
- * 流式增量靠 ai:delta 事件累积；最终以返回值落历史 —— 事件可能在
+ * 流式增量靠 ai:delta 累积；最终以返回值落历史 —— 事件可能在
  * 断线时缺尾，返回值才是完整的。
  */
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
-import { Bot, CheckCircle2, CornerDownLeft, Loader2, Send, Sparkles, X } from "@lucide/vue";
+import { ArrowUp, Check, Loader2, Sparkles, Wrench, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import {
   AIService,
@@ -25,10 +27,15 @@ import {
   type ToolEvent,
 } from "../lib/ai";
 
-const props = defineProps<{ dir?: string }>();
+const props = defineProps<{
+  dir?: string;
+  outDir?: string;
+  summary?: string;
+  columns?: string[];
+}>();
+
 const { t } = useI18n();
 
-/** 工具调用步骤：让用户看到「它在做什么」，而不是干等一句结论。 */
 type Step = { tool: string; detail: string; done: boolean; ok: boolean };
 const steps = ref<Step[]>([]);
 
@@ -41,6 +48,7 @@ const busy = ref(false);
 const testing = ref(false);
 const testResult = ref<TestResult | null>(null);
 const failure = ref("");
+const showConfig = ref(false);
 
 const turns = ref<ChatTurn[]>([]);
 const draft = ref("");
@@ -51,9 +59,16 @@ const inputEl = ref<HTMLTextAreaElement | null>(null);
 let offDelta: (() => void) | null = null;
 let offTool: (() => void) | null = null;
 
-/** 有任一可用服务商才算配好（本地模型不需要密钥）。 */
 const ready = computed(() => providers.value.some((p) => p.ready));
 const current = computed(() => providers.value.find((p) => p.name === provider.value));
+const configured = computed(() => enabled.value && ready.value && !showConfig.value);
+
+/** 起手建议：点一下填进输入框，用户还能改。 */
+const suggestions = computed(() =>
+  props.dir
+    ? [t("ai.askMerge"), t("ai.askClean"), t("ai.askSummary"), t("ai.askLook")]
+    : [t("ai.askNoDir")],
+);
 
 async function refresh() {
   enabled.value = await AIService.Enabled();
@@ -61,7 +76,6 @@ async function refresh() {
   providers.value = (await AIService.Providers()) ?? [];
 
   const st = await AIService.Settings();
-  // 用户设置过的优先，其次第一个可用的
   const preferred =
     providers.value.find((p) => p.name === st.provider && p.ready) ??
     providers.value.find((p) => p.ready) ??
@@ -96,6 +110,7 @@ async function saveAndTest() {
     apiKey.value = "";
     testResult.value = await AIService.Test(provider.value);
     await refresh();
+    if (testResult.value?.ok) showConfig.value = false;
   } catch (err) {
     failure.value = errorText(err);
   } finally {
@@ -109,6 +124,11 @@ async function scrollToBottom() {
   if (el) el.scrollTop = el.scrollHeight;
 }
 
+function useSuggestion(text: string) {
+  draft.value = text;
+  inputEl.value?.focus();
+}
+
 async function send() {
   const text = draft.value.trim();
   if (!text || busy.value) return;
@@ -118,19 +138,17 @@ async function send() {
   failure.value = "";
   busy.value = true;
   streaming.value = "";
-  scrollToBottom();
-
   steps.value = [];
+  scrollToBottom();
 
   offDelta = onDelta((chunk) => {
     streaming.value += chunk;
     scrollToBottom();
   });
 
-  // 工具步骤：调用时先占一行（转圈），结果回来时补上
   offTool = onTool((ev: ToolEvent) => {
     if (ev.type === "tool_call") {
-      // 上一轮的完整话先落进历史，中间推理就不会被吞掉
+      // 上一段完整的话先落进历史，中间推理不会被吞掉
       if (streaming.value.trim()) {
         turns.value.push({ role: "assistant", content: streaming.value });
         streaming.value = "";
@@ -148,13 +166,18 @@ async function send() {
   });
 
   try {
-    const history = withWorkspace(turns.value, props.dir);
+    const history = withWorkspace(turns.value, {
+      dir: props.dir,
+      outDir: props.outDir,
+      summary: props.summary,
+      columns: props.columns,
+    });
     const result = await AIService.ChatAgent(chatInput(provider.value, model.value, history));
     if (streaming.value.trim()) {
       turns.value.push({ role: "assistant", content: streaming.value });
     } else if (result.content && !result.content.trim().startsWith("{")) {
-      const lastAssistant = [...turns.value].reverse().find((x) => x.role === "assistant");
-      if (lastAssistant?.content !== result.content) {
+      const last = [...turns.value].reverse().find((x) => x.role === "assistant");
+      if (last?.content !== result.content) {
         turns.value.push({ role: "assistant", content: result.content });
       }
     }
@@ -171,12 +194,13 @@ async function send() {
   }
 }
 
-/** 供工作台把场景指令填进输入框。 */
-function prefill(text: string) {
-  draft.value = text;
-  inputEl.value?.focus();
+/** Enter 发送，Shift+Enter 换行 —— 聊天框的通用习惯。 */
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    send();
+  }
 }
-defineExpose({ prefill });
 
 onMounted(() => {
   refresh().catch((err) => (failure.value = errorText(err)));
@@ -188,169 +212,175 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex h-full flex-col">
-    <header class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
-      <Sparkles :size="15" class="text-muted-foreground" />
-      <h2 class="text-sm font-semibold">{{ t("ai.title") }}</h2>
-      <span
-        v-if="enabled"
-        class="ml-auto inline-flex items-center gap-1.5 text-xs"
-        :class="ready ? 'text-muted-foreground' : 'text-destructive'"
-      >
-        <span
-          class="size-1.5 rounded-full"
-          :class="ready ? 'bg-emerald-500' : 'bg-destructive'"
-        />
-        {{ ready ? t("ai.ready") : t("ai.notConfigured") }}
-      </span>
-    </header>
-
-    <!-- 未启用 AI：解释清楚，不假装能用 -->
-    <div v-if="!enabled" class="flex flex-1 flex-col items-center justify-center gap-2 p-6">
-      <p class="max-w-[240px] text-center text-xs leading-relaxed text-muted-foreground">
-        {{ t("ai.disabled") }}
-      </p>
-      <!-- 调用失败也要显示出来：绑定层报错时如果只显示「未启用」，
-           会被误判成配置问题，实际是前后端接口没对上 -->
-      <p v-if="failure" class="max-w-[240px] break-words text-center text-[11px] text-destructive">
-        {{ failure }}
-      </p>
-    </div>
-
-    <!-- 启用了但还没配好：就地配置 -->
-    <div v-else-if="!ready" class="flex-1 space-y-3 overflow-y-auto p-4">
-      <p class="text-xs leading-relaxed text-muted-foreground">{{ t("ai.configureHint") }}</p>
-
-      <label class="block space-y-1">
-        <span class="text-xs text-muted-foreground">{{ t("ai.provider") }}</span>
-        <select
-          class="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
-          :value="provider"
-          @change="pickProvider(($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="p in providers" :key="p.name" :value="p.name">
-            {{ p.label }}{{ p.local ? ` · ${t("ai.local")}` : "" }}
-          </option>
-        </select>
-      </label>
-
-      <label class="block space-y-1">
-        <span class="text-xs text-muted-foreground">{{ t("ai.model") }}</span>
-        <input
-          v-model="model"
-          class="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm font-mono"
-          :placeholder="current?.model || 'gpt-4o-mini'"
-        />
-      </label>
-
-      <label v-if="!current?.local" class="block space-y-1">
-        <span class="text-xs text-muted-foreground">{{ t("ai.apiKey") }}</span>
-        <input
-          v-model="apiKey"
-          type="password"
-          class="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm font-mono"
-          :placeholder="t('ai.apiKeyPlaceholder')"
-          autocomplete="off"
-        />
-      </label>
-
-      <button
-        type="button"
-        class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-        :disabled="testing"
-        @click="saveAndTest"
-      >
-        <Loader2 v-if="testing" :size="14" class="animate-spin" />
-        {{ testing ? t("ai.testing") : t("ai.saveAndTest") }}
-      </button>
-
-      <p v-if="testResult" class="text-xs" :class="testResult.ok ? 'text-emerald-600' : 'text-destructive'">
-        {{ testResult.ok ? `${t("ai.testOk")} · ${testResult.latencyMs}ms` : testResult.hint || testResult.error }}
-      </p>
-      <p v-if="failure" class="text-xs text-destructive">{{ failure }}</p>
-
-      <p class="text-[11px] leading-relaxed text-muted-foreground">{{ t("ai.localHint") }}</p>
-    </div>
-
-    <!-- 已配好：对话 -->
-    <template v-else>
-      <div ref="scroller" class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-        <p v-if="turns.length === 0 && !streaming" class="text-xs leading-relaxed text-muted-foreground">
-          {{ t("ai.emptyHint") }}
-        </p>
-
-        <div v-for="(turn, i) in turns" :key="i" class="flex gap-2">
-          <div
-            class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full"
-            :class="turn.role === 'user' ? 'bg-accent' : 'bg-primary/10'"
-          >
-            <Bot v-if="turn.role === 'assistant'" :size="13" />
-            <span v-else class="text-[10px] font-semibold">{{ t("ai.you") }}</span>
-          </div>
-          <p class="whitespace-pre-wrap break-words text-sm leading-relaxed">{{ turn.content }}</p>
+  <div class="flex h-full min-h-0 flex-col">
+    <!-- ── 模型状态 / 配置 ── -->
+    <div v-if="!configured" class="min-h-0 flex-1 overflow-y-auto">
+      <div class="mx-auto max-w-[560px] px-6 py-10">
+        <div v-if="!enabled" class="rounded-lg border border-border bg-card p-5">
+          <p class="text-[14px] font-medium">{{ t("ai.disabledTitle") }}</p>
+          <p class="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{{ t("ai.disabledHint") }}</p>
         </div>
 
-        <div v-if="streaming" class="flex gap-2">
-          <div class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <Bot :size="13" />
+        <div v-else class="rounded-lg border border-border bg-card p-5">
+          <div class="flex items-start gap-2">
+            <Sparkles :size="16" class="mt-0.5 shrink-0 text-primary" />
+            <div>
+              <p class="text-[14px] font-medium">{{ t("ai.setupTitle") }}</p>
+              <p class="mt-1 text-[13px] leading-relaxed text-muted-foreground">{{ t("ai.setupHint") }}</p>
+            </div>
           </div>
-          <p class="whitespace-pre-wrap break-words text-sm leading-relaxed">{{ streaming }}</p>
-        </div>
 
-        <ul v-if="steps.length" class="space-y-1 rounded-md bg-muted/40 p-2">
-          <li
-            v-for="(s, i) in steps"
-            :key="i"
-            class="flex items-start gap-1.5 text-[11px] leading-relaxed"
-            :class="s.ok ? 'text-muted-foreground' : 'text-destructive'"
-          >
-            <Loader2 v-if="!s.done" :size="10" class="mt-0.5 shrink-0 animate-spin" />
-            <CheckCircle2 v-else :size="10" class="mt-0.5 shrink-0" />
-            <span class="min-w-0 break-words">
-              <span class="font-mono">{{ s.tool }}</span>
-              <span v-if="s.detail" class="ml-1 opacity-70">{{ s.detail.slice(0, 120) }}</span>
-            </span>
-          </li>
-        </ul>
+          <div class="mt-4 space-y-3">
+            <label class="block">
+              <span class="text-[13px] text-muted-foreground">{{ t("ai.provider") }}</span>
+              <select
+                :value="provider"
+                class="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-[13px]"
+                @change="pickProvider(($event.target as HTMLSelectElement).value)"
+              >
+                <option v-for="p in providers" :key="p.name" :value="p.name">
+                  {{ p.label }} — {{ p.ready ? t("ai.ready") : t("ai.notReady") }}
+                </option>
+              </select>
+            </label>
 
-        <p v-if="busy && !streaming" class="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 :size="12" class="animate-spin" />{{ t("ai.thinking") }}
-        </p>
-        <p v-if="failure" class="text-xs text-destructive">{{ failure }}</p>
-      </div>
+            <label class="block">
+              <span class="text-[13px] text-muted-foreground">{{ t("ai.model") }}</span>
+              <input
+                v-model="model"
+                class="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-[13px]"
+                :placeholder="current?.model ?? ''"
+              />
+            </label>
 
-      <div class="shrink-0 border-t border-border p-3">
-        <div class="rounded-md border border-input bg-background focus-within:ring-1 focus-within:ring-ring">
-          <textarea
-            ref="inputEl"
-            v-model="draft"
-            rows="2"
-            class="w-full resize-none bg-transparent px-3 py-2 text-sm outline-none"
-            :placeholder="t('ai.inputPlaceholder')"
-            @keydown.enter.exact.prevent="send"
-          />
-          <div class="flex items-center justify-between px-2 pb-2">
-            <span class="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <CornerDownLeft :size="10" />{{ t("ai.enterToSend") }}
-            </span>
+            <label v-if="!current?.local" class="block">
+              <span class="text-[13px] text-muted-foreground">API Key</span>
+              <input
+                v-model="apiKey"
+                type="password"
+                autocomplete="off"
+                class="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-[13px]"
+                :placeholder="current?.hasKey ? t('ai.keySaved') : 'sk-...'"
+              />
+            </label>
+          </div>
+
+          <div class="mt-4 flex items-center gap-2">
             <button
               type="button"
-              class="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
-              :disabled="busy || !draft.trim()"
-              @click="send"
+              class="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-[13.5px] font-medium text-primary-foreground disabled:opacity-50"
+              :disabled="testing"
+              @click="saveAndTest"
             >
-              <Send :size="12" />{{ t("ai.send") }}
+              <Loader2 v-if="testing" :size="14" class="animate-spin" />
+              {{ t("ai.saveAndTest") }}
+            </button>
+            <button
+              v-if="ready"
+              type="button"
+              class="inline-flex h-9 items-center gap-2 rounded-md border border-input px-3.5 text-[13.5px] hover:bg-accent"
+              @click="showConfig = false"
+            >
+              {{ t("ai.useReady") }}
             </button>
           </div>
+
+          <p v-if="testResult" class="mt-3 flex items-start gap-1.5 text-[13px]"
+             :class="testResult.ok ? 'text-emerald-600' : 'text-destructive'">
+            <Check v-if="testResult.ok" :size="14" class="mt-0.5 shrink-0" />
+            <X v-else :size="14" class="mt-0.5 shrink-0" />
+            <span>{{ testResult.ok ? t("ai.testOk") : (testResult.error || testResult.hint || t("ai.testFailed")) }}</span>
+          </p>
+          <p v-if="failure" class="mt-2 text-[13px] text-destructive">{{ failure }}</p>
         </div>
-        <button
-          v-if="turns.length"
-          type="button"
-          class="mt-2 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-          @click="turns = []; failure = ''"
-        >
-          <X :size="10" />{{ t("ai.clear") }}
-        </button>
+      </div>
+    </div>
+
+    <!-- ── 对话 ── -->
+    <template v-else>
+      <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
+        <div class="mx-auto max-w-[820px] px-6 py-6">
+          <!-- 开场：只有一个问题，而不是一堆表单 -->
+          <div v-if="turns.length === 0 && !streaming" class="pt-16 text-center">
+            <h2 class="text-[19px] font-semibold tracking-tight">{{ t("ai.emptyTitle") }}</h2>
+            <p class="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">{{ t("ai.emptyHint") }}</p>
+            <div class="mt-6 flex flex-wrap justify-center gap-2">
+              <button
+                v-for="s in suggestions"
+                :key="s"
+                type="button"
+                class="rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] transition-colors hover:bg-accent"
+                @click="useSuggestion(s)"
+              >
+                {{ s }}
+              </button>
+            </div>
+          </div>
+
+          <!-- 历史 -->
+          <div v-for="(turn, i) in turns" :key="i" class="mb-4">
+            <div v-if="turn.role === 'user'" class="flex justify-end">
+              <div class="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-[13.5px] leading-relaxed text-primary-foreground">
+                {{ turn.content }}
+              </div>
+            </div>
+            <div v-else-if="turn.role === 'assistant'" class="whitespace-pre-wrap text-[13.5px] leading-[1.75]">
+              {{ turn.content }}
+            </div>
+          </div>
+
+          <!-- 工具步骤：让人看见它在干什么，而不是干等 -->
+          <div v-if="steps.length" class="mb-3 space-y-1">
+            <div
+              v-for="(s, i) in steps"
+              :key="i"
+              class="flex items-start gap-2 text-[12.5px] text-muted-foreground"
+            >
+              <Wrench :size="12" class="mt-0.5 shrink-0" />
+              <span class="font-mono">{{ s.tool }}</span>
+              <Loader2 v-if="!s.done" :size="12" class="mt-0.5 animate-spin" />
+              <Check v-else-if="s.ok" :size="12" class="mt-0.5 text-emerald-600" />
+              <X v-else :size="12" class="mt-0.5 text-destructive" />
+              <span class="min-w-0 truncate">{{ s.detail }}</span>
+            </div>
+          </div>
+
+          <!-- 流式 -->
+          <div v-if="streaming" class="whitespace-pre-wrap text-[13.5px] leading-[1.75]">{{ streaming }}</div>
+          <div v-if="busy && !streaming" class="flex items-center gap-2 text-[13px] text-muted-foreground">
+            <Loader2 :size="13" class="animate-spin" />{{ t("ai.thinking") }}
+          </div>
+          <p v-if="failure" class="mt-3 text-[13px] text-destructive">{{ failure }}</p>
+        </div>
+      </div>
+
+      <!-- 输入 -->
+      <div class="shrink-0 border-t border-border px-6 py-3">
+        <div class="mx-auto max-w-[820px]">
+          <div class="flex items-end gap-2 rounded-xl border border-input bg-background px-3 py-2 focus-within:ring-1 focus-within:ring-ring">
+            <textarea
+              ref="inputEl"
+              v-model="draft"
+              rows="1"
+              :placeholder="dir ? t('ai.placeholder') : t('ai.placeholderNoDir')"
+              class="max-h-32 min-h-[24px] flex-1 resize-none bg-transparent text-[13.5px] leading-relaxed outline-none placeholder:text-muted-foreground"
+              @keydown="onKeydown"
+            />
+            <button
+              type="button"
+              class="mb-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40"
+              :disabled="!draft.trim() || busy"
+              :title="t('ai.send')"
+              @click="send"
+            >
+              <ArrowUp :size="15" />
+            </button>
+          </div>
+          <div class="mt-1.5 flex items-center justify-between px-1 text-[12px] text-muted-foreground">
+            <span>{{ provider }} · {{ model }}</span>
+            <button type="button" class="hover:text-foreground" @click="showConfig = true">{{ t("ai.changeModel") }}</button>
+          </div>
+        </div>
       </div>
     </template>
   </div>
