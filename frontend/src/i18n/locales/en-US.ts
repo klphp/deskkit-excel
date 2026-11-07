@@ -118,4 +118,21 @@ export const enUS: Record<string, string> = {
   "workbench.previewNoWrite": "Preview writes nothing. Run the merge once you are happy with it.",
   "workbench.doneTitle": "Merge finished",
   "workbench.doneBody": "{rows} rows in {ms} ms",
+
+  // ── Clean ──
+  "workbench.cleanTitle": "Clean these workbooks",
+  "workbench.cleanHint": "Per file: each input produces a -clean.xlsx copy. Originals are untouched.",
+  "workbench.cleanBlank": "Drop blank rows",
+  "workbench.cleanTrim": "Trim whitespace",
+  "workbench.cleanDup": "Drop duplicate rows",
+  "workbench.cleanNumbers": "Numbers stored as text → numbers (leading zeros kept)",
+  "workbench.cleanDates": "Normalize dates",
+  "workbench.cleanDedupPlaceholder": "Columns used to detect duplicates (blank = whole row)",
+  "workbench.cleanPreviewBtn": "Preview clean",
+  "workbench.cleanRunBtn": "Run clean",
+  "workbench.cleanPreviewTitle": "Preview: what cleaning will do",
+  "workbench.cleanPreviewBody": "{files} files: {rowsIn} rows → {rowsOut} rows, {blank} blank and {dup} duplicate rows dropped",
+  "workbench.cleanFixes": "Will fix: {trim} trimmed cells, {dates} dates, {nums} numbers",
+  "workbench.cleanDoneTitle": "Cleaning finished",
+  "workbench.cleanDoneBody": "{files} files, {rows} rows, {ms} ms",
 };

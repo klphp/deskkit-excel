@@ -59,6 +59,11 @@ func (s *ToolService) Scan(ctx context.Context, dir string) (excel.ScanResult, e
 	return excel.Scan(ctx, dir)
 }
 
+// Clean 清洗。DryRun=true 时只统计不写文件。
+func (s *ToolService) Clean(ctx context.Context, opt excel.CleanOptions) (excel.CleanResult, error) {
+	return excel.Clean(ctx, opt)
+}
+
 // Merge 合并。DryRun=true 时只预览不写文件。
 func (s *ToolService) Merge(ctx context.Context, opt excel.MergeOptions) (excel.MergeResult, error) {
 	return excel.Merge(ctx, opt)

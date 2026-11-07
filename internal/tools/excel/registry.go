@@ -118,7 +118,7 @@ func Register(r *ai.Registry) error {
 	if err != nil {
 		return err
 	}
-	return r.Add(runDef, func(ctx context.Context, args json.RawMessage) (string, error) {
+	if err := r.Add(runDef, func(ctx context.Context, args json.RawMessage) (string, error) {
 		var in struct {
 			Dir      string   `json:"dir"`
 			DedupKey []string `json:"dedupKey"`
@@ -137,7 +137,97 @@ func Register(r *ai.Registry) error {
 			"skipped": res.Skipped,
 		})
 		return string(raw), nil
+	}); err != nil {
+		return err
+	}
+
+	// ── 清洗 ──
+	// 同样拆成 preview / run：清洗会删行，先看统计再动手。
+	cleanParams := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"dir":            map[string]any{"type": "string", "description": "目录的绝对路径"},
+			"dropBlankRows":  map[string]any{"type": "boolean", "description": "删除整行为空的行"},
+			"dropDuplicates": map[string]any{"type": "boolean", "description": "删除重复行"},
+			"dedupKey":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "按哪些列判断重复；留空按整行"},
+			"trimSpaces":     map[string]any{"type": "boolean", "description": "去掉单元格首尾空白"},
+			"normalizeDates": map[string]any{"type": "boolean", "description": "统一日期格式"},
+			"dateFormat":     map[string]any{"type": "string", "description": "YYYY-MM-DD 或 YYYY/MM/DD"},
+			"numbersAsText":  map[string]any{"type": "boolean", "description": "把被存成文本的数字转成数值（跳前导零）"},
+		},
+		"required": []string{"dir"},
+	}
+
+	previewClean, err := ai.FunctionTool("preview_clean",
+		"预览清洗：只统计会删掉多少空行、多少重复行、修正多少日期与数字，不写文件。清洗前必须先调用并汇报给用户。",
+		cleanParams)
+	if err != nil {
+		return err
+	}
+	if err := r.Add(previewClean, func(ctx context.Context, args json.RawMessage) (string, error) {
+		opt, err := cleanOptionsFrom(args)
+		if err != nil {
+			return "", err
+		}
+		opt.DryRun = true
+		res, err := Clean(ctx, opt)
+		if err != nil {
+			return "", err
+		}
+		raw, _ := json.Marshal(map[string]any{
+			"files": res.Files, "rowsIn": res.RowsIn, "rowsOut": res.RowsOut,
+			"blankRows": res.BlankRows, "duplicateRows": res.Duplicate,
+			"trimmedCells": res.Trimmed, "dateFixed": res.DateFixed,
+			"numberFixed": res.NumFixed, "warnings": res.Warnings, "skipped": res.Skipped,
+		})
+		return string(raw), nil
+	}); err != nil {
+		return err
+	}
+
+	runClean, err := ai.FunctionTool("run_clean",
+		"执行清洗并写出新文件（每个输入生成一个 -clean.xlsx，不覆盖原文件）。只在用户同意后调用，且必须先调用过 preview_clean。",
+		cleanParams)
+	if err != nil {
+		return err
+	}
+	return r.Add(runClean, func(ctx context.Context, args json.RawMessage) (string, error) {
+		opt, err := cleanOptionsFrom(args)
+		if err != nil {
+			return "", err
+		}
+		res, err := Clean(ctx, opt)
+		if err != nil {
+			return "", err
+		}
+		raw, _ := json.Marshal(map[string]any{
+			"outputDir": res.OutputDir, "files": res.Files, "rowsOut": res.RowsOut,
+			"blankRows": res.BlankRows, "duplicateRows": res.Duplicate,
+		})
+		return string(raw), nil
 	})
+}
+
+// cleanOptionsFrom 从工具参数解析清洗选项。
+func cleanOptionsFrom(args json.RawMessage) (CleanOptions, error) {
+	var in struct {
+		Dir            string   `json:"dir"`
+		DropBlankRows  bool     `json:"dropBlankRows"`
+		DropDuplicates bool     `json:"dropDuplicates"`
+		DedupKey       []string `json:"dedupKey"`
+		TrimSpaces     bool     `json:"trimSpaces"`
+		NormalizeDates bool     `json:"normalizeDates"`
+		DateFormat     string   `json:"dateFormat"`
+		NumbersAsText  bool     `json:"numbersAsText"`
+	}
+	if err := json.Unmarshal(args, &in); err != nil {
+		return CleanOptions{}, err
+	}
+	return CleanOptions{
+		Dir: in.Dir, DropBlankRows: in.DropBlankRows, DropDuplicates: in.DropDuplicates,
+		DedupKey: in.DedupKey, TrimSpaces: in.TrimSpaces, NormalizeDates: in.NormalizeDates,
+		DateFormat: in.DateFormat, NumbersAsText: in.NumbersAsText,
+	}, nil
 }
 
 func joinHeaders(headers []string) string {

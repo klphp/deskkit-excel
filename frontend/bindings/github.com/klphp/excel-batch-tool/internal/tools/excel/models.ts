@@ -6,6 +6,172 @@
 import { Create as $Create } from "@wailsio/runtime";
 
 /**
+ * CleanOptions 清洗参数。
+ * 
+ * 每个步骤都是独立开关而不是「一键全清」：不同报表的脏法完全不一样
+ * （财务表怕动数字，HR 表怕动工号的前导零），让用户能关掉某一步
+ * 比给他一个「智能清洗」有用得多。
+ */
+export class CleanOptions {
+    "dir": string;
+
+    /**
+     * OutputDir 输出目录，留空用 <Dir>/deskkit-out。
+     */
+    "outputDir"?: string;
+
+    /**
+     * DropBlankRows 删除整行为空的行。
+     */
+    "dropBlankRows": boolean;
+
+    /**
+     * DropDuplicates 删除重复行。DedupKey 为空时按整行比较。
+     */
+    "dropDuplicates": boolean;
+    "dedupKey"?: string[];
+
+    /**
+     * TrimSpaces 去掉单元格首尾空白（含全角空格）。
+     */
+    "trimSpaces": boolean;
+
+    /**
+     * NormalizeDates 统一日期格式。DateFormat 支持 YYYY-MM-DD / YYYY/MM/DD。
+     */
+    "normalizeDates": boolean;
+    "dateFormat"?: string;
+
+    /**
+     * NumbersAsText 把「被存成文本的数字」转成真正的数值。
+     * 会跳过带前导零的值（工号、邮编）—— 那些转成数字就毁了。
+     */
+    "numbersAsText": boolean;
+
+    /**
+     * DryRun 只统计不写文件。
+     */
+    "dryRun": boolean;
+
+    /** Creates a new CleanOptions instance. */
+    constructor($$source: Partial<CleanOptions> = {}) {
+        if (!("dir" in $$source)) {
+            this["dir"] = "";
+        }
+        if (!("dropBlankRows" in $$source)) {
+            this["dropBlankRows"] = false;
+        }
+        if (!("dropDuplicates" in $$source)) {
+            this["dropDuplicates"] = false;
+        }
+        if (!("trimSpaces" in $$source)) {
+            this["trimSpaces"] = false;
+        }
+        if (!("normalizeDates" in $$source)) {
+            this["normalizeDates"] = false;
+        }
+        if (!("numbersAsText" in $$source)) {
+            this["numbersAsText"] = false;
+        }
+        if (!("dryRun" in $$source)) {
+            this["dryRun"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CleanOptions instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CleanOptions {
+        const $$createField4_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("dedupKey" in $$parsedSource) {
+            $$parsedSource["dedupKey"] = $$createField4_0($$parsedSource["dedupKey"]);
+        }
+        return new CleanOptions($$parsedSource as Partial<CleanOptions>);
+    }
+}
+
+/**
+ * CleanResult 清洗结果。逐文件处理，不是合并。
+ */
+export class CleanResult {
+    "outputDir": string;
+    "files": number;
+    "rowsIn": number;
+    "rowsOut": number;
+    "blankRows": number;
+    "duplicateRows": number;
+    "trimmedCells": number;
+    "dateFixed": number;
+    "numberFixed": number;
+    "unparsedDates": number;
+    "skipped"?: SkipInfo[];
+    "warnings"?: string[];
+    "dryRun": boolean;
+    "elapsedMs": number;
+
+    /** Creates a new CleanResult instance. */
+    constructor($$source: Partial<CleanResult> = {}) {
+        if (!("outputDir" in $$source)) {
+            this["outputDir"] = "";
+        }
+        if (!("files" in $$source)) {
+            this["files"] = 0;
+        }
+        if (!("rowsIn" in $$source)) {
+            this["rowsIn"] = 0;
+        }
+        if (!("rowsOut" in $$source)) {
+            this["rowsOut"] = 0;
+        }
+        if (!("blankRows" in $$source)) {
+            this["blankRows"] = 0;
+        }
+        if (!("duplicateRows" in $$source)) {
+            this["duplicateRows"] = 0;
+        }
+        if (!("trimmedCells" in $$source)) {
+            this["trimmedCells"] = 0;
+        }
+        if (!("dateFixed" in $$source)) {
+            this["dateFixed"] = 0;
+        }
+        if (!("numberFixed" in $$source)) {
+            this["numberFixed"] = 0;
+        }
+        if (!("unparsedDates" in $$source)) {
+            this["unparsedDates"] = 0;
+        }
+        if (!("dryRun" in $$source)) {
+            this["dryRun"] = false;
+        }
+        if (!("elapsedMs" in $$source)) {
+            this["elapsedMs"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CleanResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CleanResult {
+        const $$createField10_0 = $$createType2;
+        const $$createField11_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("skipped" in $$parsedSource) {
+            $$parsedSource["skipped"] = $$createField10_0($$parsedSource["skipped"]);
+        }
+        if ("warnings" in $$parsedSource) {
+            $$parsedSource["warnings"] = $$createField11_0($$parsedSource["warnings"]);
+        }
+        return new CleanResult($$parsedSource as Partial<CleanResult>);
+    }
+}
+
+/**
  * MergeOptions 合并参数。
  */
 export class MergeOptions {

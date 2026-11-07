@@ -23,7 +23,13 @@ import { useI18n } from "../i18n";
 import AiChatPanel from "./AiChatPanel.vue";
 import { humanSize } from "../lib/ai";
 import * as Tools from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/toolservice";
-import { MergeOptions, type MergeResult, type ScanResult } from "../../bindings/github.com/klphp/excel-batch-tool/internal/tools/excel/models";
+import {
+  CleanOptions,
+  MergeOptions,
+  type CleanResult,
+  type MergeResult,
+  type ScanResult,
+} from "../../bindings/github.com/klphp/excel-batch-tool/internal/tools/excel/models";
 
 const { t } = useI18n();
 const panel = ref<InstanceType<typeof AiChatPanel> | null>(null);
@@ -37,6 +43,19 @@ const preview = ref<MergeResult | null>(null);
 const done = ref<MergeResult | null>(null);
 const failure = ref("");
 const dedupText = ref("");
+
+// ── 清洗 ──
+const cleanDropBlank = ref(true);
+const cleanTrim = ref(true);
+const cleanDropDup = ref(true);
+const cleanDates = ref(true);
+const cleanDateFmt = ref("YYYY-MM-DD");
+const cleanNumbers = ref(true);
+const cleanDedupText = ref("");
+const cleanPreview = ref<CleanResult | null>(null);
+const cleanDone = ref<CleanResult | null>(null);
+const busyCleanPreview = ref(false);
+const busyCleanRun = ref(false);
 
 const files = computed(() => scan.value?.files ?? []);
 const dedupKey = computed(() =>
@@ -105,6 +124,46 @@ async function doMerge() {
     failure.value = String(err);
   } finally {
     busyRun.value = false;
+  }
+}
+
+function cleanOptions(dryRun: boolean): CleanOptions {
+  return new CleanOptions({
+    dir: dir.value,
+    dropBlankRows: cleanDropBlank.value,
+    dropDuplicates: cleanDropDup.value,
+    dedupKey: cleanDedupText.value.split(/[,，]/).map((x) => x.trim()).filter(Boolean),
+    trimSpaces: cleanTrim.value,
+    normalizeDates: cleanDates.value,
+    dateFormat: cleanDateFmt.value,
+    numbersAsText: cleanNumbers.value,
+    dryRun,
+  });
+}
+
+async function doCleanPreview() {
+  busyCleanPreview.value = true;
+  cleanDone.value = null;
+  failure.value = "";
+  try {
+    cleanPreview.value = await Tools.Clean(cleanOptions(true));
+  } catch (err) {
+    failure.value = String(err);
+  } finally {
+    busyCleanPreview.value = false;
+  }
+}
+
+async function doCleanRun() {
+  busyCleanRun.value = true;
+  failure.value = "";
+  try {
+    cleanDone.value = await Tools.Clean(cleanOptions(false));
+    cleanPreview.value = null;
+  } catch (err) {
+    failure.value = String(err);
+  } finally {
+    busyCleanRun.value = false;
   }
 }
 
@@ -286,6 +345,113 @@ function useScenario(key: string) {
                   .replace("{ms}", String(done.elapsedMs)) }}
             </p>
             <p class="select-text break-all font-mono text-[11px]">{{ done.outputPath }}</p>
+          </div>
+        </div>
+
+        <!-- 清洗 -->
+        <div v-if="files.length" class="rounded-lg border border-border bg-card p-4">
+          <h2 class="flex items-center gap-2 text-sm font-semibold">
+            <Wand2 :size="14" class="text-muted-foreground" />
+            {{ t("workbench.cleanTitle") }}
+          </h2>
+          <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{{ t("workbench.cleanHint") }}</p>
+
+          <div class="mt-3 grid gap-2 sm:grid-cols-2">
+            <label class="flex items-center gap-2 text-xs">
+              <input v-model="cleanDropBlank" type="checkbox" class="accent-primary" />
+              {{ t("workbench.cleanBlank") }}
+            </label>
+            <label class="flex items-center gap-2 text-xs">
+              <input v-model="cleanTrim" type="checkbox" class="accent-primary" />
+              {{ t("workbench.cleanTrim") }}
+            </label>
+            <label class="flex items-center gap-2 text-xs">
+              <input v-model="cleanDropDup" type="checkbox" class="accent-primary" />
+              {{ t("workbench.cleanDup") }}
+            </label>
+            <label class="flex items-center gap-2 text-xs">
+              <input v-model="cleanNumbers" type="checkbox" class="accent-primary" />
+              {{ t("workbench.cleanNumbers") }}
+            </label>
+            <label class="flex items-center gap-2 text-xs sm:col-span-2">
+              <input v-model="cleanDates" type="checkbox" class="accent-primary" />
+              {{ t("workbench.cleanDates") }}
+              <select
+                v-model="cleanDateFmt"
+                class="ml-1 rounded-md border border-input bg-background px-1.5 py-0.5 text-xs"
+                :disabled="!cleanDates"
+              >
+                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                <option value="YYYY/MM/DD">YYYY/MM/DD</option>
+              </select>
+            </label>
+          </div>
+
+          <label v-if="cleanDropDup" class="mt-2 flex items-center gap-2">
+            <span class="shrink-0 text-xs text-muted-foreground">{{ t("workbench.dedup") }}</span>
+            <input
+              v-model="cleanDedupText"
+              class="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
+              :placeholder="t('workbench.cleanDedupPlaceholder')"
+            />
+          </label>
+
+          <div class="mt-3 flex gap-2">
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+              :disabled="busyCleanPreview || busyCleanRun"
+              @click="doCleanPreview"
+            >
+              <Loader2 v-if="busyCleanPreview" :size="14" class="animate-spin" />
+              {{ t("workbench.cleanPreviewBtn") }}
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              :disabled="busyCleanPreview || busyCleanRun"
+              @click="doCleanRun"
+            >
+              <Loader2 v-if="busyCleanRun" :size="14" class="animate-spin" />
+              {{ t("workbench.cleanRunBtn") }}
+            </button>
+          </div>
+
+          <div v-if="cleanPreview" class="mt-3 space-y-1 rounded-md bg-muted/40 p-3 text-xs">
+            <p class="flex items-center gap-1.5 font-medium">
+              <AlertTriangle :size="12" class="text-amber-600" />{{ t("workbench.cleanPreviewTitle") }}
+            </p>
+            <p class="text-muted-foreground">
+              {{ t("workbench.cleanPreviewBody")
+                  .replace("{files}", String(cleanPreview.files))
+                  .replace("{rowsIn}", String(cleanPreview.rowsIn))
+                  .replace("{rowsOut}", String(cleanPreview.rowsOut))
+                  .replace("{blank}", String(cleanPreview.blankRows))
+                  .replace("{dup}", String(cleanPreview.duplicateRows)) }}
+            </p>
+            <p class="text-muted-foreground">
+              {{ t("workbench.cleanFixes")
+                  .replace("{trim}", String(cleanPreview.trimmedCells))
+                  .replace("{dates}", String(cleanPreview.dateFixed))
+                  .replace("{nums}", String(cleanPreview.numberFixed)) }}
+            </p>
+            <ul v-if="cleanPreview.warnings?.length" class="list-inside list-disc text-amber-600">
+              <li v-for="w in cleanPreview.warnings.slice(0, 5)" :key="w">{{ w }}</li>
+            </ul>
+            <p class="text-[11px] text-muted-foreground">{{ t("workbench.previewNoWrite") }}</p>
+          </div>
+
+          <div v-if="cleanDone" class="mt-3 space-y-1 rounded-md bg-emerald-500/10 p-3 text-xs">
+            <p class="flex items-center gap-1.5 font-medium text-emerald-700">
+              <CheckCircle2 :size="12" />{{ t("workbench.cleanDoneTitle") }}
+            </p>
+            <p class="text-muted-foreground">
+              {{ t("workbench.cleanDoneBody")
+                  .replace("{files}", String(cleanDone.files))
+                  .replace("{rows}", String(cleanDone.rowsOut))
+                  .replace("{ms}", String(cleanDone.elapsedMs)) }}
+            </p>
+            <p class="select-text break-all font-mono text-[11px]">{{ cleanDone.outputDir }}</p>
           </div>
         </div>
 

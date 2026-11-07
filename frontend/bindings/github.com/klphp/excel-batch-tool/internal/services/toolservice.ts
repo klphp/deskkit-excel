@@ -28,11 +28,20 @@ export function BindApp(app: application$0.App | null): $CancellablePromise<void
 }
 
 /**
+ * Clean 清洗。DryRun=true 时只统计不写文件。
+ */
+export function Clean(opt: excel$0.CleanOptions): $CancellablePromise<excel$0.CleanResult> {
+    return $Call.ByID(3938710218, opt).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
  * Merge 合并。DryRun=true 时只预览不写文件。
  */
 export function Merge(opt: excel$0.MergeOptions): $CancellablePromise<excel$0.MergeResult> {
     return $Call.ByID(2648683803, opt).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType1($result);
     });
 }
 
@@ -52,10 +61,11 @@ export function PickFolder(title: string): $CancellablePromise<string> {
  */
 export function Scan(dir: string): $CancellablePromise<excel$0.ScanResult> {
     return $Call.ByID(1272197868, dir).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 // Private type creation functions
-const $$createType0 = excel$0.MergeResult.createFrom;
-const $$createType1 = excel$0.ScanResult.createFrom;
+const $$createType0 = excel$0.CleanResult.createFrom;
+const $$createType1 = excel$0.MergeResult.createFrom;
+const $$createType2 = excel$0.ScanResult.createFrom;

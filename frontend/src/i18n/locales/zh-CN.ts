@@ -127,4 +127,21 @@ export const zhCN: Record<string, string> = {
   "workbench.previewNoWrite": "预览不写任何文件。确认无误再点「执行合并」。",
   "workbench.doneTitle": "合并完成",
   "workbench.doneBody": "共 {rows} 行，用时 {ms} 毫秒",
+
+  // ── 清洗 ──
+  "workbench.cleanTitle": "清洗这批表格",
+  "workbench.cleanHint": "逐文件处理：每个输入生成一个 -clean.xlsx，原文件不动。",
+  "workbench.cleanBlank": "删除空行",
+  "workbench.cleanTrim": "去掉首尾空白",
+  "workbench.cleanDup": "删除重复行",
+  "workbench.cleanNumbers": "文本数字转数值（保留前导零）",
+  "workbench.cleanDates": "统一日期格式",
+  "workbench.cleanDedupPlaceholder": "按哪些列判断重复（留空=整行完全相同）",
+  "workbench.cleanPreviewBtn": "预览清洗",
+  "workbench.cleanRunBtn": "执行清洗",
+  "workbench.cleanPreviewTitle": "预览：清洗会做什么",
+  "workbench.cleanPreviewBody": "{files} 个文件：{rowsIn} 行 → {rowsOut} 行，删除空行 {blank}、重复行 {dup}",
+  "workbench.cleanFixes": "将修正：空白单元格 {trim}、日期 {dates}、数字 {nums}",
+  "workbench.cleanDoneTitle": "清洗完成",
+  "workbench.cleanDoneBody": "{files} 个文件，共 {rows} 行，用时 {ms} 毫秒",
 };

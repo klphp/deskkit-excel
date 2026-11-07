@@ -303,12 +303,21 @@ func readAligned(info SheetInfo, columns []string) ([][]string, []string, error)
 	return out, missing, nil
 }
 
+// rowKey 生成去重用的行键。
+//
+// idx 为空**切片**表示「整行比较」（清洗时的默认行为），
+// idx 为 nil 表示「不去重」，两者语义不同，调用方用 nil 与 []int{} 区分。
+//
+// 分隔符用不可见字符：用逗号之类会让 "a,b" + "c" 与 "a" + "b,c" 撞键。
 func rowKey(row []string, idx []int) string {
+	if len(idx) == 0 {
+		return strings.Join(row, "\x1f")
+	}
 	parts := make([]string, 0, len(idx))
 	for _, i := range idx {
 		if i < len(row) {
 			parts = append(parts, row[i])
 		}
 	}
-	return strings.Join(parts, "\x1f") // 用不可见分隔符，避免拼接歧义
+	return strings.Join(parts, "\x1f")
 }
