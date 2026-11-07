@@ -128,7 +128,10 @@ ai:
   default: deepseek
 
   providers:
-    # 云端示例：DeepSeek（国内可直连，价格低，适合做默认）
+    # 预设只是「省得你手填地址」。真正的接入顺序和 opencode / Hermes 一样：
+    # 先填 key 接上（接入），再点「刷新模型」把对方 /v1/models 拉回来选。
+    # 所以下面 model 只是占位默认值，用户在界面上选什么就以什么为准。
+
     deepseek:
       kind: openai
       label: DeepSeek
@@ -140,14 +143,48 @@ ai:
         maxAttempts: 3
         backoff: 800ms
 
-    # 本地示例：Ollama（数据不出机器，是「隐私」卖点的技术前提）
-    # 不需要 key；模型名要让用户在设置里选（或直接写死一个有把握的）
+    # 聚合网关：一个 key 打到很多家模型
+    openrouter:
+      kind: openai
+      label: OpenRouter
+      baseURL: https://openrouter.ai/api/v1
+      model: anthropic/claude-sonnet-4.5
+      apiKeyEnv: OPENROUTER_API_KEY
+      timeout: 90s
+
+    # opencode 的 OpenAI 兼容入口
+    opencode:
+      kind: openai
+      label: opencode
+      baseURL: https://opencode.ai/zen/go/v1
+      model: claude-sonnet-4-5
+      apiKeyEnv: OPENCODE_API_KEY
+      timeout: 90s
+
+    # Gemini 的 OpenAI 兼容端点（不是原生 generateContent）
+    gemini:
+      kind: openai
+      label: Google Gemini
+      baseURL: https://generativelanguage.googleapis.com/v1beta/openai
+      model: gemini-2.5-flash
+      apiKeyEnv: GEMINI_API_KEY
+      timeout: 60s
+
+    # 本地：数据不出机器，是「隐私」卖点的技术前提。不需要 key。
     ollama:
       kind: ollama
       label: 本地 Ollama
       baseURL: http://127.0.0.1:11434
       model: qwen2.5:7b
       timeout: 120s        # 本地小模型首字延迟高，超时给宽一点
+
+    # LM Studio / llama.cpp server：同样 OpenAI 兼容，跑在本机
+    lmstudio:
+      kind: openai
+      label: LM Studio（本地）
+      baseURL: http://127.0.0.1:1234/v1
+      model: local-model
+      timeout: 120s
 
     # 需要一个额外请求头的服务商都能这么配，不用改代码
     # somegateway:

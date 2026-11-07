@@ -90,3 +90,6 @@ type Delta struct {
 	ToolCalls []ToolCall `json:"toolCalls,omitempty"`
 	Index     int        `json:"index,omitempty"`
 }
+
+// CustomProvider 用户自己填地址与密钥的接入方式。
+const CustomProvider = "custom"

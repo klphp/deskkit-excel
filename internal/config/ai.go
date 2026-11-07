@@ -26,6 +26,13 @@ type Provider struct {
 	// Model 默认模型名。前端可以按次覆盖。
 	Model string `yaml:"model"`
 
+	// Models 常见模型清单，给界面做下拉用。
+	//
+	// 为什么要写死在配置里：拉 /v1/models 需要先有 key，而且各家返回的
+	// 名字经常夹带一堆用户根本不会选的条目。给几个「确定能用」的候选，
+	// 用户点一下就行；想用清单外的，界面上还能自己填。
+	Models []string `yaml:"models"`
+
 	// APIKeyEnv 从环境变量读密钥的变量名。
 	//
 	// 密钥不写进配置文件：配置会进 git、会被打包进二进制。

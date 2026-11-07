@@ -116,6 +116,7 @@ func (m *Manager) Providers(ctx context.Context) []ProviderInfo {
 			Kind:    p.Kind,
 			BaseURL: p.BaseURL,
 			Model:   p.Model,
+			Models:  p.Models,
 		}
 		if st.Provider == name {
 			if st.BaseURL != "" {
@@ -125,6 +126,7 @@ func (m *Manager) Providers(ctx context.Context) []ProviderInfo {
 				info.Model = st.Model
 			}
 		}
+		info.Local = isLocalURL(info.BaseURL)
 		info.HasKey = m.Key(name) != ""
 		info.Ready = info.HasKey
 		if !info.Ready && isLocalURL(info.BaseURL) {
@@ -137,7 +139,35 @@ func (m *Manager) Providers(ctx context.Context) []ProviderInfo {
 		out = append(out, info)
 	}
 
+	// 「自定义」始终列在最后：谁都能接，不依赖配置里有什么
+	custom := ProviderInfo{
+		Name:    CustomProvider,
+		Label:   "自定义 / 其它",
+		Kind:    "openai",
+		BaseURL: "",
+		Model:   "",
+	}
+	if st.Provider == CustomProvider {
+		custom.BaseURL = st.BaseURL
+		custom.Model = st.Model
+		custom.HasKey = strings.TrimSpace(st.APIKey) != ""
+		custom.Ready = custom.HasKey && custom.BaseURL != ""
+	}
+	out = append(out, custom)
+
+	// 探测结果里和配置重复的跳过：ollama 已经在 providers 里配过，
+	// 再出现一张「本地 · http://127.0.0.1:11434」的卡片，用户会以为是两件事。
+	configured := map[string]bool{}
+	for _, p := range m.cfg.Providers {
+		if u := strings.TrimSpace(p.BaseURL); u != "" {
+			configured[endpointOf(u)] = true
+		}
+	}
+
 	for _, ep := range m.Probe(ctx) {
+		if configured[endpointOf(ep.Endpoint)] {
+			continue
+		}
 		info := ProviderInfo{
 			Name:    localPrefix + ep.Endpoint,
 			Label:   "本地 · " + ep.Endpoint,
@@ -187,6 +217,31 @@ func (m *Manager) Client(ctx context.Context, name string) (*Client, *Error) {
 	// 本地服务：地址即以 local@ 之后的部分为准
 	if ep, ok := strings.CutPrefix(name, localPrefix); ok {
 		return m.localClient(ctx, ep)
+	}
+
+	// 自定义接入：配置里没有这个服务商，地址和 key 都由用户填。
+	// 这是「接入任意 OpenAI 兼容端点」的入口 —— 自建网关、公司内部转发、
+	// 新出的服务商，都不用等我们加配置。
+	if name == CustomProvider {
+		st := m.Settings()
+		base := strings.TrimSpace(st.BaseURL)
+		if base == "" {
+			return nil, &Error{
+				Kind:    KindConfig,
+				Message: "自定义服务商还没填地址",
+				Hint:    "填形如 https://example.com/v1 的地址（不含 /chat/completions）。",
+			}
+		}
+		key := strings.TrimSpace(st.APIKey)
+		if key == "" && !isLocalURL(base) {
+			return nil, &Error{Kind: KindConfig, Message: "自定义服务商还没填 API Key", Hint: "填上对方的密钥；本地地址可以留空。"}
+		}
+		return NewClient(name, config.Provider{
+			Kind:    "openai",
+			Label:   "自定义",
+			BaseURL: base,
+			Model:   st.Model,
+		}, key), nil
 	}
 
 	p, ok := m.cfg.Providers[name]

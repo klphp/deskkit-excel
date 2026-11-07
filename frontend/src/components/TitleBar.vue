@@ -32,7 +32,7 @@
  * 否则点关闭变成拖窗口。
  */
 import { computed, onMounted, ref } from "vue";
-import { Minus, Square, Copy, X, Settings } from "@lucide/vue";
+import { Minus, Square, Copy, X, Settings, Info } from "@lucide/vue";
 import { useI18n } from "../i18n";
 
 const { t } = useI18n();
@@ -44,6 +44,8 @@ const props = withDefaults(
     /** 是否显示右侧的设置入口。主窗口开，子窗口关 —— 子窗口本身就是从
      *  设置里点开的东西，再放一个设置按钮会指向自己。 */
     showSettings?: boolean;
+    /** 是否显示「关于」入口。和设置并列放在右侧。 */
+    showAbout?: boolean;
     /** 是否在标题旁显示版本号。主窗口显示，子窗口不显示 —— 子窗口的
      *  标题本身就是「关于」「设置」这种功能名，跟版本号并列没意义。 */
     showVersion?: boolean;
@@ -65,6 +67,7 @@ const props = withDefaults(
     title: "Wails3 Base",
     version: "",
     showSettings: true,
+    showAbout: true,
     showVersion: true,
     platform: "",
     showTitle: true,
@@ -72,7 +75,7 @@ const props = withDefaults(
 );
 
 /** 设置入口被点。主窗口收到后切到内容区的设置视图，不开新窗口。 */
-const emit = defineEmits<{ openSettings: [] }>();
+const emit = defineEmits<{ openSettings: []; openAbout: [] }>();
 
 // 平台检测。window._wails.environment.OS 只在 Wails 环境里存在，
 // 纯浏览器跑 npm run dev 时是 undefined，退回 navigator 判断。
@@ -199,6 +202,16 @@ async function onClose() {
         @click="onOpenSettings"
       >
         <Settings :size="15" :stroke-width="1.75" />
+      </button>
+      <button
+        v-if="props.showAbout"
+        type="button"
+        class="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        :title="t('nav.about')"
+        :aria-label="t('nav.about')"
+        @click="emit('openAbout')"
+      >
+        <Info :size="15" :stroke-width="1.75" />
       </button>
     </div>
 

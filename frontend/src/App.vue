@@ -24,7 +24,6 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { Events } from "@wailsio/runtime";
 import { initTheme } from "./composables/useTheme";
 import { initI18n, useI18n } from "./i18n";
-import { Info as InfoIcon, Settings as SettingsIcon } from "@lucide/vue";
 import TitleBar from "./components/TitleBar.vue";
 import { openWindow } from "./lib/windows";
 import SettingsView from "./components/SettingsView.vue";
@@ -226,10 +225,12 @@ watch(
       :title="title"
       :version="appInfo?.version ?? '0.1.0'"
       :show-settings="!isSubWindow && (appInfo?.showSettingsButton ?? true)"
+      :show-about="!isSubWindow"
       :show-version="!isSubWindow"
       :show-title="isSubWindow || (appInfo?.showTitle ?? true)"
       :platform="appInfo?.platform ?? ''"
       @open-settings="openWindow('settings')"
+      @open-about="openWindow('about')"
     />
 
     <!-- ── 子窗口：只渲染对应视图 ── -->
@@ -265,31 +266,8 @@ watch(
       />
 
       <main class="flex min-w-0 flex-1 flex-col">
-        <!-- 工具条：应用名 + 当前任务 + 两个次要入口。
-             高度比之前的 48px 略矮，把纵向空间让给内容。 -->
-        <div class="flex h-11 shrink-0 items-center gap-3 border-b border-border px-5">
-          <h1 class="text-[15px] font-semibold tracking-tight">{{ appInfo?.name ?? t("app.name") }}</h1>
-          <span class="text-[13px] text-muted-foreground">{{ t("app.tagline") }}</span>
-          <div class="ml-auto flex items-center gap-1">
-            <button
-              type="button"
-              class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              :title="t('nav.settings')"
-              @click="openWindow('settings')"
-            >
-              <SettingsIcon :size="16" />
-            </button>
-            <button
-              type="button"
-              class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              :title="t('nav.about')"
-              @click="openWindow('about')"
-            >
-              <InfoIcon :size="16" />
-            </button>
-          </div>
-        </div>
-
+        <!-- 不要再加一条工具栏：标题栏上已经有应用名和设置入口，
+             再加一条就是把同样的东西写两遍。工作台自己就是内容区。 -->
         <div class="min-h-0 flex-1 overflow-hidden">
           <Workbench />
         </div>
