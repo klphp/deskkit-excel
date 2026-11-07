@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/klphp/deskkit/internal/config"
+	"github.com/klphp/excel-batch-tool/internal/config"
 )
 
 // localPrefix 本地探测出来的服务商名前缀，形如 local@http://127.0.0.1:11434。
@@ -96,8 +96,17 @@ func (m *Manager) Probe(ctx context.Context) []LocalEndpoint {
 }
 
 // Providers 列出所有可选服务商：配置里的 + 本地探测到的。
+//
+// 「可用」的判定要区分两种服务商：
+//
+//	· 云端：有密钥就算可用（真的连不连得上，交给 Test 去验证）
+//	· localhost：**必须在探测里真的响应过**才算可用
+//
+// 后者是踩过的坑：只按「URL 指向 127.0.0.1」就算可用，会让面板显示「已就绪」，
+// 而本机根本没起模型 —— 用户一点就报错。宁可在没探测到时显示「未配置」。
 func (m *Manager) Providers(ctx context.Context) []ProviderInfo {
 	st := m.Settings()
+	probed := m.probedEndpoints(ctx)
 	out := make([]ProviderInfo, 0, len(m.cfg.Providers)+3)
 
 	for name, p := range m.cfg.Providers {
@@ -117,7 +126,14 @@ func (m *Manager) Providers(ctx context.Context) []ProviderInfo {
 			}
 		}
 		info.HasKey = m.Key(name) != ""
-		info.Ready = info.HasKey || isLocalURL(info.BaseURL)
+		info.Ready = info.HasKey
+		if !info.Ready && isLocalURL(info.BaseURL) {
+			// 本地服务不需要密钥，但必须真的探测到
+			info.Ready = probed[endpointOf(info.BaseURL)]
+			if !info.Ready {
+				info.Error = "本地服务未响应"
+			}
+		}
 		out = append(out, info)
 	}
 
@@ -261,6 +277,23 @@ func (m *Manager) localClient(ctx context.Context, endpoint string) (*Client, *E
 		Model:   found.Models[0],
 		Label:   "本地",
 	}, ""), nil
+}
+
+// probedEndpoints 本次探测中真正有模型的地址集合。
+func (m *Manager) probedEndpoints(ctx context.Context) map[string]bool {
+	out := map[string]bool{}
+	for _, r := range m.cachedProbe(ctx) {
+		if len(r.Models) > 0 {
+			out[r.Endpoint] = true
+		}
+	}
+	return out
+}
+
+// endpointOf 把 baseURL 归一成「主机:端口」，用于和探测结果对比。
+// 用户可能写 http://127.0.0.1:11434、…/v1 或带尾斜杠，都要能对上。
+func endpointOf(baseURL string) string {
+	return strings.TrimSuffix(strings.TrimRight(strings.TrimSpace(baseURL), "/"), "/v1")
 }
 
 func isLocalURL(u string) bool {

@@ -3,9 +3,9 @@
 // 职责边界很窄：它不做下载、不做验签、不做替换 —— 那些都在 Wails 的
 // updater 里。这里只负责三件事：
 //
-//	1. 按配置选 provider（github / endpoint）
-//	2. 决定「查到了怎么办」：Windows 自动装，macOS 交给用户自己下
-//	3. 把结果翻译成前端能用的最小结构
+//  1. 按配置选 provider（github / endpoint）
+//  2. 决定「查到了怎么办」：Windows 自动装，macOS 交给用户自己下
+//  3. 把结果翻译成前端能用的最小结构
 //
 // 为什么 macOS 不用自动装：
 //
@@ -32,7 +32,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/endpoint"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 
-	"github.com/klphp/deskkit/internal/config"
+	"github.com/klphp/excel-batch-tool/internal/config"
 )
 
 // ErrNetwork 是「网络不通」的统一出口。
@@ -40,7 +40,9 @@ import (
 // 为什么要自己分类：Wails 的 updater 没有定义网络错误类型，net/http 的
 // *url.Error / *net.OpError / *net.DNSError 会原样冒到调用方。直接把那些
 // 原始错误丢给用户，看到的是
-//     Get "https://api.github.com/...": dial tcp: lookup api.github.com: no such host
+//
+//	Get "https://api.github.com/...": dial tcp: lookup api.github.com: no such host
+//
 // 这既看不懂也不知道该做什么。统一换成一句能照着做的话。
 var ErrNetwork = errors.New("网络连接失败，请检查网络后重试")
 
@@ -76,9 +78,9 @@ func isNetworkError(err error) bool {
 // 不把 updater.Release 整个丢给前端：它带 Metadata（含 API URL、asset id）
 // 和 Verification（digest 原始字节），传过去既没用又会泄漏发布细节。
 type Result struct {
-	Available bool   `json:"available"`
-	Version   string `json:"version"`
-	Notes     string `json:"notes"`
+	Available  bool   `json:"available"`
+	Version    string `json:"version"`
+	Notes      string `json:"notes"`
 	ReleaseURL string `json:"releaseUrl"`
 	// AutoInstall 表示当前平台支持「点一下就自动装好」。
 	// Windows 为 true（rename-aside 原子替换 + helper 重启）；

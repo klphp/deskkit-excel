@@ -4,7 +4,7 @@ import (
 	"embed"
 	"log"
 
-	"github.com/klphp/deskkit/internal/boot"
+	"github.com/klphp/excel-batch-tool/internal/boot"
 )
 
 // 内核要用的配置（app.yaml + windows.yaml）。

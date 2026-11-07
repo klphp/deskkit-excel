@@ -28,6 +28,7 @@ import TitleBar from "./components/TitleBar.vue";
 import AppSidebar from "./components/AppSidebar.vue";
 import SettingsView from "./components/SettingsView.vue";
 import AboutView from "./components/AboutView.vue";
+import Workbench from "./components/Workbench.vue";
 
 type AppInfo = {
   name: string;
@@ -49,7 +50,7 @@ type AppInfo = {
 
 // 当前窗口的视图名。空 = 主窗口。
 const view = ref<string>("");
-const active = ref("home");
+const active = ref("workbench");
 const appInfo = ref<AppInfo | null>(null);
 
 const { t } = useI18n();
@@ -79,7 +80,7 @@ const blocked = ref(false);
 async function onMaskClick() {
   try {
     const { ServiceProvider } = await import(
-      "../bindings/github.com/klphp/wails3-base/internal/window"
+      "../bindings/github.com/klphp/excel-batch-tool/internal/window"
     );
     const opened = (await ServiceProvider.Opened()) ?? [];
     // 只剩主窗口自己 → 没有模态窗口了，遮罩该撤
@@ -107,7 +108,7 @@ onMounted(async () => {
   view.value = new URLSearchParams(location.search).get("view") ?? "";
 
   try {
-    const { AppService } = await import("../bindings/github.com/klphp/wails3-base/internal/services");
+    const { AppService } = await import("../bindings/github.com/klphp/excel-batch-tool/internal/services");
     appInfo.value = await AppService.GetInfo();
     // 拿到配置才知道要不要启用多语言、用哪个语言
     await initI18n(appInfo.value?.i18n);
@@ -186,8 +187,8 @@ async function fitWindowToContent() {
   if (Math.abs(target - window.innerHeight) < 2) return;
 
   try {
-    const { WindowService } = await import("../bindings/github.com/klphp/wails3-base/internal/services");
-    const { ServiceProvider } = await import("../bindings/github.com/klphp/wails3-base/internal/window");
+    const { WindowService } = await import("../bindings/github.com/klphp/excel-batch-tool/internal/services");
+    const { ServiceProvider } = await import("../bindings/github.com/klphp/excel-batch-tool/internal/window");
     // 宽度传 0 = 保持当前宽度，只调整高度
     await WindowService.ResizeToContent(0, target);
     // 高度变了要重新居中，否则窗口往下长，看着偏
@@ -215,17 +216,6 @@ watch(
   }
 );
 
-/** 按配置打开其它窗口。名字对应 config/windows.yaml 的键。 */
-async function openWindow(name: string) {
-  try {
-    const { ServiceProvider } = await import(
-      "../bindings/github.com/klphp/wails3-base/internal/window"
-    );
-    await ServiceProvider.Open(name);
-  } catch (e) {
-    console.warn("打开窗口失败", e);
-  }
-}
 </script>
 
 <template>
@@ -280,81 +270,12 @@ async function openWindow(name: string) {
           </h1>
         </div>
 
-        <div class="min-h-0 flex-1 overflow-y-auto p-6">
-          <!-- 首页 -->
-          <div v-if="active === 'home'" class="mx-auto max-w-2xl space-y-4">
-            <div class="rounded-lg border border-border bg-card p-6">
-              <h2 class="mb-2 text-lg font-semibold">模板已跑通</h2>
-              <p class="text-sm leading-relaxed text-muted-foreground">
-                Wails3 + Vue 3 + Tailwind 4 + shadcn-vue。标题栏按平台适配：
-                macOS 用系统红绿灯（左上），Windows 用自绘控件（右上）。
-              </p>
-            </div>
-
-            <div v-if="appInfo" class="rounded-lg border border-border bg-card p-6">
-              <h3 class="mb-3 text-sm font-semibold">运行环境</h3>
-              <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-                <dt class="text-muted-foreground">应用</dt>
-                <dd>{{ appInfo.name }} v{{ appInfo.version }}</dd>
-                <dt class="text-muted-foreground">平台</dt>
-                <dd class="font-mono">{{ appInfo.platform }}/{{ appInfo.arch }}</dd>
-                <dt class="text-muted-foreground">本地接口</dt>
-                <dd class="font-mono">
-                  <span v-if="appInfo.serverURL">{{ appInfo.serverURL }}</span>
-                  <span v-else class="text-muted-foreground">未启用</span>
-                </dd>
-              </dl>
-            </div>
-
-            <!-- 多窗口演示 -->
-            <div class="rounded-lg border border-border bg-card p-6">
-              <h3 class="mb-1 text-sm font-semibold">多窗口（配置驱动）</h3>
-              <p class="mb-3 text-xs text-muted-foreground">
-                这两扇窗口在 <code class="select-text rounded bg-muted px-1 py-0.5 font-mono">config/windows.yaml</code>
-                里定义，加一段就能多一个：
-              </p>
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  class="rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                  @click="openWindow('settings')"
-                >
-                  打开设置窗口
-                </button>
-                <button
-                  type="button"
-                  class="rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                  @click="openWindow('about')"
-                >
-                  打开关于窗口
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 文档 -->
-          <div v-else-if="active === 'docs'" class="mx-auto max-w-2xl space-y-4">
-            <div class="rounded-lg border border-border bg-card p-6">
-              <h3 class="mb-3 text-sm font-semibold">目录结构</h3>
-              <pre class="select-text overflow-x-auto rounded-md bg-muted p-4 font-mono text-xs leading-relaxed">main.go              入口：装配配置 / 服务 / 窗口
-configs.go           配置文件 embed（embed 不能引用父目录）
-assets.go            前端 dist embed
-windowservice.go     当前窗口控制（最小化/关闭…）
-appservice.go        应用信息 / 本地接口地址
-config/
-  app.yaml           应用 + 本地服务 + 外部 API
-  windows.yaml       窗口定义（加一段 = 多一个窗口）
-internal/
-  config/            YAML 解析
-  window/            窗口管理器（配置驱动 + 平台差异）
-  server/            内嵌 Gin 服务（127.0.0.1:0）
-  api/               外部 API 客户端（重试/超时/鉴权）
-frontend/
-  src/assets/index.css   shadcn 设计 token
-  src/components/        标题栏 / 侧边栏 / 主题 / 视图</pre>
-            </div>
-          </div>
-
+        <!-- 工作台要铺满（右侧 AI 面板独立滚动），其它视图保持常规内边距 -->
+        <div
+          class="min-h-0 flex-1"
+          :class="active === 'workbench' ? 'overflow-hidden' : 'overflow-y-auto p-6'"
+        >
+          <Workbench v-if="active === 'workbench'" />
           <SettingsView v-else-if="active === 'settings'" :info="appInfo" />
           <AboutView v-else-if="active === 'about'" :info="appInfo" />
         </div>

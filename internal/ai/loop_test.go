@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/klphp/deskkit/internal/config"
+	"github.com/klphp/excel-batch-tool/internal/config"
 )
 
 // 一个会先要工具、再给结论的假服务商。

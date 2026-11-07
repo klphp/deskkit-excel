@@ -119,7 +119,10 @@ apis:
 # 不配这一段时 ai.enabled 自动为 false，AI 入口在前端隐藏。
 # ─────────────────────────────────────────────────────────────
 ai:
-  enabled: false
+  # 默认打开：这个产品的核心就是「用人话下指令」，AI 面板不该一进来就是死的。
+  # 打开不等于必须填密钥 —— 面板会先探测本机 Ollama / LM Studio，
+  # 探不到再让用户填 Key。批处理功能本身不依赖 AI，关掉也能用。
+  enabled: true
 
   # 默认服务商（下面 providers 里的 key）
   default: deepseek

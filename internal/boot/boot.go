@@ -24,13 +24,13 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/klphp/deskkit/internal/ai"
-	"github.com/klphp/deskkit/internal/api"
-	"github.com/klphp/deskkit/internal/config"
-	"github.com/klphp/deskkit/internal/server"
-	"github.com/klphp/deskkit/internal/services"
-	"github.com/klphp/deskkit/internal/update"
-	"github.com/klphp/deskkit/internal/window"
+	"github.com/klphp/excel-batch-tool/internal/ai"
+	"github.com/klphp/excel-batch-tool/internal/api"
+	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/excel-batch-tool/internal/server"
+	"github.com/klphp/excel-batch-tool/internal/services"
+	"github.com/klphp/excel-batch-tool/internal/update"
+	"github.com/klphp/excel-batch-tool/internal/window"
 )
 
 // Options 启动参数。

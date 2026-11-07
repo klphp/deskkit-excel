@@ -98,7 +98,7 @@ onMounted(async () => {
   platform.value = detectPlatform();
   try {
     const { WindowService } = await import(
-      "../../bindings/github.com/klphp/wails3-base/internal/services"
+      "../../bindings/github.com/klphp/excel-batch-tool/internal/services"
     );
     isMaximised.value = await WindowService.IsMaximised();
   } catch {
@@ -107,7 +107,7 @@ onMounted(async () => {
 });
 
 async function getService(): Promise<any> {
-  const mod: any = await import("../../bindings/github.com/klphp/wails3-base/internal/services");
+  const mod: any = await import("../../bindings/github.com/klphp/excel-batch-tool/internal/services");
   return mod.WindowService;
 }
 

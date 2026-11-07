@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/klphp/deskkit/internal/config"
+	"github.com/klphp/excel-batch-tool/internal/config"
 )
 
 func testClient(t *testing.T, baseURL string, attempts int) *Client {

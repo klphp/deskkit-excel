@@ -9,7 +9,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/klphp/deskkit/internal/ai"
+	"github.com/klphp/excel-batch-tool/internal/ai"
 )
 
 // AI 相关事件名。前端 wails.Events.On(...) 订阅。

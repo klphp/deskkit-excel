@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/klphp/deskkit/internal/update"
+	"github.com/klphp/excel-batch-tool/internal/update"
 )
 
 // UpdateService 是自更新在前端的门面。

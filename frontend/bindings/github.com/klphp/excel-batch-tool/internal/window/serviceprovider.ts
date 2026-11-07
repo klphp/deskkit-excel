@@ -8,7 +8,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 /**
  * CenterOnParent 把当前窗口重新摆到父窗口正中。
@@ -17,21 +17,23 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
  * 原来的左上角，看起来会往下偏。
  */
 export function CenterOnParent(): $CancellablePromise<void> {
-    return $Call.ByID(2302244972);
+    return $Call.ByID(3444370036);
 }
 
 /**
  * Close 关闭指定窗口。
  */
 export function Close(name: string): $CancellablePromise<void> {
-    return $Call.ByID(3917075940, name);
+    return $Call.ByID(988674044, name);
 }
 
 /**
  * Names 配置里定义的全部窗口名（前端可据此动态生成菜单）。
  */
-export function Names(): $CancellablePromise<string[] | null> {
-    return $Call.ByID(2147329840);
+export function Names(): $CancellablePromise<string[]> {
+    return $Call.ByID(2725376968).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 /**
@@ -40,12 +42,17 @@ export function Names(): $CancellablePromise<string[] | null> {
  * 已打开则聚焦到前面，不会开出第二个。
  */
 export function Open(name: string): $CancellablePromise<void> {
-    return $Call.ByID(969560904, name);
+    return $Call.ByID(2447402640, name);
 }
 
 /**
  * Opened 当前已打开的窗口名。
  */
-export function Opened(): $CancellablePromise<string[] | null> {
-    return $Call.ByID(1341740745);
+export function Opened(): $CancellablePromise<string[]> {
+    return $Call.ByID(235219089).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
+
+// Private type creation functions
+const $$createType0 = $Create.Array($Create.Any);

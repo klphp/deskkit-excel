@@ -17,9 +17,9 @@
 //
 // url 里带 ?view=xxx，前端读这个参数决定渲染哪个视图。好处是：
 //
-//   · 只构建一次前端，多个窗口共享资源（WebView 会缓存）
-//   · 新增窗口不用动构建配置
-//   · 窗口之间可以共享 store / 主题 / 组件
+//	· 只构建一次前端，多个窗口共享资源（WebView 会缓存）
+//	· 新增窗口不用动构建配置
+//	· 窗口之间可以共享 store / 主题 / 组件
 //
 // 代价是子窗口要自己判断 view 参数 —— 但这段逻辑集中在一处，不散。
 package window
@@ -35,7 +35,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"github.com/klphp/deskkit/internal/config"
+	"github.com/klphp/excel-batch-tool/internal/config"
 )
 
 // Manager 窗口管理器。并发安全（bindings 可能被多个窗口同时调）。
@@ -469,16 +469,16 @@ func buildOptions(name string, def config.Window) application.WebviewWindowOptio
 	}
 
 	opts := application.WebviewWindowOptions{
-		Name:            name,
-		Title:           def.Title,
-		Width:           def.Width,
-		Height:          def.Height,
-		MinWidth:        def.MinWidth,
-		MinHeight:       def.MinHeight,
-		URL:             url,
-		AlwaysOnTop:     def.AlwaysOnTop,
-		DisableResize:   !def.ResizableOrDefault(),
-		InitialPosition: application.WindowCentered,
+		Name:             name,
+		Title:            def.Title,
+		Width:            def.Width,
+		Height:           def.Height,
+		MinWidth:         def.MinWidth,
+		MinHeight:        def.MinHeight,
+		URL:              url,
+		AlwaysOnTop:      def.AlwaysOnTop,
+		DisableResize:    !def.ResizableOrDefault(),
+		InitialPosition:  application.WindowCentered,
 		BackgroundColour: application.NewRGB(24, 24, 27),
 	}
 
@@ -510,7 +510,7 @@ func buildOptions(name string, def config.Window) application.WebviewWindowOptio
 		if def.Frameless {
 			opts.Frameless = true
 			opts.Windows = application.WindowsWindow{
-				Theme:        application.SystemDefault,
+				Theme: application.SystemDefault,
 				// 保留 Win11 圆角和 Aero 阴影，全关掉窗口是硬边矩形
 				DisableFramelessWindowDecorations: false,
 				// 让 CSS 拖动区域走原生命中测试，拖动跟手且能触发贴边

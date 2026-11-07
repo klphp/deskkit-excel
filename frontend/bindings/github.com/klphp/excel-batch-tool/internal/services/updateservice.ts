@@ -13,7 +13,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -23,26 +23,32 @@ import * as update$0 from "../update/models.js";
  * BindManager 后置绑定真实的 Manager。由 main 在 application.New 之后调用。
  */
 export function BindManager(m: update$0.Manager | null): $CancellablePromise<void> {
-    return $Call.ByID(3161368380, m);
+    return $Call.ByID(3486863156, m);
 }
 
 /**
  * Check 手动检查一次更新。只查不装 —— 装不装由用户点按钮决定。
  */
 export function Check(): $CancellablePromise<update$0.Result | null> {
-    return $Call.ByID(2075158230);
+    return $Call.ByID(718659918).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
 /**
  * Enabled 报告自更新是否在配置里启用。前端据此决定要不要显示「检查更新」。
  */
 export function Enabled(): $CancellablePromise<boolean> {
-    return $Call.ByID(211634691);
+    return $Call.ByID(4035521275);
 }
 
 /**
  * Install 执行更新。Windows 上下载并自动替换后重启；其它平台打开下载页。
  */
 export function Install(): $CancellablePromise<void> {
-    return $Call.ByID(3263011277);
+    return $Call.ByID(2007063845);
 }
+
+// Private type creation functions
+const $$createType0 = update$0.Result.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);

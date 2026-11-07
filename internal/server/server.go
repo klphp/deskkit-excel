@@ -4,10 +4,10 @@
 //
 // bindings 只能 Go ↔ 前端直连，**外部程序调不到**。这些场景需要 HTTP：
 //
-//   · 命令行工具 / 脚本触发应用的操作
-//   · 浏览器书签、其它进程、甚至同一台机器上的另一个应用
-//   · 流式响应（SSE）、文件下载、大响应体
-//   · 想把应用同时当「本地 API 服务器」用时，配置一行就开
+//	· 命令行工具 / 脚本触发应用的操作
+//	· 浏览器书签、其它进程、甚至同一台机器上的另一个应用
+//	· 流式响应（SSE）、文件下载、大响应体
+//	· 想把应用同时当「本地 API 服务器」用时，配置一行就开
 //
 // # 端口绝不写死
 //
@@ -32,7 +32,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/klphp/deskkit/internal/config"
+	"github.com/klphp/excel-batch-tool/internal/config"
 )
 
 // Server 本地服务。

@@ -16,27 +16,27 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 /**
  * Close 关闭当前窗口。
  */
 export function Close(): $CancellablePromise<void> {
-    return $Call.ByID(456048445);
+    return $Call.ByID(2525104901);
 }
 
 /**
  * IsMaximised 当前是否最大化（前端挂载时初始化按钮图标）。
  */
 export function IsMaximised(): $CancellablePromise<boolean> {
-    return $Call.ByID(2574537648);
+    return $Call.ByID(1336757624);
 }
 
 /**
  * Minimise 最小化。
  */
 export function Minimise(): $CancellablePromise<void> {
-    return $Call.ByID(4267281666);
+    return $Call.ByID(50740570);
 }
 
 /**
@@ -46,14 +46,14 @@ export function Minimise(): $CancellablePromise<void> {
  * 调试时那个字段不存在，走 Go 侧更稳。
  */
 export function Platform(): $CancellablePromise<string> {
-    return $Call.ByID(2985940120);
+    return $Call.ByID(3490005440);
 }
 
 /**
  * Quit 退出应用。
  */
 export function Quit(): $CancellablePromise<void> {
-    return $Call.ByID(1303937280);
+    return $Call.ByID(2173161672);
 }
 
 /**
@@ -71,19 +71,19 @@ export function Quit(): $CancellablePromise<void> {
  * 太小会切掉内容，太大可能超出屏幕。
  */
 export function ResizeToContent(width: number, height: number): $CancellablePromise<void> {
-    return $Call.ByID(2972150259, width, height);
+    return $Call.ByID(3737816539, width, height);
 }
 
 /**
  * ToggleFullscreen 全屏切换。
  */
 export function ToggleFullscreen(): $CancellablePromise<boolean> {
-    return $Call.ByID(950919018);
+    return $Call.ByID(732547794);
 }
 
 /**
  * ToggleMaximise 最大化 / 还原，返回切换后的状态。
  */
 export function ToggleMaximise(): $CancellablePromise<boolean> {
-    return $Call.ByID(2687891028);
+    return $Call.ByID(1725891932);
 }

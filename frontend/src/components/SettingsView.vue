@@ -77,7 +77,7 @@ const errorMsg = ref("");
 
 async function getUpdateService(): Promise<any> {
   const mod: any = await import(
-    "../../bindings/github.com/klphp/wails3-base/internal/services"
+    "../../bindings/github.com/klphp/excel-batch-tool/internal/services"
   );
   return mod.UpdateService;
 }

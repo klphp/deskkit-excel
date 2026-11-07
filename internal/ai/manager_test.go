@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/klphp/deskkit/internal/config"
+	"github.com/klphp/excel-batch-tool/internal/config"
 )
 
 func testAIConfig() config.AI {
@@ -155,5 +155,41 @@ func TestAIConfigDefaults(t *testing.T) {
 	}.WithDefaults()
 	if explicitOff.IsEnabled() {
 		t.Fatal("显式 enabled: false 不该被 providers 覆盖")
+	}
+}
+
+// 指向 localhost 但没探测到服务时，不能算「可用」——
+// 否则前端会显示「已就绪」，用户一点就报错。
+func TestLocalProviderNotReadyWithoutProbe(t *testing.T) {
+	cfg := testAIConfig()
+	cfg.Local.Enabled = false // 关掉探测 = 探测结果为空
+	m := NewManager(cfg, func(string) string { return "" }, t.TempDir())
+
+	for _, info := range m.Providers(context.Background()) {
+		if info.Name != "ollama" {
+			continue
+		}
+		if info.Ready {
+			t.Fatal("没有探测到本地服务时不该标记为可用")
+		}
+		if info.Error == "" {
+			t.Fatal("不可用时应说明原因")
+		}
+		return
+	}
+	t.Fatal("没找到 ollama 服务商")
+}
+
+func TestEndpointOfNormalizes(t *testing.T) {
+	cases := map[string]string{
+		"http://127.0.0.1:11434":    "http://127.0.0.1:11434",
+		"http://127.0.0.1:11434/":   "http://127.0.0.1:11434",
+		"http://127.0.0.1:1234/v1":  "http://127.0.0.1:1234",
+		"http://127.0.0.1:1234/v1/": "http://127.0.0.1:1234",
+	}
+	for in, want := range cases {
+		if got := endpointOf(in); got != want {
+			t.Errorf("%q → %q，期望 %q", in, got, want)
+		}
 	}
 }
