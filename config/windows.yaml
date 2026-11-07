@@ -13,7 +13,7 @@
 windows:
   # 主窗口：应用启动时自动打开
   main:
-    title: DeskKit
+    title: DeskKit Excel
     width: 1400
     height: 900
     minWidth: 900

@@ -6,9 +6,9 @@ version: '3'
 # This information is used to generate the build assets.
 info:
   companyName: "klphp" # The name of the company
-  productName: "DeskKit" # The name of the application
+  productName: "DeskKit Excel" # The name of the application
   productIdentifier: "com.klphp.deskkit" # The unique product identifier
-  description: "Local-first AI desktop toolkit" # The application description
+  description: "AI 驱动的 Excel 批量处理工具：合并、清洗、汇总，数据不出本机" # The application description
   copyright: "(c) 2025, klphp" # Copyright text
   comments: "Some Product Comments" # Comments
   version: "0.0.1" # The application version
