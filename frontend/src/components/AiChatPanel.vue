@@ -415,6 +415,33 @@ async function scrollToBottom() {
 }
 
 /**
+ * 滚到顶部附近时加载更早的消息。
+ *
+ * 关键是要「保住用户正在看的位置」：新内容插在上面会把整体往下推，
+ * 所以补一个 scrollTop 偏移，否则内容会突然乱跳。
+ */
+let loadingOlder = false;
+async function onScroll() {
+  const el = scroller.value;
+  if (!el || loadingOlder) return;
+  if (el.scrollTop > 120) return;
+  if (!sess.hasMoreTurns.value) return;
+
+  loadingOlder = true;
+  const prevHeight = el.scrollHeight;
+  const prevTop = el.scrollTop;
+  try {
+    const added = await sess.loadOlderTurns();
+    if (added > 0) {
+      await nextTick();
+      el.scrollTop = prevTop + (el.scrollHeight - prevHeight);
+    }
+  } finally {
+    loadingOlder = false;
+  }
+}
+
+/**
  * 能力包的名字/描述。
  *
  * ★ 这两个字段来自 Go 侧（capability.Pack），是写死的中文 —— 切语言时
@@ -635,10 +662,18 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => {
-  void initSessions();
+  // 首次进入要停在最后一条消息：用户回来是要接着聊，不是从头读一遍。
+  // initSessions 里会 select 最近那个会话，这里等它读完再滚。
+  void initSessions().then(() => scrollToBottom());
   refresh().catch((err) => (failure.value = errorText(err)));
   ws.loadPacks().catch(() => {});
 });
+
+// 切换会话：内容换了，位置也要跟着回到最新
+watch(
+  () => sess.currentId.value,
+  () => void scrollToBottom(),
+);
 onUnmounted(() => {
   offDelta?.();
   offTool?.();
@@ -650,7 +685,7 @@ onUnmounted(() => {
 <template>
   <div class="relative flex h-full min-h-0 flex-col">
     <!-- ── 对话 ── -->
-    <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto" @click="onContentClick">
+    <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto" @click="onContentClick" @scroll.passive="onScroll">
       <div class="mx-auto max-w-[800px] px-6 py-8">
         <!-- 首屏 = 产品介绍。用户第一次打开不知道它能干什么，
              与其放一句「你想做什么」，不如把能力和边界直接摊开：

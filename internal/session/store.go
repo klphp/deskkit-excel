@@ -33,6 +33,8 @@ const (
 
 // Message 一条消息。
 type Message struct {
+	// ID 自增主键，前端当分页游标用（"加载更早"时把它传回来）。
+	ID        int64  `json:"id"`
 	Role      Role   `json:"role"`
 	Content   string `json:"content"`
 	CreatedAt int64  `json:"createdAt"`
@@ -130,6 +132,15 @@ func (s *Store) migrate() error {
 		}
 	}
 
+	// seq 是「最近被操作的顺序」：updated_at 只有秒精度，同一秒里动了两个会话
+	// 就分不出先后，排序退化成插入顺序 —— 表现就是「刚聊过的会话没排在最前」。
+	if err := s.ensureColumn("sessions", "seq", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+	if _, err := s.db.Exec(`UPDATE sessions SET seq = rowid WHERE seq = 0`); err != nil {
+		return fmt.Errorf("回填 seq 失败: %w", err)
+	}
+
 	// 老库补列（幂等）：instructions 是后加的，老库的 sessions 表没有这一列。
 	if err := s.ensureColumn("sessions", "instructions", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
@@ -167,8 +178,10 @@ func (s *Store) Create(id, title string) error {
 func (s *Store) Upsert(id, title string) error {
 	now := time.Now().Unix()
 	_, err := s.db.Exec(
-		`INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET title = excluded.title, updated_at = excluded.updated_at`,
+		`INSERT INTO sessions (id, title, created_at, updated_at, seq)
+		 VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM sessions))
+		 ON CONFLICT(id) DO UPDATE SET title = excluded.title,
+		        updated_at = excluded.updated_at, seq = excluded.seq`,
 		id, title, now, now)
 	if err != nil {
 		return fmt.Errorf("写入会话失败: %w", err)
@@ -197,37 +210,64 @@ func (s *Store) Append(sessionID string, role Role, content string) error {
 	}
 	// 会话可能还没建（前端先发消息后建会话），这里补一条
 	if _, err := tx.Exec(
-		`INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, '', ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at`,
+		`INSERT INTO sessions (id, title, created_at, updated_at, seq)
+		 VALUES (?, '', ?, ?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM sessions))
+		 ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, seq = excluded.seq`,
 		sessionID, now, now); err != nil {
 		return fmt.Errorf("更新会话时间失败: %w", err)
 	}
 	return tx.Commit()
 }
 
-// List 会话列表，按最近更新排。
+// List 会话列表，按最近更新排（不设上限，仅供内部/测试用）。
 func (s *Store) List() ([]Summary, error) {
-	rows, err := s.db.Query(`
+	items, _, err := s.ListPage(0, 0)
+	return items, err
+}
+
+// ListPage 分页读会话列表。limit<=0 表示不限。
+//
+// 为什么要分页：会话是只增不删的，用一年就是几千条。一次全查出来前端要
+// 渲染几千个 DOM 节点，进设置页再返回都得顿一下 —— 而用户真正看的永远是
+// 最近那几十条。
+func (s *Store) ListPage(limit, offset int) ([]Summary, bool, error) {
+	q := `
 		SELECT s.id, s.title, s.created_at, s.updated_at,
 		       (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id)
-		FROM sessions s ORDER BY s.updated_at DESC`)
+		FROM sessions s ORDER BY s.updated_at DESC, s.seq DESC`
+	args := []any{}
+	if limit > 0 {
+		// 多取一条用来判断还有没有下一页
+		q += ` LIMIT ? OFFSET ?`
+		args = append(args, limit+1, offset)
+	}
+	rows, err := s.db.Query(q, args...)
 	if err != nil {
-		return nil, fmt.Errorf("读取会话列表失败: %w", err)
+		return nil, false, fmt.Errorf("读取会话列表失败: %w", err)
 	}
 	defer rows.Close()
 
-	out := make([]Summary, 0, 16)
+	out := make([]Summary, 0, 32)
 	for rows.Next() {
 		var it Summary
 		if err := rows.Scan(&it.ID, &it.Title, &it.CreatedAt, &it.UpdatedAt, &it.Count); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		out = append(out, it)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, false, err
+	}
+
+	hasMore := false
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+		hasMore = true
+	}
+	return out, hasMore, nil
 }
 
-// Load 读一个会话的完整消息。
+// Load 读一个会话的完整消息（会话很长时不建议用，见 MessagesPage）。
 func (s *Store) Load(id string) (Session, error) {
 	var out Session
 	err := s.db.QueryRow(
@@ -240,27 +280,78 @@ func (s *Store) Load(id string) (Session, error) {
 		return out, err
 	}
 
-	rows, err := s.db.Query(
-		`SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id`, id)
+	msgs, _, err := s.MessagesPage(id, 0, 0)
 	if err != nil {
 		return out, err
 	}
+	out.Messages = msgs
+	return out, nil
+}
+
+// MessagesPage 读一个会话的最近若干条消息（游标分页）。
+//
+// beforeID = 0 表示「最新的一页」；否则取 id 小于它的更早一页。
+// 返回的 hasMore 表示还有没有更早的。
+//
+// 为什么按「最近」而不是「从头」：打开会话时用户要看的是最后在聊什么。
+// 一个聊了几百轮的会话，从头加载既慢又白费 —— 他要翻回去时再往上翻。
+func (s *Store) MessagesPage(sessionID string, limit int, beforeID int64) ([]Message, bool, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if beforeID > 0 {
+		rows, err = s.db.Query(`
+			SELECT id, role, content, created_at FROM messages
+			WHERE session_id = ? AND id < ?
+			ORDER BY id DESC LIMIT ?`, sessionID, beforeID, limit+1)
+	} else {
+		rows, err = s.db.Query(`
+			SELECT id, role, content, created_at FROM messages
+			WHERE session_id = ?
+			ORDER BY id DESC LIMIT ?`, sessionID, limit+1)
+	}
+	if err != nil {
+		return nil, false, err
+	}
 	defer rows.Close()
+
+	var desc []Message
 	for rows.Next() {
 		var m Message
 		var role string
-		if err := rows.Scan(&role, &m.Content, &m.CreatedAt); err != nil {
-			return out, err
+		if err := rows.Scan(&m.ID, &role, &m.Content, &m.CreatedAt); err != nil {
+			return nil, false, err
 		}
 		m.Role = Role(role)
-		out.Messages = append(out.Messages, m)
+		desc = append(desc, m)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, false, err
+	}
+
+	hasMore := false
+	if len(desc) > limit {
+		desc = desc[:limit]
+		hasMore = true
+	}
+	// 倒序取出来的，翻回正序给界面
+	out := make([]Message, len(desc))
+	for i, m := range desc {
+		out[len(desc)-1-i] = m
+	}
+	return out, hasMore, nil
 }
 
 // Rename 改标题。
 func (s *Store) Rename(id, title string) error {
-	_, err := s.db.Exec(`UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?`,
+	_, err := s.db.Exec(
+		`UPDATE sessions SET title = ?, updated_at = ?,
+		        seq = (SELECT COALESCE(MAX(seq), 0) + 1 FROM sessions) WHERE id = ?`,
 		title, time.Now().Unix(), id)
 	return err
 }

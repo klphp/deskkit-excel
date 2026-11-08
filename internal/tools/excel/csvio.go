@@ -33,43 +33,87 @@ func IsCSV(path string) bool {
 	return strings.EqualFold(filepath.Ext(path), ".csv")
 }
 
-// openWorkbook 统一入口：xlsx/xlsm 直接开，CSV 转成内存工作簿。
+// openWorkbook 统一入口：xlsx/xlsm 直接开，CSV 与 .xls 转成内存工作簿。
 //
-// 所有读取路径都必须走这里 —— 别处直接调 excelize.OpenFile 就等于
-// 又把 CSV 排除在外了。
+// 所有读取路径都必须走这里 —— 别处直接调 excelize.OpenFile 就等于又把
+// CSV 和 .xls 排除在外了。
 func openWorkbook(path string) (*excelize.File, error) {
-	if !IsCSV(path) {
+	switch {
+	case IsCSV(path):
+		rows, err := readCSVRows(path)
+		if err != nil {
+			return nil, err
+		}
+		return buildWorkbook([]sheetData{{Name: csvSheetName(path), Rows: rows}})
+	case IsXLS(path):
+		sheets, err := readXLS(path)
+		if err != nil {
+			return nil, err
+		}
+		return buildWorkbook(sheets)
+	default:
 		return excelize.OpenFile(path, excelize.Options{})
 	}
+}
 
-	rows, err := readCSVRows(path)
-	if err != nil {
-		return nil, err
-	}
+// sheetData 一张待写入内存工作簿的表。
+type sheetData struct {
+	Name string
+	Rows [][]string
+}
 
+// buildWorkbook 把若干张二维表装成 excelize 工作簿。
+//
+// CSV 和 .xls 都靠它接到现有管线上 —— 下游（合并/清洗/查询/画像）完全不知道
+// 原始格式是什么，这件事只在这里发生一次。
+func buildWorkbook(sheets []sheetData) (*excelize.File, error) {
 	f := excelize.NewFile()
-	sheet := csvSheetName(path)
-	if sheet != csvDefaultSheet {
-		if err := f.SetSheetName(csvDefaultSheet, sheet); err != nil {
-			sheet = csvDefaultSheet
-		}
-	}
-	for i, row := range rows {
-		for j, cell := range row {
-			cellName, err := excelize.CoordinatesToCellName(j+1, i+1)
-			if err != nil {
-				continue
+	defaultSheet := f.GetSheetName(0)
+
+	for i, sd := range sheets {
+		name := sanitizeSheetName(sd.Name)
+		if i == 0 {
+			if name != defaultSheet {
+				if err := f.SetSheetName(defaultSheet, name); err != nil {
+					name = defaultSheet
+				}
 			}
-			if err := f.SetCellStr(sheet, cellName, cell); err != nil {
-				return nil, fmt.Errorf("写入内存工作簿失败: %w", err)
+		} else {
+			name = uniqueSheetName(f, name)
+			if _, err := f.NewSheet(name); err != nil {
+				return nil, fmt.Errorf("建工作表失败: %w", err)
 			}
 		}
-	}
-	if _, err := f.NewSheet(sheet); err != nil && !strings.Contains(err.Error(), "exist") {
-		// 单表文件用默认表就够了，建表失败不影响读取
-		_ = err
+		for ri, row := range sd.Rows {
+			for ci, cell := range row {
+				if cell == "" {
+					continue
+				}
+				cellName, err := excelize.CoordinatesToCellName(ci+1, ri+1)
+				if err != nil {
+					continue
+				}
+				if err := f.SetCellStr(name, cellName, cell); err != nil {
+					return nil, fmt.Errorf("写入内存工作簿失败: %w", err)
+				}
+			}
+		}
 	}
 	return f, nil
+}
+
+// sanitizeSheetName Excel 表名限制：31 字符，不能含 : \ / ? * [ ]。
+func sanitizeSheetName(name string) string {
+	name = strings.TrimSpace(name)
+	r := strings.NewReplacer(":", "_", "\\", "_", "/", "_", "?", "_", "*", "_", "[", "_", "]", "_")
+	name = r.Replace(name)
+	if runes := []rune(name); len(runes) > 31 {
+		name = string(runes[:31])
+	}
+	if name == "" {
+		return "Sheet1"
+	}
+	return name
 }
 
 // csvSheetName 用文件名（去扩展名）当表名，Excel 表名有长度和字符限制。

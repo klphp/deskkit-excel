@@ -9,7 +9,7 @@
  * 重命名做成行内编辑（不弹窗），删除做成行内二次确认（不弹窗）：
  * 弹窗会打断视线，而这两个动作都在这一行里就能说清楚。
  */
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, ref, nextTick, onMounted } from "vue";
 import { Plus, MoreVertical, Pencil, Trash2, Check, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import { initSessions, useSessions } from "../composables/sessions";
@@ -76,6 +76,15 @@ async function doDelete(id: string, ev: MouseEvent) {
   confirmId.value = "";
   await sess.remove(id);
 }
+
+/** 滚到底部附近时再取一页会话，避免几千条一次渲染。 */
+const listEl = ref<HTMLElement | null>(null);
+async function onListScroll() {
+  const el = listEl.value;
+  if (!el) return;
+  if (el.scrollTop + el.clientHeight < el.scrollHeight - 160) return;
+  await sess.loadMoreSessions();
+}
 </script>
 
 <template>
@@ -91,7 +100,7 @@ async function doDelete(id: string, ev: MouseEvent) {
       </button>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+    <div ref="listEl" class="min-h-0 flex-1 overflow-y-auto px-2 pb-3" @scroll.passive="onListScroll">
       <p v-if="sess.ordered.value.length === 0" class="px-1.5 py-2 text-[13px] text-muted-foreground">
         {{ t("session.empty") }}
       </p>

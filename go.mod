@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/expr-lang/expr v1.17.8
+	github.com/extrame/xls v0.0.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/jfyne/csvd v1.0.0
 	github.com/montanaflynn/stats v0.14.0
@@ -26,6 +27,7 @@ require (
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/ebitengine/purego v0.11.1 // indirect
+	github.com/extrame/ole2 v0.0.0-20160812065207-d69429661ad7 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect

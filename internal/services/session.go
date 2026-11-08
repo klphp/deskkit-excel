@@ -49,6 +49,47 @@ func (s *SessionService) List() ([]session.Summary, error) {
 	return st.List()
 }
 
+// SessionPage 会话列表的一页。
+type SessionPage struct {
+	Items   []session.Summary `json:"items"`
+	HasMore bool              `json:"hasMore"`
+}
+
+// MessagePage 消息的一页。
+//
+// 用结构体而不是 (slice, bool, error) 三返回值：Wails 生成 TS 绑定时
+// 多返回值要拆成元组，调用处难读也难改。
+type MessagePage struct {
+	Messages []session.Message `json:"messages"`
+	HasMore  bool              `json:"hasMore"`
+}
+
+// ListPage 分页读会话列表（limit<=0 不限）。
+func (s *SessionService) ListPage(limit, offset int) (SessionPage, error) {
+	st, err := s.get()
+	if err != nil {
+		return SessionPage{}, err
+	}
+	items, more, err := st.ListPage(limit, offset)
+	if err != nil {
+		return SessionPage{}, err
+	}
+	return SessionPage{Items: items, HasMore: more}, nil
+}
+
+// MessagesPage 游标分页读消息。beforeID=0 表示最新一页。
+func (s *SessionService) MessagesPage(id string, limit int, beforeID int64) (MessagePage, error) {
+	st, err := s.get()
+	if err != nil {
+		return MessagePage{}, err
+	}
+	msgs, more, err := st.MessagesPage(id, limit, beforeID)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	return MessagePage{Messages: msgs, HasMore: more}, nil
+}
+
 // Load 读一个会话的完整消息。
 func (s *SessionService) Load(id string) (session.Session, error) {
 	st, err := s.get()

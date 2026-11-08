@@ -18,13 +18,15 @@ export {
     WindowService
 };
 
-export type {
+export {
     AISettings,
     ChatInput,
     ChatResult,
     I18nInfo,
     Info,
+    MessagePage,
     PackInfo,
     SaveSettingsInput,
+    SessionPage,
     TestResult
 } from "./models.js";

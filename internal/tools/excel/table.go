@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -135,6 +136,29 @@ func (t *Table) Clone() *Table {
 	}
 }
 
+// AppName / AppVersion 由启动流程注入，写进输出文件的「处理说明」，
+// 出问题时用户能说清是哪个版本干的。
+var (
+	AppName    = "DeskKit Excel"
+	AppVersion = ""
+)
+
+// SetAppInfo 由 pack 注册时调用。
+func SetAppInfo(name, version string) {
+	if name != "" {
+		AppName = name
+	}
+	AppVersion = version
+}
+
+// 金额列与整数列的表头关键词。这几类在财务/仓储表里几乎一定需要千分位，
+// 而「数量」硬套两位小数会被当成笑话，所以分开判断。
+var (
+	moneyHeaderWords = []string{"金额", "价", "额", "费", "余额", "收入", "支出", "税",
+		"工资", "成本", "应收", "应付", "合计", "总计", "小计", "结存", "单价", "市值", "盈亏"}
+	integerHeaderWords = []string{"数量", "件数", "人数", "笔数", "单数", "行数", "库存", "次"}
+)
+
 // WriteOptions 写出选项。
 type WriteOptions struct {
 	// Sheet 工作表名，默认用「结果」。
@@ -146,6 +170,18 @@ type WriteOptions struct {
 	// NumbersAsNumbers 看起来是数字的单元格写成数值（可用 SUM），
 	// 但保留前导零、超长编号、百分号等原样。
 	NumbersAsNumbers bool
+	// MoneyColumns 明确指定按金额格式（千分位 + 两位小数 + 负数红）输出的列。
+	// 留空则按列名关键词自动判断。
+	MoneyColumns []string
+	// IntegerColumns 明确指定按整数千分位输出的列（数量/件数）。
+	IntegerColumns []string
+	// NoNumberFormat 关闭一切数字格式（要纯数据时用）。
+	NoNumberFormat bool
+	// Meta 处理说明里额外追加的条目，形如「源文件：xxx」。
+	Meta []string
+	// NoMeta 不生成「处理说明」工作表。默认**生成** —— 财务和审计要能追：
+	// 这个文件是谁、什么时候、用什么版本、从哪些源文件算出来的。
+	NoMeta bool
 }
 
 // WriteTable 把表写到 path。扩展名决定格式：.csv 写 CSV（带 BOM），其余写 xlsx。
@@ -178,6 +214,12 @@ func WriteTable(path string, t *Table, opt WriteOptions) (string, error) {
 	}
 	if err := putTableInto(f, sheet, t, opt); err != nil {
 		return "", err
+	}
+	// 默认带一页「处理说明」：财务要能追溯，出问题也要能说清是哪次处理
+	if !opt.NoMeta {
+		if err := addMetaSheet(f, t, opt); err != nil {
+			return "", err
+		}
 	}
 	if err := f.SaveAs(path); err != nil {
 		return "", fmt.Errorf("写文件失败: %w", err)
@@ -270,7 +312,142 @@ func putTableInto(f *excelize.File, sheet string, t *Table, opt WriteOptions) er
 	if opt.AutoWidth {
 		autoWidth(f, sheet, t.Headers, t.Rows)
 	}
+	if opt.NumbersAsNumbers && !opt.NoNumberFormat {
+		applyNumberFormats(f, sheet, t, opt)
+	}
 	return nil
+}
+
+// applyNumberFormats 给金额列/整数列套上会计看得懂的格式。
+//
+// 为什么这件事必须我们做：数字格式是 Excel 的「显示层」，AI 用脚本改数据时
+// 复制不到这层信息，输出就变成一堆裸数字 —— 财务第一眼看到没千分位、没有
+// 两位小数、负数跟正数一个颜色，就会觉得这工具「不专业」。
+//
+// 取样式：
+//
+//	金额   #,##0.00;[Red]-#,##0.00
+//	整数   #,##0
+func applyNumberFormats(f *excelize.File, sheet string, t *Table, opt WriteOptions) {
+	moneyIdx := resolveCols(t, opt.MoneyColumns, moneyHeaderWords)
+	intIdx := resolveCols(t, opt.IntegerColumns, integerHeaderWords)
+
+	styles := map[string]int{}
+	styleFor := func(format string) int {
+		if st, ok := styles[format]; ok {
+			return st
+		}
+		fmtCopy := format
+		st, err := f.NewStyle(&excelize.Style{CustomNumFmt: &fmtCopy})
+		if err != nil {
+			return 0
+		}
+		styles[format] = st
+		return st
+	}
+
+	apply := func(cols []int, format string) {
+		st := styleFor(format)
+		if st == 0 || len(t.Rows) == 0 {
+			return
+		}
+		for _, ci := range cols {
+			first, err := excelize.CoordinatesToCellName(ci+1, 2)
+			if err != nil {
+				continue
+			}
+			last, err := excelize.CoordinatesToCellName(ci+1, len(t.Rows)+1)
+			if err != nil {
+				continue
+			}
+			// 整列一次性设，避免逐格调用（几万行时差几十倍）
+			_ = f.SetCellStyle(sheet, first, last, st)
+		}
+	}
+
+	if !containsAny(intIdx, moneyIdx) {
+		apply(intIdx, "#,##0")
+	}
+	apply(moneyIdx, "#,##0.00;[Red]-#,##0.00")
+}
+
+func containsAny(a, b []int) bool {
+	for _, x := range a {
+		for _, y := range b {
+			if x == y {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// resolveCols 先用显式指定，没有再按表头关键词猜。
+func resolveCols(t *Table, explicit []string, keywords []string) []int {
+	if len(explicit) > 0 {
+		if idx, err := t.Cols(explicit); err == nil {
+			return idx
+		}
+		return nil
+	}
+	var out []int
+	for i, h := range t.Headers {
+		for _, kw := range keywords {
+			if strings.Contains(h, kw) {
+				out = append(out, i)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// metaSheetName 处理说明的表名。
+const metaSheetName = "处理说明"
+
+// addMetaSheet 在输出文件里加一页「处理说明」。
+//
+// 内容刻意写得像一张表（字段 / 值），而不是一段散文：财务复核时是一行行看的，
+// 审计要抄的是具体字段。
+func addMetaSheet(f *excelize.File, t *Table, opt WriteOptions) error {
+	lines := []string{
+		"生成时间：" + time.Now().Format("2006-01-02 15:04:05"),
+		"生成工具：" + AppName + versionSuffix(),
+		"说明：本文件是处理结果，源文件未被修改。",
+	}
+	if t.Path != "" {
+		lines = append(lines, "来源文件："+t.Path)
+	}
+	if t.Sheet != "" {
+		lines = append(lines, "来源工作表："+t.Sheet)
+	}
+	lines = append(lines, fmt.Sprintf("输出规模：%d 行 × %d 列", len(t.Rows), len(t.Headers)))
+	if opt.NumbersAsNumbers {
+		lines = append(lines, "数字：已写成数值，可直接用 SUM/AVERAGE 等公式计算。")
+	} else {
+		lines = append(lines, "数字：按原文保留为文本，公式计算前需先转数值。")
+	}
+	lines = append(lines, "注意：源文件里的公式与格式没有带过来，这里只有计算结果（值）。")
+	lines = append(lines, opt.Meta...)
+
+	sheet := metaSheetName
+	if _, err := f.NewSheet(sheet); err != nil {
+		return err
+	}
+	// 放进第一个位置之前先写内容
+	for i, line := range lines {
+		cell, _ := excelize.CoordinatesToCellName(1, i+1)
+		_ = f.SetCellStr(sheet, cell, line)
+	}
+	_ = f.SetColWidth(sheet, "A", "A", 90)
+	return nil
+}
+
+func versionSuffix() string {
+	if AppVersion == "" {
+		return ""
+	}
+	return " v" + AppVersion
 }
 
 // asNumber 判断能不能当数值写。前导零、超长数字、带千分位/货币符号的一律不动 ——

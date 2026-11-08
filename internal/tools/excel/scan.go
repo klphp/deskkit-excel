@@ -28,10 +28,15 @@ const (
 	maxPreviewRows = 5
 )
 
-// supported 支持的扩展名。xls（BIFF 老格式）excelize 不支持，明确跳过并告知。
+// supported 支持的扩展名。
+//
+// .xls 是 Excel 97-2003（OLE2 结构），excelize 打不开，但银行、老 ERP、
+// 税务系统导出的流水大量还是它 —— 而它往往正是用户最想处理的那个文件。
+// 所以单独用 extrame/xls 读，读到内存工作簿再接同一条管线。
 var supported = map[string]bool{
 	".xlsx": true,
 	".xlsm": true,
+	".xls":  true,
 	".csv":  true,
 }
 

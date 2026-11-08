@@ -26,10 +26,28 @@ export type Summary = {
   count: number;
 };
 
+/**
+ * 分页参数。
+ *
+ * 会话是只增不删的：用一年就是几千条。一次全查出来，前端要渲染几千个节点，
+ * 进设置页再退回来都得顿一下 —— 而用户真正看的永远是最近那几十条。
+ *
+ * 消息同理：聊了几百轮的会话，打开时只需要最后一屏。
+ */
+const SESS_PAGE = 30;
+const MSG_PAGE = 40;
+
 const summaries = ref<Summary[]>([]);
 const currentId = ref("");
 /** 当前会话的消息。 */
 const turns = ref<ChatTurn[]>([]);
+/** 会话列表还有没有更多（侧栏滚到底时再去取）。 */
+const hasMoreSessions = ref(false);
+/** 当前会话还有没有更早的消息（聊天区滚到顶时再去取）。 */
+const hasMoreTurns = ref(false);
+/** 已加载的最早一条消息 id，作为「加载更早」的游标。 */
+let oldestMsgID = 0;
+let loadingOlder = false;
 const ready = ref(false);
 const error = ref("");
 
@@ -44,7 +62,9 @@ function toTurn(role: string, content: string): ChatTurn {
 /** 从 Go 侧重读列表。 */
 async function reload() {
   try {
-    const list = (await Sessions.List()) ?? [];
+    const page = await Sessions.ListPage(SESS_PAGE, 0);
+    const list = page?.items ?? [];
+    hasMoreSessions.value = !!page?.hasMore;
     summaries.value = list.map((s) => ({
       id: s.id,
       title: s.title,
@@ -61,11 +81,71 @@ async function select(id: string) {
   if (!summaries.value.some((s) => s.id === id)) return;
   try {
     currentId.value = id;
-    const s = (await Sessions.Load(id)) as DbSession;
-    turns.value = (s.messages ?? []).map((m) => toTurn(m.role, m.content));
+    // 只取最后一屏：打开会话时用户要看的是最后在聊什么
+    const page = await Sessions.MessagesPage(id, MSG_PAGE, 0);
+    const msgs = page?.messages ?? [];
+    turns.value = msgs.map((m) => toTurn(m.role, m.content));
+    hasMoreTurns.value = !!page?.hasMore;
+    oldestMsgID = msgs.length > 0 ? msgs[0].id : 0;
   } catch (err) {
     error.value = String(err);
     turns.value = [];
+    hasMoreTurns.value = false;
+    oldestMsgID = 0;
+  }
+}
+
+/**
+ * 往上翻：加载更早的一页消息。
+ *
+ * 返回新加载的条数，调用方据此决定要不要把滚动位置往下补 ——
+ * 不补的话内容会突然整体下移，用户正在看的那条就跳走了。
+ */
+async function loadOlderTurns(): Promise<number> {
+  if (!hasMoreTurns.value || loadingOlder || !currentId.value || oldestMsgID === 0) return 0;
+  loadingOlder = true;
+  try {
+    const page = await Sessions.MessagesPage(currentId.value, MSG_PAGE, oldestMsgID);
+    const msgs = page?.messages ?? [];
+    if (msgs.length === 0) {
+      hasMoreTurns.value = false;
+      return 0;
+    }
+    turns.value = [...msgs.map((m) => toTurn(m.role, m.content)), ...turns.value];
+    hasMoreTurns.value = !!page?.hasMore;
+    oldestMsgID = msgs[0].id;
+    return msgs.length;
+  } catch (err) {
+    error.value = String(err);
+    return 0;
+  } finally {
+    loadingOlder = false;
+  }
+}
+
+/** 侧栏滚到底：再取一页会话。 */
+async function loadMoreSessions(): Promise<number> {
+  if (!hasMoreSessions.value) return 0;
+  try {
+    const page = await Sessions.ListPage(SESS_PAGE, summaries.value.length);
+    const items = page?.items ?? [];
+    const exist = new Set(summaries.value.map((s) => s.id));
+    let added = 0;
+    for (const it of items) {
+      if (exist.has(it.id)) continue;
+      summaries.value.push({
+        id: it.id,
+        title: it.title,
+        updatedAt: it.updatedAt,
+        count: it.count,
+      });
+      added++;
+    }
+    hasMoreSessions.value = !!page?.hasMore;
+    return added;
+  } catch (err) {
+    error.value = String(err);
+    return 0;
   }
 }
 
@@ -245,6 +325,10 @@ export function useSessions() {
     current,
     currentId,
     turns,
+    hasMoreSessions,
+    hasMoreTurns,
+    loadOlderTurns,
+    loadMoreSessions,
     ready,
     error,
     create,
