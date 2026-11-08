@@ -20,6 +20,8 @@ import {
   FolderOpen,
   Layers,
   Loader2,
+  Maximize2,
+  Minimize2,
   Settings2,
   Wrench,
   X,
@@ -344,13 +346,31 @@ async function send() {
  * 默认给三行高度（像 Gemini 那样一眼看出能写多行），内容多了往上长，
  * 到 200px 封顶后内部滚动 —— 否则一条长指令会把对话区挤没。
  */
-const INPUT_MAX = 200;
+const COLLAPSED_MAX = 200;
+/** 展开后最多占屏幕高度的 42%，再高就把对话遮没了。 */
+const expanded = ref(false);
+const maxHeight = () => (expanded.value ? Math.round(window.innerHeight * 0.42) : COLLAPSED_MAX);
 
 function autogrow() {
   const el = inputEl.value;
   if (!el) return;
   el.style.height = "auto";
-  el.style.height = `${Math.min(el.scrollHeight, INPUT_MAX)}px`;
+  el.style.height = `${Math.min(el.scrollHeight, maxHeight())}px`;
+}
+
+/** 展开 / 收起。像 Gemini 输入框右上角那个角标的作用：写长指令时用大框。 */
+function toggleExpand() {
+  expanded.value = !expanded.value;
+  nextTick(autogrow);
+  if (!expanded.value) inputEl.value?.focus();
+}
+
+/** Esc 收起，符合「放大视图按 Esc 退出」的惯例。 */
+function onEscape(e: KeyboardEvent) {
+  if (e.key === "Escape" && expanded.value) {
+    e.preventDefault();
+    toggleExpand();
+  }
 }
 
 watch(draft, () => nextTick(autogrow));
@@ -477,7 +497,10 @@ onUnmounted(() => {
           </span>
         </div>
 
-        <div class="flex items-end gap-1.5 rounded-2xl border border-input bg-card px-2.5 py-2 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+        <div
+          class="relative flex items-end gap-1.5 rounded-2xl border border-input bg-card px-2.5 py-2 transition-shadow focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
+          :class="expanded ? 'shadow-lg' : ''"
+        >
           <!-- ① 选文件 -->
           <button
             type="button"
@@ -535,10 +558,23 @@ onUnmounted(() => {
             v-model="draft"
             rows="3"
             :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
-            class="max-h-[200px] min-h-[76px] flex-1 resize-none bg-transparent px-1 py-1.5 text-[14px] leading-[1.65] outline-none placeholder:text-muted-foreground"
+            class="flex-1 resize-none bg-transparent px-1 py-1.5 pr-8 text-[14px] leading-[1.65] outline-none placeholder:text-muted-foreground"
+            :class="expanded ? 'min-h-[38vh]' : 'min-h-[76px] max-h-[200px]'"
             @input="autogrow"
             @keydown="onKeydown"
+            @keydown.esc="onEscape"
           />
+
+          <!-- 右上角：展开 / 收起。写长指令时把框放大，不用在小框里打转。 -->
+          <button
+            type="button"
+            class="absolute right-2 top-2 grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            :title="expanded ? t('ai.collapse') : t('ai.expand')"
+            @click="toggleExpand"
+          >
+            <Minimize2 v-if="expanded" :size="13" />
+            <Maximize2 v-else :size="13" />
+          </button>
 
           <button
             type="button"

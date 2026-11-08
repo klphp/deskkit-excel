@@ -95,6 +95,8 @@ export const zhCN = {
   "intro.docs.i1": "PDF：合并、拆分、提取文字、转图片、加水印",
   "intro.docs.i2": "Markdown：批量转 Word / PDF / HTML，或反过来提取正文",
   "intro.docs.i3": "扫描件与图片的 OCR（认字后参与上面这些处理）",
+  "ai.expand": "放大编辑",
+  "ai.collapse": "收起",
   "ai.thinking": "正在处理…",
 
   // ── 模型配置 ──

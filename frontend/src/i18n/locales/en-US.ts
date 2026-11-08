@@ -90,6 +90,8 @@ export const enUS = {
   "intro.docs.i1": "PDF: merge, split, extract text, to images, watermark",
   "intro.docs.i2": "Markdown: batch convert to Word / PDF / HTML, or pull the body back out",
   "intro.docs.i3": "OCR for scans and images (so they can feed the steps above)",
+  "ai.expand": "Expand",
+  "ai.collapse": "Collapse",
   "ai.thinking": "Working…",
 
   "ai.disabledHint": "AI is turned off in the config file. Batch processing works without it, but you need it to drive the tool by sentence.",
