@@ -57,10 +57,10 @@ function onRemove(id: string, ev: MouseEvent) {
     <div class="p-2.5">
       <button
         type="button"
-        class="flex w-full items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2 text-[14px] font-medium transition-colors hover:bg-accent"
+        class="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-[14px] font-medium transition-colors hover:border-primary/40 hover:bg-accent"
         @click="onNew"
       >
-        <Plus :size="14" />
+        <Plus :size="15" class="text-primary" />
         {{ t("session.new") }}
       </button>
     </div>
@@ -77,10 +77,10 @@ function onRemove(id: string, ev: MouseEvent) {
         <div
           v-for="s in g.items"
           :key="s.id"
-          class="group mb-0.5 flex items-center gap-2 rounded-md px-2 py-2 text-[14px] transition-colors"
+          class="group relative mb-0.5 flex items-center gap-2 rounded-md px-2.5 py-2 text-[14px] transition-colors"
           :class="
             s.id === sess.currentId.value
-              ? 'bg-accent text-accent-foreground'
+              ? 'bg-accent font-medium text-accent-foreground'
               : 'text-muted-foreground hover:bg-accent/60'
           "
           role="button"
@@ -88,6 +88,12 @@ function onRemove(id: string, ev: MouseEvent) {
           @click="onSelect(s.id)"
           @keydown.enter="onSelect(s.id)"
         >
+          <!-- 当前会话左侧一条主色竖线：比只改底色更容易一眼找到 -->
+          <span
+            v-if="s.id === sess.currentId.value"
+            class="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full bg-primary"
+            aria-hidden="true"
+          />
           <span class="min-w-0 flex-1 truncate">{{ s.title || t("session.untitled") }}</span>
           <span class="shrink-0 text-[12px] text-muted-foreground group-hover:hidden">{{ timeOf(s.updatedAt) }}</span>
           <button

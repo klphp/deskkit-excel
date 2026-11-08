@@ -67,6 +67,29 @@ export const enUS = {
   "session.today": "Today",
   "session.earlier": "Earlier",
   "session.delete": "Delete",
+  "intro.kicker": "Local file processing",
+  "intro.title": "AI-driven local file processing",
+  "intro.lead": "Say what you want in one sentence and the files are handled on this machine — no upload. Change the task by changing the sentence, no menus to learn.",
+  "intro.ready": "Available now",
+  "intro.soon": "Coming soon",
+  "intro.ctaTable": "Pick a spreadsheet to try",
+
+  "intro.excel.name": "Spreadsheets",
+  "intro.excel.i1": "Merge: align by column name into one sheet; missing columns stay blank instead of being dropped",
+  "intro.excel.i2": "Clean: drop blank and duplicate rows, trim spaces, normalize dates, convert text numbers (leading zeros kept)",
+  "intro.excel.i3": "Query & summarize: filter, group, join across sheets, computed columns — as SQL in the chat",
+  "intro.excel.i4": "Always writes a new file: same folder, original name plus timestamp; your original is never touched",
+
+  "intro.video.name": "Video / audio",
+  "intro.video.i1": "Download: paste a link (YouTube, Bilibili, …) and keep it locally",
+  "intro.video.i2": "Convert: MP4 / MKV / MOV / WebM; audio to MP3 / M4A / WAV",
+  "intro.video.i3": "Trim: cut clips by timecode, drop intros/outros, resize",
+  "intro.video.i4": "Also: extract frames, compress, rip audio, burn subtitles or watermark, concatenate",
+
+  "intro.docs.name": "Documents",
+  "intro.docs.i1": "PDF: merge, split, extract text, to images, watermark",
+  "intro.docs.i2": "Markdown: batch convert to Word / PDF / HTML, or pull the body back out",
+  "intro.docs.i3": "OCR for scans and images (so they can feed the steps above)",
   "ai.thinking": "Working…",
 
   "ai.disabledHint": "AI is turned off in the config file. Batch processing works without it, but you need it to drive the tool by sentence.",
@@ -79,7 +102,7 @@ export const enUS = {
   "ai.testOk": "Connected",
 
   "settings.appearance": "Appearance",
-  "settings.appearanceHint": "Light by default: dark background with near-white text is harsh for long spreadsheet sessions.",
+  "settings.appearanceHint": "Follows the system by default. Dark mode uses a softened palette, not black-on-white.",
   "settings.theme.system": "System",
   "settings.theme.light": "Light",
   "settings.theme.dark": "Dark",

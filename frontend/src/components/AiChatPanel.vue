@@ -11,7 +11,19 @@
  * 把流式文字和工具步骤显示出来、没接入模型时把设置打开。
  */
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
-import { ArrowUp, Check, FolderOpen, Layers, Loader2, Settings2, Wrench, X } from "@lucide/vue";
+import {
+  ArrowUp,
+  Check,
+  FileSpreadsheet,
+  Film,
+  FileText,
+  FolderOpen,
+  Layers,
+  Loader2,
+  Settings2,
+  Wrench,
+  X,
+} from "@lucide/vue";
 import { useI18n } from "../i18n";
 import { useWorkspace } from "../composables/workspace";
 import { initSessions, useSessions } from "../composables/sessions";
@@ -75,11 +87,38 @@ const current = computed(() => providers.value.find((p) => p.name === provider.v
 const isCustom = computed(() => provider.value === "custom");
 const ready = computed(() => providers.value.some((p) => p.ready));
 
-const suggestions = computed(() =>
-  ws.paths.value.length > 0
-    ? [t("ai.askClean"), t("ai.askSummary"), t("ai.askLook")]
-    : [t("ai.askBrowse"), t("ai.askWhat")],
-);
+/**
+ * 首屏能力清单。
+ *
+ * 视频与文档两组现在还没接（v1 只做表格），但不藏起来 —— 用户有权知道
+ * 这个工具打算做什么；同时必须标清「即将支持」，不能让人以为点了就能用。
+ */
+const intro = computed(() => [
+  {
+    id: "excel",
+    icon: FileSpreadsheet,
+    name: t("intro.excel.name"),
+    available: true,
+    badge: "",
+    items: [t("intro.excel.i1"), t("intro.excel.i2"), t("intro.excel.i3"), t("intro.excel.i4")],
+  },
+  {
+    id: "video",
+    icon: Film,
+    name: t("intro.video.name"),
+    available: false,
+    badge: t("intro.soon"),
+    items: [t("intro.video.i1"), t("intro.video.i2"), t("intro.video.i3"), t("intro.video.i4")],
+  },
+  {
+    id: "docs",
+    icon: FileText,
+    name: t("intro.docs.name"),
+    available: false,
+    badge: t("intro.soon"),
+    items: [t("intro.docs.i1"), t("intro.docs.i2"), t("intro.docs.i3")],
+  },
+]);
 
 async function refresh() {
   enabled.value = await AIService.Enabled();
@@ -179,20 +218,6 @@ async function scrollToBottom() {
   await nextTick();
   const el = scroller.value;
   if (el) el.scrollTop = el.scrollHeight;
-}
-
-function useSuggestion(text: string) {
-  if (text === t("ai.askBrowse")) {
-    ws.pickPaths(t("ai.pickInput"));
-    return;
-  }
-  if (text === t("ai.askWhat")) {
-    draft.value = t("ai.askWhatThen");
-    inputEl.value?.focus();
-    return;
-  }
-  draft.value = text;
-  inputEl.value?.focus();
 }
 
 const featureName = computed(() => {
@@ -334,23 +359,39 @@ onUnmounted(() => {
 <template>
   <div class="flex h-full min-h-0 flex-col">
     <!-- ── 对话 ── -->
-    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
+    <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto">
       <div class="mx-auto max-w-[760px] px-6 py-8">
-        <div v-if="turns.length === 0 && !streaming" class="pt-20 text-center">
-          <h2 class="text-[22px] font-semibold tracking-tight">{{ t("ai.emptyTitle") }}</h2>
-          <p class="mx-auto mt-2.5 max-w-[480px] text-[14px] leading-relaxed text-muted-foreground">
-            {{ t("ai.emptyHint") }}
-          </p>
-          <div class="mt-7 flex flex-wrap justify-center gap-2">
-            <button
-              v-for="s in suggestions"
-              :key="s"
-              type="button"
-              class="rounded-full border border-border bg-card px-4 py-1.5 text-[13px] transition-colors hover:bg-accent"
-              @click="useSuggestion(s)"
-            >
-              {{ s }}
-            </button>
+        <!-- 首屏 = 产品介绍。用户第一次打开不知道它能干什么，
+             与其放一句「你想做什么」，不如把能力和边界直接摊开：
+             现在能用的、还要等组件的，都写清楚。 -->
+        <div v-if="turns.length === 0 && !streaming" class="flex min-h-full flex-col items-center justify-center py-8">
+          <div class="w-full max-w-[680px]">
+            <div class="mb-1.5 flex items-center gap-2">
+              <FileSpreadsheet :size="18" class="text-primary" />
+              <span class="text-[12.5px] font-medium uppercase tracking-wide text-muted-foreground">{{ t("intro.kicker") }}</span>
+            </div>
+            <h1 class="text-[24px] font-semibold leading-snug tracking-tight">{{ t("intro.title") }}</h1>
+            <p class="mt-2.5 max-w-[560px] text-[14px] leading-[1.7] text-muted-foreground">{{ t("intro.lead") }}</p>
+
+            <!-- 能力清单：三组，逐条列它到底能干什么 -->
+            <div class="mt-6 space-y-2.5">
+              <div v-for="group in intro" :key="group.id" class="rounded-xl border border-border bg-card px-4 py-3.5">
+                <div class="flex items-baseline gap-2">
+                  <component :is="group.icon" :size="15" class="translate-y-[2px] text-primary" />
+                  <span class="text-[14.5px] font-medium">{{ group.name }}</span>
+                  <span
+                    class="rounded-full px-1.5 py-0.5 text-[11.5px]"
+                    :class="group.available ? 'bg-primary/12 text-primary' : 'bg-muted text-muted-foreground'"
+                  >
+                    {{ group.available ? t("intro.ready") : group.badge }}
+                  </span>
+                </div>
+                <ul class="mt-2 space-y-1 pl-6 text-[13px] leading-[1.65] text-muted-foreground">
+                  <li v-for="item in group.items" :key="item" class="list-outside list-disc marker:text-border">{{ item }}</li>
+                </ul>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -500,11 +541,11 @@ onUnmounted(() => {
         </div>
 
         <div class="mt-1.5 flex items-center justify-between px-1 text-[11.5px] text-muted-foreground">
-          <span v-if="ready">{{ current?.label || provider }} · {{ model }}</span>
+          <span v-if="ready" class="truncate">{{ current?.label || provider }} · {{ model }}</span>
           <button v-else type="button" class="text-primary hover:underline" @click="openSettings">
             {{ t("ai.configureFirst") }}
           </button>
-          <span class="font-mono">{{ ws.columns.value.length ? ws.columns.value.slice(0, 6).join(" · ") : "" }}</span>
+          <span v-if="ws.feature.value" class="shrink-0 text-muted-foreground">{{ featureName }}</span>
         </div>
       </div>
     </div>

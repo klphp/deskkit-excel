@@ -167,7 +167,7 @@
   --secondary-foreground: oklch(95% 0.0048 250);
 
   --muted: oklch(17% 0.008 250);
-  --muted-foreground: oklch(71% 0.008 250);
+  --muted-foreground: oklch(74% 0.008 250);
 
   --accent: oklch(25% 0.0112 250);
   --accent-foreground: oklch(95% 0.0048 250);
@@ -294,6 +294,16 @@
   textarea,
   [contenteditable],
   .select-text {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  /* 对话内容整体可选中、可复制。
+     桌面应用默认关掉选中是为了「不像网页」，但聊天记录是文档性内容 ——
+     用户必须能把一段回答选中复制出去。所以按区域开：对话区开，
+     标题栏与侧栏仍然不选（那里选中只会误触，还会在拖窗口时选中一片）。 */
+  .selectable,
+  .selectable * {
     user-select: text;
     -webkit-user-select: text;
   }

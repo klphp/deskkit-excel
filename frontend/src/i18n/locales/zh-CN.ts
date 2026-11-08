@@ -72,6 +72,29 @@ export const zhCN = {
   "session.today": "今天",
   "session.earlier": "更早",
   "session.delete": "删除会话",
+  "intro.kicker": "本地文件处理",
+  "intro.title": "基于 AI 驱动的本地文件处理工具",
+  "intro.lead": "用一句话说明你要做什么，文件在这台机器上处理完 —— 不联网、不上传。换个任务只要换一句话，不用学菜单。",
+  "intro.ready": "现在可用",
+  "intro.soon": "即将支持",
+  "intro.ctaTable": "选一个表格试试",
+
+  "intro.excel.name": "表格处理",
+  "intro.excel.i1": "合并：多个表按列名对齐拼成一张，缺列留空不丢列",
+  "intro.excel.i2": "清洗：去空行、去重复、去首尾空白、统一日期、文本数字转数值（保住前导零）",
+  "intro.excel.i3": "查询汇总：按条件筛选、分组求和、跨表关联、加计算列 —— 用 SQL 写在对话里",
+  "intro.excel.i4": "输出永远是新文件：同目录、原名加时间戳，原表不会被改",
+
+  "intro.video.name": "视频 / 音频",
+  "intro.video.i1": "下载：贴一个链接（B 站、YouTube 等）直接存到本地",
+  "intro.video.i2": "格式转换：MP4 / MKV / MOV / WebM，音频转 MP3 / M4A / WAV",
+  "intro.video.i3": "裁剪：按时间截取片段、切掉片头片尾、调整画面尺寸",
+  "intro.video.i4": "其它：抽帧出图、压缩体积、提取音频、加字幕或水印、多段拼接",
+
+  "intro.docs.name": "文档处理",
+  "intro.docs.i1": "PDF：合并、拆分、提取文字、转图片、加水印",
+  "intro.docs.i2": "Markdown：批量转 Word / PDF / HTML，或反过来提取正文",
+  "intro.docs.i3": "扫描件与图片的 OCR（认字后参与上面这些处理）",
   "ai.thinking": "正在处理…",
 
   // ── 模型配置 ──
@@ -86,7 +109,7 @@ export const zhCN = {
 
   // ── 设置 / 关于 ──
   "settings.appearance": "外观",
-  "settings.appearanceHint": "默认浅色。长时间看表格，深色底配白字太刺眼。",
+  "settings.appearanceHint": "默认跟随系统。深色用的是柔和底色，不是纯黑配白字。",
   "settings.theme.system": "跟随系统",
   "settings.theme.light": "浅色",
   "settings.theme.dark": "深色",

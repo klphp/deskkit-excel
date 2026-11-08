@@ -12,7 +12,10 @@ import { computed, ref } from "vue";
 
 export type ThemeMode = "system" | "light" | "dark";
 
-const STORAGE_KEY = "deskkit-theme";
+// 键名带 v2：早期版本把「浅色」写过一次进 localStorage，那些存档会让
+// 默认值不生效（用户看到的还是浅色，以为设置没改）。换一个键等于一次性重置，
+// 之后用户再选就会正常记住。
+const STORAGE_KEY = "deskkit-theme-v2";
 
 const mode = ref<ThemeMode>("system");
 
@@ -28,10 +31,12 @@ function apply(m: ThemeMode) {
 /** 初始化。在 App 挂载时调一次即可，重复调没有副作用。 */
 export function initTheme() {
   const saved = localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
-  // 没存过偏好时用浅色：数据类工具长时间盯着看，纯深色底 + 近白字
-  // 对比度太高，反馈是「刺眼」。想要深色的用户可在设置里切换，
-  // 选择会被记住（含 system 跟随系统）。
-  mode.value = saved === "light" || saved === "dark" || saved === "system" ? saved : "light";
+  // 默认跟随系统。
+  // 曾经默认浅色（因为早期的深色是纯黑底 + 近白字，用户反馈刺眼）；
+  // 现在深色已经换成「石墨」方案（底色 21%、文字 95%），跟着系统走最省事：
+  // 系统是浅色就是浅色，晚上系统切深色它也跟着切。
+  // 用户手动选过就尊重他的选择（含显式选 system）。
+  mode.value = saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
   apply(mode.value);
 
   // 只挂一次监听，避免重复注册
