@@ -49,7 +49,9 @@ func TestScanCountsAndHeaders(t *testing.T) {
 	mkxlsx(t, dir, "b.xlsx", []string{"部门", "金额", "备注"}, [][]string{
 		{"运营", "300", "x"},
 	})
-	os.WriteFile(filepath.Join(dir, "c.xls"), []byte("old"), 0o644)     // 不支持的扩展名
+	// 假 .xls：现在 .xls 是支持的格式（银行流水大量是它），
+	// 所以它会被当成表格文件去读，读不动就带上 Err —— 而不是悄悄跳过。
+	os.WriteFile(filepath.Join(dir, "c.xls"), []byte("old"), 0o644)
 	os.WriteFile(filepath.Join(dir, "note.txt"), []byte("hi"), 0o644)   // 非表格
 	os.WriteFile(filepath.Join(dir, "~$a.xlsx"), []byte("lock"), 0o644) // Excel 锁文件
 
@@ -57,8 +59,19 @@ func TestScanCountsAndHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("扫描失败: %v", err)
 	}
-	if len(got.Files) != 2 {
-		t.Fatalf("应当识别 2 个表格，实际 %d: %+v", len(got.Files), got.Files)
+	var good, broken int
+	for _, f := range got.Files {
+		if f.Err != "" {
+			broken++
+		} else {
+			good++
+		}
+	}
+	if good != 2 {
+		t.Fatalf("应当读出 2 个可用的表，实际 %d: %+v", good, got.Files)
+	}
+	if broken != 1 {
+		t.Fatalf("假 .xls 应当被识别出来但报错，实际 broken=%d: %+v", broken, got.Files)
 	}
 	if got.TotalRows != 3 {
 		t.Fatalf("数据行应为 3（空行不算），实际 %d", got.TotalRows)
@@ -66,8 +79,8 @@ func TestScanCountsAndHeaders(t *testing.T) {
 	if got.Ignored != 1 {
 		t.Fatalf("非表格文件应为 1，实际 %d", got.Ignored)
 	}
-	if len(got.Unsupported) != 1 || got.Unsupported[0] != "c.xls" {
-		t.Fatalf(".xls 应被记为不支持: %+v", got.Unsupported)
+	if len(got.Unsupported) != 0 {
+		t.Fatalf(".xls 现在支持了，不该再出现在 Unsupported 里: %+v", got.Unsupported)
 	}
 	if got.Files[0].Name != "a.xlsx" || len(got.Files[0].Headers) != 2 {
 		t.Fatalf("文件顺序或表头不对: %+v", got.Files[0])
