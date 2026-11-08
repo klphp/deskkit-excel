@@ -10,7 +10,7 @@
  * 弹窗会打断视线，而这两个动作都在这一行里就能说清楚。
  */
 import { computed, nextTick, onMounted, ref } from "vue";
-import { Plus, MoreHorizontal, Pencil, Trash2, Check, X } from "@lucide/vue";
+import { Plus, MoreVertical, Pencil, Trash2, Check, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import { initSessions, useSessions } from "../composables/sessions";
 
@@ -189,7 +189,7 @@ async function doDelete(id: string, ev: MouseEvent) {
               :title="t('session.more')"
               @click="openMenu(s.id, $event)"
             >
-              <MoreHorizontal :size="14" />
+              <MoreVertical :size="14" />
             </button>
           </div>
 
