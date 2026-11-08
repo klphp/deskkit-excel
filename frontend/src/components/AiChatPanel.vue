@@ -413,7 +413,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col">
+  <div class="relative flex h-full min-h-0 flex-col">
     <!-- ── 对话 ── -->
     <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto">
       <div class="mx-auto max-w-[800px] px-6 py-8">
@@ -555,45 +555,15 @@ onUnmounted(() => {
               <FolderOpen v-else :size="17" />
             </button>
 
-            <div class="relative shrink-0">
-              <button
-                type="button"
-                class="grid size-9 place-items-center rounded-full transition-colors hover:bg-accent"
-                :class="ws.feature.value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'"
-                :title="t('ai.pickFeature')"
-                @click="showFeatures = !showFeatures"
-              >
-                <Layers :size="17" />
-              </button>
-
-              <!-- 功能选择下拉：从按钮上方弹出，避免被窗口底边裁掉 -->
-              <div
-                v-if="showFeatures"
-                class="absolute bottom-11 left-0 z-40 w-[300px] rounded-xl border border-border bg-background p-1.5 shadow-xl"
-              >
-                <button
-                  type="button"
-                  class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
-                  :class="!ws.feature.value ? 'bg-accent/60' : ''"
-                  @click="chooseFeature('')"
-                >
-                  <span class="text-[13px] font-medium">{{ t("ai.featureNone") }}</span>
-                  <span class="text-[11.5px] text-muted-foreground">{{ t("ai.featureNoneHint") }}</span>
-                </button>
-                <button
-                  v-for="pk in ws.packs.value"
-                  :key="pk.id"
-                  type="button"
-                  class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
-                  :class="ws.feature.value === pk.id ? 'bg-accent/60' : ''"
-                  @click="chooseFeature(pk.id)"
-                >
-                  <span class="text-[13px] font-medium">{{ pk.name }}</span>
-                  <span class="text-[11.5px] leading-relaxed text-muted-foreground">{{ pk.description }}</span>
-                </button>
-                <p class="px-2.5 pb-1 pt-2 text-[11px] text-muted-foreground">{{ t("ai.featureMore") }}</p>
-              </div>
-            </div>
+            <button
+              type="button"
+              class="grid size-9 shrink-0 place-items-center rounded-full transition-colors hover:bg-accent"
+              :class="ws.feature.value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'"
+              :title="t('ai.pickFeature')"
+              @click="showFeatures = !showFeatures"
+            >
+              <Layers :size="17" />
+            </button>
 
             <div class="flex-1" />
 
@@ -605,6 +575,28 @@ onUnmounted(() => {
             >
               <Settings2 :size="17" />
             </button>
+            <button
+              type="button"
+              class="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+              :title="t('ai.pickInput')"
+              :disabled="ws.busy.value"
+              @click="ws.pickPaths(t('ai.pickInput'))"
+            >
+              <Loader2 v-if="ws.busy.value" :size="17" class="animate-spin" />
+              <FolderOpen v-else :size="17" />
+            </button>
+            <button
+              type="button"
+              class="grid size-9 place-items-center rounded-full transition-colors hover:bg-accent"
+              :class="ws.feature.value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'"
+              :title="t('ai.pickFeature')"
+              @click="showFeatures = true"
+            >
+              <Layers :size="17" />
+            </button>
+
+            <div class="flex-1" />
+
             <button
               type="button"
               class="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
@@ -661,12 +653,9 @@ onUnmounted(() => {
          Teleport 到 body：就地放大时会被父容器的 overflow/transform 夹住，
          表现就是「只有半屏、按钮还被挤没」。独立挂到 body 上，位置和尺寸
          只由视口决定，也不会有祖先把它裁掉。 -->
-    <Teleport to="body">
-      <div
-        v-if="expanded"
-        class="fixed inset-x-0 bottom-0 z-[60] flex flex-col bg-background"
-        :style="{ top: 'var(--titlebar-height)' }"
-      >
+    <!-- 只覆盖会话区：左边会话记录不该被盖住。
+         定位基准是外层 relative 容器（= 标题栏以下、侧栏以右的那块）。 -->
+    <div v-if="expanded" class="absolute inset-0 z-40 flex flex-col bg-background">
         <div class="flex shrink-0 items-center justify-between border-b border-border px-5 py-2.5">
           <span class="text-[13px] text-muted-foreground">{{ t("ai.expandTitle") }}</span>
           <button
@@ -688,8 +677,31 @@ onUnmounted(() => {
             @keydown="onKeydown"
             @keydown.esc="onEscape"
           />
-          <!-- 只留一个发送按钮（另一个「收起」在顶部条右侧） -->
-          <div class="flex shrink-0 items-center justify-end pt-3">
+          <!-- 两个图标和折叠态一致（选文件 / 选功能），右边发送；
+               另一个「收起」在顶部条右侧 -->
+          <div class="flex shrink-0 items-center gap-1 pt-3">
+            <button
+              type="button"
+              class="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+              :title="t('ai.pickInput')"
+              :disabled="ws.busy.value"
+              @click="ws.pickPaths(t('ai.pickInput'))"
+            >
+              <Loader2 v-if="ws.busy.value" :size="17" class="animate-spin" />
+              <FolderOpen v-else :size="17" />
+            </button>
+            <button
+              type="button"
+              class="grid size-9 place-items-center rounded-full transition-colors hover:bg-accent"
+              :class="ws.feature.value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'"
+              :title="t('ai.pickFeature')"
+              @click="showFeatures = true"
+            >
+              <Layers :size="17" />
+            </button>
+
+            <div class="flex-1" />
+
             <button
               type="button"
               class="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
@@ -700,6 +712,43 @@ onUnmounted(() => {
               <ArrowUp :size="16" />
             </button>
           </div>
+        </div>
+      </div>
+
+
+    <!-- ── 功能选择浮层（共享）──
+         折叠态和满屏编辑态都有这个按钮，菜单因此只做一份、挂到 body 上：
+         否则要复制两遍，改一次漏一处。 -->
+    <Teleport to="body">
+      <div
+        v-if="showFeatures"
+        class="fixed inset-0 z-[70]"
+        @click.self="showFeatures = false"
+      >
+        <div
+          class="absolute bottom-32 left-1/2 w-[320px] -translate-x-1/2 rounded-xl border border-border bg-background p-1.5 shadow-xl"
+        >
+          <button
+            type="button"
+            class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
+            :class="!ws.feature.value ? 'bg-accent/60' : ''"
+            @click="chooseFeature('')"
+          >
+            <span class="text-[13px] font-medium">{{ t("ai.featureNone") }}</span>
+            <span class="text-[11.5px] text-muted-foreground">{{ t("ai.featureNoneHint") }}</span>
+          </button>
+          <button
+            v-for="pk in ws.packs.value"
+            :key="pk.id"
+            type="button"
+            class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
+            :class="ws.feature.value === pk.id ? 'bg-accent/60' : ''"
+            @click="chooseFeature(pk.id)"
+          >
+            <span class="text-[13px] font-medium">{{ pk.name }}</span>
+            <span class="text-[11.5px] leading-relaxed text-muted-foreground">{{ pk.description }}</span>
+          </button>
+          <p class="px-2.5 pb-1 pt-2 text-[11px] text-muted-foreground">{{ t("ai.featureMore") }}</p>
         </div>
       </div>
     </Teleport>
