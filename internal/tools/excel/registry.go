@@ -218,6 +218,13 @@ func Register(r *ai.Registry) error {
 		return err
 	}
 
+	// 单文件为主的「精细化」工具：画像、校验、去重、比对、变形、分组汇总、
+	// 横向合并、拆分、格式转换。用户真正天天做的操作都在这里，
+	// 不必每次都绕到 SQL 上去。
+	if err := registerTableTools(r); err != nil {
+		return err
+	}
+
 	// 第一版界面走的是单文件工具（不做批量），但目录版工具也留着：
 	// 模型在用户明确说「这个文件夹里所有表」时仍然能用。
 	return registerFileTools(r)

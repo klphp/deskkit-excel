@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jfyne/csvd"
 	"github.com/klphp/excel-batch-tool/internal/xtext"
 	"github.com/xuri/excelize/v2"
 )
@@ -88,38 +89,64 @@ func csvSheetName(path string) string {
 
 // readCSVRows 读 CSV，自动识别编码与分隔符。
 func readCSVRows(path string) ([][]string, error) {
+	rows, _, err := readCSVWithDelim(path)
+	return rows, err
+}
+
+// readCSVWithDelim 同 readCSVRows，另外把识别到的分隔符带出来
+// （fs_peek 要给模型看「这是分号分隔的」，不能只说「读到了」）。
+func readCSVWithDelim(path string) ([][]string, string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("读不了这个文件: %w", err)
+		return nil, "", fmt.Errorf("读不了这个文件: %w", err)
 	}
 	if len(raw) == 0 {
-		return nil, fmt.Errorf("文件是空的")
+		return nil, "", fmt.Errorf("文件是空的")
 	}
 
 	text, enc, isText := xtext.Detect(raw)
 	if !isText {
-		return nil, fmt.Errorf("这不是文本文件，没法按 CSV 读（识别为 %s）", enc)
+		return nil, "", fmt.Errorf("这不是文本文件，没法按 CSV 读（识别为 %s）", enc)
 	}
 
-	// 分隔符按样本行判断：逗号/分号/制表符/竖线都见过
-	sample := strings.SplitN(text, "\n", 6)
-	delim := ","
-	if len(sample) > 1 {
-		if d := xtext.GuessDelimiter(sample[:len(sample)-1]); d != "" {
-			delim = d
-		}
-	}
-
-	r := csv.NewReader(strings.NewReader(text))
-	r.Comma = []rune(delim)[0]
+	// 分隔符交给 csvd：它按「切出来的列数分布」判断，比数逗号出现次数可靠 ——
+	// 我们的老实现遇到「备注列里本身有逗号」就会判错。
+	r := csvd.NewReader(strings.NewReader(text))
 	r.FieldsPerRecord = -1 // 每行列数不齐是常态，交给调用方处理
 	r.LazyQuotes = true    // 引号不规范的导出文件很常见
 
 	rows, err := r.ReadAll()
 	if err != nil {
-		return nil, fmt.Errorf("解析 CSV 失败（编码 %s，分隔符 %q）: %w", enc, delim, err)
+		return nil, "", fmt.Errorf("解析 CSV 失败（编码 %s，分隔符 %q）: %w", enc, string(r.Comma), err)
 	}
-	return rows, nil
+	return rows, string(r.Comma), nil
+}
+
+// writeCSVGBK 写 GBK 编码的 CSV（不带 BOM，GBK 本身不需要）。
+//
+// 为什么要有：老系统（尤其国内的 ERP、财务软件）导入时只认 GBK，
+// 给它 UTF-8 就是满屏乱码，而用户在那边根本改不了设置。
+func writeCSVGBK(path string, rows [][]string) error {
+	var buf strings.Builder
+	w := csv.NewWriter(&buf)
+	if err := w.WriteAll(rows); err != nil {
+		return fmt.Errorf("生成 CSV 失败: %w", err)
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return fmt.Errorf("生成 CSV 失败: %w", err)
+	}
+	encoded, err := xtext.UTF8ToGB18030(buf.String())
+	if err != nil {
+		return fmt.Errorf("转成 GBK 失败: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("建输出目录失败: %w", err)
+	}
+	if err := os.WriteFile(path, encoded, 0o644); err != nil {
+		return fmt.Errorf("写文件失败: %w", err)
+	}
+	return nil
 }
 
 // WriteCSV 把二维表写进 CSV。

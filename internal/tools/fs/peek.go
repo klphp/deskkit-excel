@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jfyne/csvd"
 	"github.com/klphp/excel-batch-tool/internal/xtext"
 )
 
@@ -154,9 +155,26 @@ func detectAndDecode(b []byte) (text string, enc string, isText bool) {
 	return xtext.Detect(b)
 }
 
-// guessDelimiter 同样交给 xtext。
+// guessDelimiter 交给 csvd：它按「切出来的列数分布」判断。
+// 返回空串表示看起来不是表格（只有一列，没有可切的）。
 func guessDelimiter(lines []string) string {
-	return xtext.GuessDelimiter(lines)
+	if len(lines) == 0 {
+		return ""
+	}
+	r := csvd.NewReader(strings.NewReader(strings.Join(lines, "\n")))
+	r.FieldsPerRecord = -1
+	r.LazyQuotes = true
+	// 读第一行就够了：csvd 在构造时已经嗅探完
+	if _, err := r.Read(); err != nil {
+		return ""
+	}
+	delim := string(r.Comma)
+	// 只有真的是多列才算带分隔符
+	rec, err := r.Read()
+	if err != nil || len(rec) < 2 {
+		return ""
+	}
+	return delim
 }
 
 func looksTabular(lines []string, delim string, want int) bool {
