@@ -103,6 +103,36 @@ func (s *SessionService) Import(items []session.Session) (int, error) {
 	return st.Import(items)
 }
 
+// Retention 当前会话保留天数（默认 30）。
+func (s *SessionService) Retention() int {
+	st, err := s.get()
+	if err != nil {
+		return 30
+	}
+	return st.RetentionDays()
+}
+
+// SetRetention 设置会话保留天数（只接受 3 / 7 / 15 / 30）。
+//
+// 只改设置，不立刻清库：清理在启动时后台做，用户改完设置点关闭就走，
+// 不该为了「马上生效」让界面等一次删库。
+func (s *SessionService) SetRetention(days int) error {
+	st, err := s.get()
+	if err != nil {
+		return err
+	}
+	return st.SetRetentionDays(days)
+}
+
+// ClearAll 清空全部会话历史，返回删掉的会话数。不可恢复。
+func (s *SessionService) ClearAll() (int, error) {
+	st, err := s.get()
+	if err != nil {
+		return 0, err
+	}
+	return st.ClearAll()
+}
+
 // StoragePath 库文件路径（「关于」页面显示用，也方便用户备份）。
 func (s *SessionService) StoragePath() string {
 	st, err := s.get()

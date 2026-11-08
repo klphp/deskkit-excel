@@ -9,8 +9,8 @@ import (
 	"github.com/klphp/excel-batch-tool/internal/ai"
 	"github.com/klphp/excel-batch-tool/internal/boot"
 	"github.com/klphp/excel-batch-tool/internal/packs"
-	"github.com/klphp/excel-batch-tool/internal/session"
 	"github.com/klphp/excel-batch-tool/internal/services"
+	"github.com/klphp/excel-batch-tool/internal/session"
 )
 
 // 内核要用的配置（app.yaml + windows.yaml）。
@@ -55,6 +55,21 @@ func main() {
 				slog.Warn("会话存储不可用，历史功能关闭", "err", err)
 			} else {
 				sessSvc.BindStore(sessStore)
+
+				// 清理过期会话：丢到协程里做，不挡启动。
+				// 库可能很大（几千条消息），同步跑会让窗口晚几百毫秒才出来，
+				// 而这件事用户根本不等着看结果。
+				go func() {
+					days := sessStore.RetentionDays()
+					n, err := sessStore.Prune(days)
+					if err != nil {
+						slog.Warn("清理过期会话失败", "err", err)
+						return
+					}
+					if n > 0 {
+						slog.Info("已清理过期会话", "removed", n, "retentionDays", days)
+					}
+				}()
 			}
 
 			// 能力包：今天只有表格，之后视频 / PDF 各自是一个包，

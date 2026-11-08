@@ -221,6 +221,23 @@ export async function initSessions() {
   }
 }
 
+/**
+ * 外部（比如设置里清空历史）改动库之后，让界面重新对一次。
+ *
+ * 没有会话了就新建一个空会话 —— 主界面必须始终有一个「当前会话」，
+ * 否则输入框发出去没地方落。
+ */
+export async function refreshSessions(): Promise<void> {
+  if (!ready.value) return;
+  await reload();
+  if (summaries.value.length === 0) {
+    await create();
+    return;
+  }
+  const stillThere = summaries.value.some((s) => s.id === currentId.value);
+  await select(stillThere ? currentId.value : summaries.value[0].id);
+}
+
 export function useSessions() {
   return {
     summaries,

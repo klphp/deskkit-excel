@@ -117,6 +117,12 @@ func (s *Store) migrate() error {
 			created_at INTEGER NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, id)`,
+		// 库自身的设置（保留天数等）。单独一张表而不是塞 JSON 文件：
+		// 少一个要跟用户目录同步的东西，也不会出现「配置说 7 天、库按 30 天清」。
+		`CREATE TABLE IF NOT EXISTS meta (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		)`,
 	}
 	for _, q := range stmts {
 		if _, err := s.db.Exec(q); err != nil {

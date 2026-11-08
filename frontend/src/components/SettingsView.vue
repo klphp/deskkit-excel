@@ -9,6 +9,9 @@ import { computed } from "vue";
 import { Languages } from "@lucide/vue";
 import { setTheme, useTheme, type ThemeMode } from "../composables/useTheme";
 import { useChatFont } from "../composables/useChatFont";
+import { onMounted, ref } from "vue";
+import * as Sessions from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/sessionservice";
+import { refreshSessions } from "../composables/sessions";
 import { useI18n } from "../i18n";
 
 type AppInfo = {
@@ -34,6 +37,45 @@ defineProps<{ info: AppInfo | null }>();
 const { mode } = useTheme();
 const { size: chatFont, setChatFont, sizes: fontSizes, labels: fontLabels } = useChatFont();
 const { t, locale, enabled: i18nEnabled, available, setLocale } = useI18n();
+
+// ── 会话历史保留 ──
+// 只在 Go 侧存一份（会话库的 meta 表），启动时后台按它清理。
+const retentionOptions = [3, 7, 15, 30];
+const retention = ref(30);
+
+onMounted(async () => {
+  try {
+    retention.value = await Sessions.Retention();
+  } catch {
+    /* 会话库不可用时保持默认 */
+  }
+});
+
+/** 清空确认：不可恢复，所以要点第二次才真删。 */
+const confirmingClear = ref(false);
+const clearing = ref(false);
+
+async function doClearAll() {
+  clearing.value = true;
+  try {
+    await Sessions.ClearAll();
+    await refreshSessions();
+    confirmingClear.value = false;
+  } catch {
+    /* 失败就留在确认态，用户能看到没成功 */
+  } finally {
+    clearing.value = false;
+  }
+}
+
+async function setRetention(days: number) {
+  retention.value = days;
+  try {
+    await Sessions.SetRetention(days);
+  } catch {
+    /* 失败就保持界面值，下次打开会读回真实值 */
+  }
+}
 
 // ── 语言 ──
 // 只在 i18n 启用且配了多种语言时才显示这一块
@@ -101,6 +143,57 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
         >
           {{ t(fontLabels[s]) }}
         </button>
+      </div>
+    </div>
+
+    <!-- ── 会话历史 ──
+         按「最后一次使用时间」清理，启动时在后台做，不挡窗口。 -->
+    <div class="rounded-lg border border-border bg-card p-6">
+      <h2 class="mb-3 text-sm font-semibold">{{ t("settings.history.title") }}</h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          v-for="d in retentionOptions"
+          :key="d"
+          type="button"
+          class="h-9 min-w-[64px] rounded-md border text-[13px] transition-colors"
+          :class="
+            retention === d
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          "
+          @click="setRetention(d)"
+        >
+          {{ d }} {{ t("settings.history.days") }}
+        </button>
+
+        <!-- 清空：点一次问一次，第二次才真删 -->
+        <template v-if="!confirmingClear">
+          <button
+            type="button"
+            class="ml-auto h-9 rounded-md border border-border px-3 text-[13px] text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+            @click="confirmingClear = true"
+          >
+            {{ t("settings.history.clear") }}
+          </button>
+        </template>
+        <template v-else>
+          <span class="ml-auto text-[13px] text-destructive">{{ t("settings.history.clearConfirm") }}</span>
+          <button
+            type="button"
+            class="h-9 rounded-md bg-destructive px-3 text-[13px] font-medium text-destructive-foreground disabled:opacity-50"
+            :disabled="clearing"
+            @click="doClearAll"
+          >
+            {{ clearing ? t("settings.history.clearing") : t("settings.history.clearYes") }}
+          </button>
+          <button
+            type="button"
+            class="h-9 rounded-md border border-border px-3 text-[13px] text-muted-foreground hover:bg-accent"
+            @click="confirmingClear = false"
+          >
+            {{ t("settings.history.clearNo") }}
+          </button>
+        </template>
       </div>
     </div>
 

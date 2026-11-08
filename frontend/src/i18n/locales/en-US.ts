@@ -123,6 +123,13 @@ export const enUS = {
   "settings.font.medium": "Medium",
   "settings.font.large": "Large",
   "settings.font.title": "Chat text size",
+  "settings.history.clear": "Clear history",
+  "settings.history.clearConfirm": "This cannot be undone. Continue?",
+  "settings.history.clearYes": "Clear",
+  "settings.history.clearNo": "Cancel",
+  "settings.history.clearing": "Clearing",
+  "settings.history.title": "Chat history",
+  "settings.history.days": "d",
   "settings.language": "Language",
   "settings.upToDate": "Up to date",
 

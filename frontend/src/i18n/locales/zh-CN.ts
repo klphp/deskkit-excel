@@ -130,6 +130,13 @@ export const zhCN = {
   "settings.font.medium": "中",
   "settings.font.large": "大",
   "settings.font.title": "会话区字号",
+  "settings.history.clear": "清空历史",
+  "settings.history.clearConfirm": "清空后无法恢复，继续？",
+  "settings.history.clearYes": "清空",
+  "settings.history.clearNo": "取消",
+  "settings.history.clearing": "清理中",
+  "settings.history.title": "会话历史",
+  "settings.history.days": "天",
   "settings.language": "界面语言",
   "settings.upToDate": "已是最新版本",
 

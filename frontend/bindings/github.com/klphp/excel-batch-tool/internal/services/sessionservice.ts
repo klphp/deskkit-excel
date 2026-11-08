@@ -29,6 +29,13 @@ export function BindStore(st: session$0.Store | null): $CancellablePromise<void>
 }
 
 /**
+ * ClearAll 清空全部会话历史，返回删掉的会话数。不可恢复。
+ */
+export function ClearAll(): $CancellablePromise<number> {
+    return $Call.ByID(459405531);
+}
+
+/**
  * Delete 删除会话。
  */
 export function Delete(id: string): $CancellablePromise<void> {
@@ -72,6 +79,23 @@ export function Ready(): $CancellablePromise<boolean> {
  */
 export function Rename(id: string, title: string): $CancellablePromise<void> {
     return $Call.ByID(792429693, id, title);
+}
+
+/**
+ * Retention 当前会话保留天数（默认 30）。
+ */
+export function Retention(): $CancellablePromise<number> {
+    return $Call.ByID(3542803263);
+}
+
+/**
+ * SetRetention 设置会话保留天数（只接受 3 / 7 / 15 / 30）。
+ * 
+ * 只改设置，不立刻清库：清理在启动时后台做，用户改完设置点关闭就走，
+ * 不该为了「马上生效」让界面等一次删库。
+ */
+export function SetRetention(days: number): $CancellablePromise<void> {
+    return $Call.ByID(1312561977, days);
 }
 
 /**
