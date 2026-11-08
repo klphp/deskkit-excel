@@ -517,13 +517,13 @@ onUnmounted(() => {
 
         <div v-for="(turn, i) in turns" :key="i" class="mb-5">
           <div v-if="turn.role === 'user'" class="flex justify-end">
-            <div class="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-[15px] leading-[1.7] text-primary-foreground">
+            <div class="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-[length:var(--chat-fs)] leading-[1.7] text-primary-foreground">
               {{ turn.content }}
             </div>
           </div>
           <!-- 模型回答按 markdown 渲染：表格、代码块、列表都是常态 -->
           <template v-else-if="turn.role === 'assistant'">
-            <div class="md selectable text-[15px] leading-[1.75]" v-html="renderMarkdown(turn.content)" />
+            <div class="md selectable text-[length:var(--chat-fs)] leading-[1.75]" v-html="renderMarkdown(turn.content)" />
             <!-- 底部三个图标：赞、踩、复制。前两个只是手感，不记录 -->
             <div class="mt-1.5 flex items-center gap-0.5">
               <button
@@ -584,7 +584,7 @@ onUnmounted(() => {
         </div>
 
         <!-- 流式过程中也渲染：边出边成形，不会先看到一堆 *** -->
-        <div v-if="streaming" class="md selectable text-[15px] leading-[1.75]" v-html="renderMarkdown(streaming)" />
+        <div v-if="streaming" class="md selectable text-[length:var(--chat-fs)] leading-[1.75]" v-html="renderMarkdown(streaming)" />
         <div v-if="busy && !streaming" class="flex items-center gap-2 text-[13px] text-muted-foreground">
           <Loader2 :size="13" class="animate-spin" />{{ t("ai.thinking") }}
         </div>
@@ -643,7 +643,7 @@ onUnmounted(() => {
             v-model="draft"
             rows="1"
             :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
-            class="max-h-[200px] min-h-[24px] w-full resize-none bg-transparent py-1 pr-8 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground"
+            class="max-h-[200px] min-h-[24px] w-full resize-none bg-transparent py-1 pr-8 text-[length:var(--chat-fs)] leading-[1.6] outline-none placeholder:text-muted-foreground"
             @input="autogrow"
             @keydown="onKeydown"
             @keydown.esc="onEscape"
@@ -755,7 +755,7 @@ onUnmounted(() => {
           <textarea
             ref="expandedInput"
             v-model="draft"
-            class="min-h-0 flex-1 resize-none bg-transparent text-[15px] leading-[1.75] outline-none placeholder:text-muted-foreground"
+            class="min-h-0 flex-1 resize-none bg-transparent text-[length:var(--chat-fs)] leading-[1.75] outline-none placeholder:text-muted-foreground"
             :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
             @keydown="onKeydown"
             @keydown.esc="onEscape"

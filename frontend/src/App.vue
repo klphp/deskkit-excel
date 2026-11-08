@@ -23,6 +23,7 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { Events } from "@wailsio/runtime";
 import { initTheme } from "./composables/useTheme";
+import { initChatFont } from "./composables/useChatFont";
 import { initI18n, useI18n } from "./i18n";
 import TitleBar from "./components/TitleBar.vue";
 import { openWindow } from "./lib/windows";
@@ -105,6 +106,7 @@ onMounted(async () => {
   // 主题必须在每个窗口各自初始化一次 —— 子窗口是独立的 WebView，
   // 虽然 localStorage 同源共享，但 .dark 类是挂在各自 document 上的。
   initTheme();
+  initChatFont();
 
   view.value = new URLSearchParams(location.search).get("view") ?? "";
 

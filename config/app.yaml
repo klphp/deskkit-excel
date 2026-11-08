@@ -84,13 +84,13 @@ update:
 # 语言切换入口出现在设置窗口，只列出 locales 里的语言。
 # ─────────────────────────────────────────────────────────────
 i18n:
-  enabled: false
+  # 打开：设置页出现语言切换，选完写 localStorage，重启保持。
+  enabled: true
   defaultLocale: zh-CN
   fallbackLocale: zh-CN
   locales:
     - zh-CN
-    # - en-US      # 需要时取消注释；locales/en-US.ts 已经有骨架，
-    #              # 缺的词条会自动回退中文，可以分批翻译
+    - en-US        # 缺的词条自动回退中文，可以分批翻译
 
 # 官方/第三方 API 对接
 apis:

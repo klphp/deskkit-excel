@@ -8,6 +8,7 @@
 import { computed, onMounted, ref } from "vue";
 import { Check, Loader2, Download, AlertCircle, CheckCircle2, Languages } from "@lucide/vue";
 import { setTheme, useTheme, type ThemeMode } from "../composables/useTheme";
+import { useChatFont } from "../composables/useChatFont";
 import { useI18n } from "../i18n";
 
 type AppInfo = {
@@ -31,6 +32,7 @@ type AppInfo = {
 const props = defineProps<{ info: AppInfo | null }>();
 
 const { mode } = useTheme();
+const { size: chatFont, setChatFont, sizes: fontSizes, labels: fontLabels } = useChatFont();
 const { t, locale, enabled: i18nEnabled, available, setLocale } = useI18n();
 
 // ── 语言 ──
@@ -138,10 +140,7 @@ async function installUpdate() {
   <div class="mx-auto max-w-md space-y-4 p-6">
     <!-- ── 外观 ── -->
     <div class="rounded-lg border border-border bg-card p-6">
-      <h2 class="mb-1 text-sm font-semibold">{{ t("settings.appearance") }}</h2>
-      <p class="mb-3 text-xs text-muted-foreground">
-        {{ t("settings.appearanceHint") }}
-      </p>
+      <h2 class="mb-3 text-sm font-semibold">{{ t("settings.appearance") }}</h2>
       <div class="flex gap-2">
         <button
           v-for="opt in themeOptions"
@@ -160,12 +159,34 @@ async function installUpdate() {
       </div>
     </div>
 
+    <!-- ── 会话区字号 ──
+         只影响对话正文，界面其它部分（按钮、标签）不跟着放大：
+         那些放大只会挤占空间，真正需要放大的是要读的内容。 -->
+    <div class="rounded-lg border border-border bg-card p-6">
+      <h2 class="mb-3 text-sm font-semibold">{{ t("settings.font.title") }}</h2>
+      <div class="flex items-center gap-2">
+        <button
+          v-for="s in fontSizes"
+          :key="s"
+          type="button"
+          class="h-9 min-w-[64px] rounded-md border text-[13px] transition-colors"
+          :class="
+            chatFont === s
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          "
+          @click="setChatFont(s)"
+        >
+          {{ t(fontLabels[s]) }}
+        </button>
+      </div>
+    </div>
+
     <!-- ── 语言 ──
          只有 i18n 启用、且配了两种以上语言时才出现。默认配置下这一块
          完全不存在，界面和没有多语言时一样。 -->
     <div v-if="showLanguage" class="rounded-lg border border-border bg-card p-6">
-      <h2 class="mb-1 text-sm font-semibold">{{ t("settings.language") }}</h2>
-      <p class="mb-3 text-xs text-muted-foreground">{{ t("settings.languageHint") }}</p>
+      <h2 class="mb-3 text-sm font-semibold">{{ t("settings.language") }}</h2>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="l in available"

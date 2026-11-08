@@ -123,12 +123,14 @@ export const zhCN = {
 
   // ── 设置 / 关于 ──
   "settings.appearance": "外观",
-  "settings.appearanceHint": "默认跟随系统。深色用的是柔和底色，不是纯黑配白字。",
   "settings.theme.system": "跟随系统",
   "settings.theme.light": "浅色",
   "settings.theme.dark": "深色",
+  "settings.font.small": "小",
+  "settings.font.medium": "中",
+  "settings.font.large": "大",
+  "settings.font.title": "会话区字号",
   "settings.language": "界面语言",
-  "settings.languageHint": "切换后立即生效。",
   "settings.update": "更新",
   "settings.updateIdle": "尚未检查",
   "settings.updateNotConfigured": "未配置更新源",
