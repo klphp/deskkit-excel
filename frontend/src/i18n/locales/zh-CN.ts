@@ -69,7 +69,7 @@ export const zhCN = {
   "session.new": "新会话",
   "session.empty": "还没有会话",
   "session.untitled": "未命名对话",
-  "session.today": "今天",
+  "session.all": "全部",
   "session.earlier": "更早",
   "session.delete": "删除会话",
   "intro.kicker": "本地文件处理",

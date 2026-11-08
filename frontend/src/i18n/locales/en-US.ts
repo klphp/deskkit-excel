@@ -64,7 +64,7 @@ export const enUS = {
   "session.new": "New chat",
   "session.empty": "No conversations yet",
   "session.untitled": "Untitled",
-  "session.today": "Today",
+  "session.all": "All",
   "session.earlier": "Earlier",
   "session.delete": "Delete",
   "intro.kicker": "Local file processing",

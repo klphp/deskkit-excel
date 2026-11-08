@@ -30,22 +30,6 @@ const editInput = ref<HTMLInputElement | null>(null);
 /** 正在确认删除的会话 id。 */
 const confirmId = ref("");
 
-/** 今天 / 更早分组，避免一长串时间戳。 */
-const groups = computed(() => {
-  type Item = (typeof sess.ordered.value)[number];
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const today: Item[] = [];
-  const earlier: Item[] = [];
-  for (const s of sess.ordered.value) {
-    (s.updatedAt * 1000 >= startOfToday ? today : earlier).push(s);
-  }
-  return [
-    { label: t("session.today"), items: today },
-    { label: t("session.earlier"), items: earlier },
-  ].filter((g) => g.items.length > 0);
-});
-
 function timeOf(ts: number): string {
   // 后端存的是秒
   const d = new Date(ts * 1000);
@@ -118,12 +102,12 @@ async function doDelete(id: string, ev: MouseEvent) {
         {{ t("session.empty") }}
       </p>
 
-      <template v-for="g in groups" :key="g.label">
+      <template v-if="sess.ordered.value.length > 0">
         <p class="px-1.5 pb-1 pt-2.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
-          {{ g.label }}
+          {{ t("session.all") }}
         </p>
 
-        <div v-for="s in g.items" :key="s.id" class="relative">
+        <div v-for="s in sess.ordered.value" :key="s.id" class="relative">
           <!-- 重命名：行内输入 -->
           <div v-if="editingId === s.id" class="flex items-center gap-1 rounded-lg bg-accent px-2 py-[5px]">
             <input
