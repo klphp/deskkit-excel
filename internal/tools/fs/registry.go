@@ -60,6 +60,36 @@ func Register(r *ai.Registry) error {
 		return err
 	}
 
+	// ── 看一眼这个文件是什么 ──
+	peekDef, err := ai.FunctionTool("fs_peek",
+		"读文件头部，告诉你编码、列分隔符、表头和前几行内容。处理任何未知文件之前先调它，别猜格式——国内导出的 CSV 常是 GBK，猜错就是满屏乱码。",
+		map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"path":     map[string]any{"type": "string", "description": "文件绝对路径"},
+				"maxLines": map[string]any{"type": "integer", "description": "返回多少行样本，默认 10，上限 50"},
+			},
+			"required": []string{"path"},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if err := r.Add(peekDef, func(ctx context.Context, args json.RawMessage) (string, error) {
+		var in PeekOptions
+		if err := json.Unmarshal(args, &in); err != nil {
+			return "", err
+		}
+		res, err := g.Peek(ctx, in)
+		if err != nil {
+			return "", err
+		}
+		raw, _ := json.Marshal(res)
+		return string(raw), nil
+	}); err != nil {
+		return err
+	}
+
 	// ── 创建目录 ──
 	mkdirDef, err := ai.FunctionTool("fs_mkdir",
 		"创建目录（含多级）。已存在时视为成功。",

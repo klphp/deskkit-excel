@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -21,6 +22,10 @@ const (
 	EventAIDone  = "ai:done"  // {content, usage, finishReason}
 	EventAIError = "ai:error" // {kind, message, hint}
 	EventAITool  = "ai:tool"  // ai.Event（tool_call / tool_result）
+	// EventAIAsk 模型向用户提问，等界面上的一次点击。
+	// 载荷 {question, options[], detail}：前端渲染成按钮，点了就把那一条
+	// 当作新的用户消息发回去。
+	EventAIAsk = "ai:ask"
 )
 
 // AIService AI 在前端的门面。
@@ -303,6 +308,14 @@ func (s *AIService) ChatAgent(ctx context.Context, in ChatInput) (ChatResult, er
 			if ev.Text != "" {
 				s.emit(EventAIDelta, map[string]any{"content": ev.Text})
 			}
+		case ai.EventAwaiting:
+			// 模型问了用户一个问题，等界面上的一次点击。
+			// 原样把 question/options/detail 推给前端，前端渲染成按钮。
+			var ask map[string]any
+			if err := json.Unmarshal([]byte(ev.Text), &ask); err != nil {
+				ask = map[string]any{"question": ev.Text, "options": []string{}}
+			}
+			s.emit(EventAIAsk, ask)
 		}
 	})
 	if e != nil {

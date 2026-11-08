@@ -40,6 +40,8 @@ import {
   errorText,
   onDelta,
   onTool,
+  onAsk,
+  type AskPayload,
   withWorkspace,
   type ChatTurn,
   type ProviderInfo,
@@ -127,6 +129,14 @@ const reactions = ref<Record<number, 1 | -1 | 0>>({});
 /** 刚复制过的那条（显示一瞬间的 ✓）。 */
 const copiedAt = ref(-1);
 
+/**
+ * 模型正在等用户点选的问题。
+ *
+ * 为什么不用弹窗：这个问题属于对话流程的一部分，答案也要留在对话里
+ * （用户以后回看能知道自己当时选了什么）。弹窗会把它从上下文里摘出去。
+ */
+const pendingAsk = ref<AskPayload | null>(null);
+
 function react(idx: number, kind: 1 | -1) {
   // 再点一次取消，像真的按钮
   reactions.value[idx] = reactions.value[idx] === kind ? 0 : kind;
@@ -146,6 +156,7 @@ async function copyTurn(idx: number, text: string) {
 
 let offDelta: (() => void) | null = null;
 let offTool: (() => void) | null = null;
+let offAsk: (() => void) | null = null;
 
 const current = computed(() => providers.value.find((p) => p.name === provider.value));
 
@@ -309,6 +320,15 @@ async function saveModel() {
   }
 }
 
+/** 用户点了某个选项：当成一条用户消息发回去，卡片收起。 */
+async function answerAsk(choice: string) {
+  const ask = pendingAsk.value;
+  pendingAsk.value = null;
+  if (!ask) return;
+  draft.value = choice;
+  await send();
+}
+
 async function scrollToBottom() {
   await nextTick();
   const el = scroller.value;
@@ -416,6 +436,11 @@ async function send() {
 
   offDelta = onDelta((chunk) => {
     streaming.value += chunk;
+    scrollToBottom();
+  });
+
+  offAsk = onAsk((ask) => {
+    pendingAsk.value = ask;
     scrollToBottom();
   });
 
@@ -530,6 +555,7 @@ onMounted(() => {
 onUnmounted(() => {
   offDelta?.();
   offTool?.();
+  offAsk?.();
 });
 </script>
 
@@ -637,6 +663,27 @@ onUnmounted(() => {
             <Check v-else-if="s.ok" :size="12" class="mt-0.5 text-emerald-600" />
             <X v-else :size="12" class="mt-0.5 text-destructive" />
             <span class="min-w-0 truncate">{{ s.detail }}</span>
+          </div>
+        </div>
+
+        <!-- ── 模型在等用户点选 ──
+             渲染成按钮而不是让它自己打字回答：问题本身就是个小决定，
+             点一下比敲一段话快，也不会答得含糊。 -->
+        <div v-if="pendingAsk" class="mt-1 mb-3 rounded-xl border border-border bg-card p-3.5">
+          <p class="text-[length:var(--chat-fs)] leading-[1.6]">{{ pendingAsk.question }}</p>
+          <p v-if="pendingAsk.detail" class="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-muted-foreground">
+            {{ pendingAsk.detail }}
+          </p>
+          <div class="mt-2.5 flex flex-wrap gap-1.5">
+            <button
+              v-for="opt in pendingAsk.options"
+              :key="opt"
+              type="button"
+              class="rounded-md border border-input bg-background px-3 py-1.5 text-[13px] transition-[transform,background-color,border-color] hover:border-primary/50 hover:bg-accent active:scale-[0.97]"
+              @click="answerAsk(opt)"
+            >
+              {{ opt }}
+            </button>
           </div>
         </div>
 

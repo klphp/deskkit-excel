@@ -102,6 +102,16 @@ export function withWorkspace(turns: ChatTurn[], ws: Workspace): ChatTurn[] {
     lines.push("用户没有选择功能，这是普通对话：不要主动调用文件处理工具，除非他明确要求。");
   }
 
+  // ── 危险操作 ──
+  // 模型最危险的不是「做错」，是「不打招呼就做」。删文件、覆盖、移动整个目录
+  // 这类动作必须先摊开影响面，让用户有机会喊停。
+  lines.push("");
+  lines.push("危险操作（删除、覆盖、移动整个目录、批量改名）必须先说清再动手，一步都不许省：");
+  lines.push("1. 明确列出会被影响的每一项：该操作会删除 A、B、C 共 3 项。不要用「这些文件」这种含糊说法。");
+  lines.push("2. 加一句风险提示：为避免误操作，建议先备份。");
+  lines.push("3. 问一句确认：确定继续吗？然后停下来等用户回答，不要自己替用户答。");
+  lines.push("4. 用户明确同意之后才调用工具；他改口、犹豫或没回答就都不要动。");
+
   // ── 出问题怎么办 ──
   // 这一段是给模型的「故障处理顺序」。没有它，模型遇到错误最常见的三种反应是：
   // 原样重试、猜一个路径、编一个结果 —— 三种都比报错更糟。
@@ -140,6 +150,26 @@ export function onTool(handler: (ev: ToolEvent) => void): () => void {
   return Events.On("ai:tool", (ev) => {
     const payload = ev.data as ToolEvent | undefined;
     if (payload?.type) handler(payload);
+  });
+}
+
+/** 模型向用户提问：{question, options[], detail}。 */
+export type AskPayload = {
+  question: string;
+  options: string[];
+  detail?: string;
+};
+
+/**
+ * 订阅「模型提问」事件。返回退订函数。
+ *
+ * 模型调 ask_user 之后本轮就结束了，所以这里必须由界面接住：
+ * 渲染成按钮，用户点一下就把那一条当新消息发回去。
+ */
+export function onAsk(handler: (ask: AskPayload) => void): () => void {
+  return Events.On("ai:ask", (ev) => {
+    const p = ev.data as AskPayload | undefined;
+    if (p?.question) handler({ question: p.question, options: p.options ?? [], detail: p.detail });
   });
 }
 

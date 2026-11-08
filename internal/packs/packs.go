@@ -34,6 +34,72 @@ func All() []capability.Pack {
 	}
 }
 
+// registerAskTool 注册「问用户」这个元工具。
+//
+// 为什么需要它：模型遇到需要用户决定的事（删哪些文件、按哪列去重、
+// 要不要覆盖），纯文本问一句「确定吗」体验很差 —— 用户得自己打字回答，
+// 而且容易答得含糊。有了这个工具，问题会变成界面上的按钮，点一下就答完。
+//
+// 实现上是「问完就停」：工具返回一个带标记的结果，循环层看到标记就不再
+// 继续调用模型，把回合交给用户。否则模型会在没有答案的情况下自己编一个。
+func registerAskTool(r *ai.Registry) error {
+	def, err := ai.FunctionTool("ask_user",
+		"向用户提问并给出可点选的选项。需要用户做决定时用它，而不是在正文里问「确定吗」："+
+			"删除/覆盖/移动等危险操作前确认、缺关键信息（按哪列去重、输出到哪）、"+
+			"或让用户在几种做法里选一种。调用后本轮结束，等用户点选。",
+		map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"question": map[string]any{
+					"type":        "string",
+					"description": "问题本身，一句话。要具体，别问「继续吗」这种没有信息量的话",
+				},
+				"options": map[string]any{
+					"type":        "array",
+					"items":       map[string]any{"type": "string"},
+					"description": "2 到 4 个可选项，按推荐顺序排列。用户点了哪个，哪个就是他的回答",
+				},
+				"detail": map[string]any{
+					"type":        "string",
+					"description": "可选的补充说明，例如将被影响的文件清单、风险提示。",
+				},
+			},
+			"required": []string{"question", "options"},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	type askArgs struct {
+		Question string   `json:"question"`
+		Options  []string `json:"options"`
+		Detail   string   `json:"detail,omitempty"`
+	}
+
+	return r.Add(def, func(ctx context.Context, args json.RawMessage) (string, error) {
+		var in askArgs
+		if err := json.Unmarshal(args, &in); err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(in.Question) == "" {
+			return "", fmt.Errorf("question 不能为空")
+		}
+		// 选项数量收口：0 个就是普通文本提问（没有可点的东西），
+		// 超过 4 个界面会挤成一团，而且用户选择反而变慢。
+		opts := in.Options
+		if len(opts) > 4 {
+			opts = opts[:4]
+		}
+		payload, _ := json.Marshal(map[string]any{
+			"question": in.Question,
+			"options":  opts,
+			"detail":   in.Detail,
+		})
+		return ai.AwaitPrefix + string(payload), nil
+	})
+}
+
 // registerMetaTools 注册「查用法」这个元工具。
 //
 // 为什么让 AI 自己去查，而不是把所有用法塞进系统提示：
@@ -137,6 +203,9 @@ func Register(r *ai.Registry, enabled []string) (loaded []capability.Pack, err e
 
 	// 元工具最后挂：它要能查到本次实际装载了哪些包
 	if err := registerMetaTools(r, loaded); err != nil {
+		return loaded, err
+	}
+	if err := registerAskTool(r); err != nil {
 		return loaded, err
 	}
 	return loaded, nil

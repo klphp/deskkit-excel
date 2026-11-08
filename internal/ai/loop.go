@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -118,7 +119,7 @@ func FunctionTool(name, description string, params any) (Tool, error) {
 
 // Event 循环过程中的事件，用于把进度推给前端。
 type Event struct {
-	// Type: assistant / tool_call / tool_result / done
+	// Type: assistant / tool_call / tool_result / awaiting / done
 	Type string `json:"type"`
 	Text string `json:"text,omitempty"`
 	// Tool 与 Args 仅 tool_call 时有值；Result 与 Err 仅 tool_result 时有值。
@@ -135,7 +136,18 @@ const (
 	EventToolCall   = "tool_call"
 	EventToolResult = "tool_result"
 	EventDone       = "done"
+	// EventAwaiting 表示「问了用户一个问题，正在等回答」。
+	// 循环到此为止：模型已经停下，接下来的输入来自界面上的一次点击。
+	EventAwaiting = "awaiting"
 )
+
+// AwaitPrefix 是 ask_user 工具返回结果的标记前缀。
+//
+// 为什么用前缀而不是新加一种返回类型：ToolFunc 的签名是
+// func(ctx, args) (string, error)，全项目几十个工具都按这个写。
+// 为一个工具改签名不值得；用一段几乎不可能自然出现的前缀标记，
+// 循环层看到它就把回合交给用户。
+const AwaitPrefix = "\x00await_user\x00"
 
 // Loop 工具调用循环。
 //
@@ -212,6 +224,14 @@ func (l *Loop) Run(ctx context.Context, msgs []Message, emit func(Event)) (*Resp
 			}
 
 			out, err := l.registry.Execute(ctx, call.Function.Name, call.Function.Arguments)
+			// ask_user 问了用户一个问题：把回合交给用户，不要自己替用户答。
+			// 这里必须停 —— 继续下一轮的话，模型会在没有答案的情况下编一个。
+			if strings.HasPrefix(out, AwaitPrefix) {
+				if emit != nil {
+					emit(Event{Type: EventAwaiting, Text: strings.TrimPrefix(out, AwaitPrefix), Tool: call.Function.Name, Round: round})
+				}
+				return last, nil
+			}
 			if err != nil {
 				// 工具失败也回灌，让模型自己决定换个做法还是如实告诉用户
 				out = "错误: " + err.Error()
