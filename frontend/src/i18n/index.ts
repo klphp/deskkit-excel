@@ -105,12 +105,17 @@ export async function setLocale(l: string): Promise<void> {
  * 最后那一步是有意的：漏翻时页面上出现 key（比如 settings.update）比
  * 出现空白更容易定位问题。
  */
-export function t(key: string): string {
-  return (
+export function t(key: string, params?: Record<string, string | number>): string {
+  const raw =
     messages[locale.value]?.[key] ??
     messages[fallback]?.[key] ??
     messages["zh-CN"]?.[key] ??
-    key
+    key;
+  if (!params) return raw;
+  // 简单插值 {n}：够用，不为几个占位符引一整个模板库。
+  // 注意读取 locale.value —— 保持 t 对语言切换的反应性。
+  return raw.replace(/\{(\w+)\}/g, (whole, name: string) =>
+    name in params ? String(params[name]) : whole,
   );
 }
 

@@ -38,7 +38,7 @@ import {
   type ToolEvent,
 } from "../lib/ai";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const ws = useWorkspace();
 const sess = useSessions();
 
@@ -60,12 +60,24 @@ const steps = ref<Step[]>([]);
 /** 与 sessions.ts 的每页条数保持一致：分页标记就打在每页的分界处。 */
 const MSG_PAGE = 20;
 
-/** 分页标记上的文字：这条消息的时间。 */
+/**
+ * 分页标记上的文字：这条消息的时间。
+ *
+ * 用 Intl 按当前语言格式化，而不是手拼「10月8日」——
+ * 拼死的中文在英文界面里会格外刺眼（"10月8日" 夹在 English 里）。
+ */
 function pageMarkLabel(at?: number): string {
-  if (!at) return "更早的消息";
-  const d = new Date(at * 1000);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (!at) return t("chat.earlierMessages");
+  try {
+    return new Intl.DateTimeFormat(locale.value, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(at * 1000));
+  } catch {
+    return new Date(at * 1000).toLocaleString();
+  }
 }
 
 const enabled = ref(false);
@@ -380,7 +392,7 @@ async function answerConfirm(ok: boolean) {
   const c = pendingConfirm.value;
   pendingConfirm.value = null;
   if (!c) return;
-  draft.value = ok ? `确认执行（令牌 ${c.token}）` : "取消，不要执行";
+  draft.value = ok ? t("chat.confirmToken", { token: c.token }) : t("chat.declineAction");
   await send();
 }
 

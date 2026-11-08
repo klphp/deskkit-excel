@@ -3,6 +3,10 @@
  * for GitHub distribution, with Chinese as a first-class secondary.
  */
 export const enUS = {
+  "chat.earlierMessages": "Earlier messages",
+  "chat.confirmToken": "Confirm execution (token {token})",
+  "chat.declineAction": "Cancel, do not run",
+  "ai.itemsCount": "{n} items",
   "ai.removePath": "Remove this item",
   "ai.clearPaths": "Clear all",
   "ai.attach": "Add files or folders",

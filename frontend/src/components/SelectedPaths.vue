@@ -48,7 +48,9 @@ const rows = computed<Row[]>(() =>
         @click="open = !open"
       >
         <FolderOpen :size="12" class="shrink-0 text-muted-foreground" />
-        <span class="shrink-0 font-medium">{{ ws.selectionLabel.value }}</span>
+        <span class="shrink-0 font-medium">
+          {{ rows.length === 1 ? rows[0].name : t("ai.itemsCount", { n: rows.length }) }}
+        </span>
         <span v-if="rows.length === 1" class="min-w-0 truncate text-muted-foreground">{{ rows[0].path }}</span>
         <ChevronDown :size="12" class="shrink-0 text-muted-foreground" />
       </button>

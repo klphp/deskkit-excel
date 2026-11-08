@@ -29,13 +29,13 @@ const busy = ref(false);
 const usage = ref("");
 const failure = ref("");
 
-/** 选择摘要：一个就显示名字，多个显示「3 项」。 */
-const selectionLabel = computed(() => {
-  const list = paths.value;
-  if (list.length === 0) return "";
-  if (list.length === 1) return list[0].split("/").pop() ?? list[0];
-  return `${list.length} 项`;
-});
+/**
+ * 已选数量。
+ *
+ * 这里只给数字，不给文案 —— 之前这里拼了「3 项」，切英文时它不会变
+ * （它压根不走 i18n）。文案属于界面，状态属于 composable。
+ */
+const selectedCount = computed(() => paths.value.length);
 
 // 不做类型探查：用户可能选表格，也可能选视频、PDF、一整个目录。
 // 替他判断「这是什么文件、有几张表」纯属多余，判断错了反而误导，
@@ -125,7 +125,7 @@ export function useWorkspace() {
     feature,
     packs,
     paths,
-    selectionLabel,
+    selectedCount,
     busy,
     failure,
     usage,

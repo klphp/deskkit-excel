@@ -6,6 +6,10 @@
  * 需要解释的东西也少了大半。
  */
 export const zhCN = {
+  "chat.earlierMessages": "更早的消息",
+  "chat.confirmToken": "确认执行（令牌 {token}）",
+  "chat.declineAction": "取消，不要执行",
+  "ai.itemsCount": "{n} 项",
   "ai.removePath": "移除这一项",
   "ai.clearPaths": "清空已选",
   "ai.attach": "添加文件或文件夹",
