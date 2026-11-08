@@ -15,6 +15,7 @@ import { ArrowDown, ArrowUp, Check, ChevronDown, Copy, FileSpreadsheet, FileText
 import { useI18n } from "../i18n";
 import { renderMarkdown } from "../lib/markdown";
 import { useWorkspace } from "../composables/workspace";
+import AttachButton from "./AttachButton.vue";
 import * as Tools from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/toolservice";
 import * as Prefs from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/prefsservice";
 import * as Sessions from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/sessionservice";
@@ -87,18 +88,6 @@ const testResult = ref<TestResult | null>(null);
 const failure = ref("");
 const showSettings = ref(false);
 /** 功能选择下拉。 */
-const showFeatures = ref(false);
-/** 附件菜单是否展开。 */
-const showAttach = ref(false);
-
-async function chooseFiles() {
-  showAttach.value = false;
-  await ws.pickFiles(t("ai.pickFiles"));
-}
-async function chooseDirs() {
-  showAttach.value = false;
-  await ws.pickDirs(t("ai.pickFolder"));
-}
 /** 首次选某个功能时的组件提示。 */
 const pendingPack = ref<{ id: string; name: string; bundled: boolean; missing: string[] } | null>(null);
 
@@ -545,10 +534,6 @@ function packDesc(pk: { id: string; description: string }): string {
   return translated === key ? pk.description : translated;
 }
 
-const featureName = computed(() => {
-  const p = ws.packs.value.find((x) => x.id === ws.feature.value);
-  return packName(p) || ws.feature.value;
-});
 
 /**
  * 选功能。
@@ -559,7 +544,6 @@ const featureName = computed(() => {
  * 点了才看到「exec: ffmpeg not found」，不如提前说清楚。
  */
 function chooseFeature(id: string) {
-  showFeatures.value = false;
   if (!id) {
     ws.setFeature("");
     return;
@@ -1003,14 +987,6 @@ onUnmounted(() => {
               <X :size="12" />
             </button>
           </span>
-          <button
-            v-if="ws.feature.value"
-            type="button"
-            class="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[13px] text-muted-foreground hover:bg-accent"
-            @click="showFeatures = true"
-          >
-            <Layers :size="12" />{{ featureName }}
-          </button>
         </div>
 
         <!-- 输入框按 Gemini 的分层：
@@ -1042,29 +1018,7 @@ onUnmounted(() => {
 
           <!-- 框底那一行：左边附件与功能，右边模型与发送 -->
           <div class="mt-1 flex items-center gap-1">
-            <!-- 加号：点开给两个明确选项（选文件 / 选目录）。
-                 原来是文件夹图标直接弹混合选择框，用户还得在弹窗里先想「我要选什么」。 -->
-            <button
-              type="button"
-              class="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-              :class="showAttach ? 'bg-accent text-accent-foreground' : ''"
-              :title="t('ai.attach')"
-              :disabled="ws.busy.value"
-              @click="showAttach = !showAttach"
-            >
-              <Loader2 v-if="ws.busy.value" :size="17" class="animate-spin" />
-              <Plus v-else :size="17" />
-            </button>
-
-            <button
-              type="button"
-              class="grid size-9 shrink-0 place-items-center rounded-full transition-colors hover:bg-accent"
-              :class="ws.feature.value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'"
-              :title="t('ai.pickFeature')"
-              @click="showFeatures = !showFeatures"
-            >
-              <Layers :size="17" />
-            </button>
+            <AttachButton />
 
             <div class="flex-1" />
 
@@ -1094,7 +1048,6 @@ onUnmounted(() => {
           <button v-else type="button" class="text-primary hover:underline" @click="openSettings">
             {{ t("ai.configureFirst") }}
           </button>
-          <span v-if="ws.feature.value" class="shrink-0 text-muted-foreground">{{ featureName }}</span>
         </div>
       </div>
     </div>
@@ -1129,6 +1082,8 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- 满屏编辑挂到 body：它要盖住整个窗口，不能被父级的 overflow 裁掉 -->
+    <Teleport to="body">
     <!-- ── 满屏编辑：只覆盖会话区 ──
          定位基准是外层 relative 容器（= 标题栏以下、侧栏以右的那块），
          所以顶栏和左侧会话记录都不会被盖住。 -->
@@ -1157,25 +1112,7 @@ onUnmounted(() => {
           <!-- 两个图标和折叠态一致（选文件 / 选功能），右边发送；
                另一个「收起」在顶部条右侧 -->
           <div class="flex shrink-0 items-center gap-1 pt-3">
-            <button
-              type="button"
-              class="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-              :title="t('ai.pickInput')"
-              :disabled="ws.busy.value"
-              @click="ws.pickPaths(t('ai.pickInput'))"
-            >
-              <Loader2 v-if="ws.busy.value" :size="17" class="animate-spin" />
-              <FolderOpen v-else :size="17" />
-            </button>
-            <button
-              type="button"
-              class="grid size-9 place-items-center rounded-full transition-colors hover:bg-accent"
-              :class="ws.feature.value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'"
-              :title="t('ai.pickFeature')"
-              @click="showFeatures = true"
-            >
-              <Layers :size="17" />
-            </button>
+            <AttachButton />
 
             <div class="flex-1" />
 
@@ -1189,65 +1126,6 @@ onUnmounted(() => {
               <ArrowUp :size="16" />
             </button>
           </div>
-        </div>
-      </div>
-
-
-    <!-- ── 附件菜单：选文件 / 选目录 ── -->
-    <div v-if="showAttach" class="fixed inset-0 z-[70]" @click.self="showAttach = false">
-      <div class="absolute bottom-32 left-1/2 w-[220px] -translate-x-1/2 rounded-xl border border-border bg-background p-1.5 shadow-xl">
-        <button
-          type="button"
-          class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-accent"
-          @click="chooseFiles"
-        >
-          <FileText :size="15" class="text-muted-foreground" />
-          {{ t("ai.pickFiles") }}
-        </button>
-        <button
-          type="button"
-          class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-accent"
-          @click="chooseDirs"
-        >
-          <FolderOpen :size="15" class="text-muted-foreground" />
-          {{ t("ai.pickFolder") }}
-        </button>
-      </div>
-    </div>
-
-    <!-- ── 功能选择浮层（共享）──
-         折叠态和满屏编辑态都有这个按钮，菜单因此只做一份、挂到 body 上：
-         否则要复制两遍，改一次漏一处。 -->
-    <Teleport to="body">
-      <div
-        v-if="showFeatures"
-        class="fixed inset-0 z-[70]"
-        @click.self="showFeatures = false"
-      >
-        <div
-          class="absolute bottom-32 left-1/2 w-[320px] -translate-x-1/2 rounded-xl border border-border bg-background p-1.5 shadow-xl"
-        >
-          <button
-            type="button"
-            class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
-            :class="!ws.feature.value ? 'bg-accent/60' : ''"
-            @click="chooseFeature('')"
-          >
-            <span class="text-[13px] font-medium">{{ t("ai.featureNone") }}</span>
-            <span class="text-[11.5px] text-muted-foreground">{{ t("ai.featureNoneHint") }}</span>
-          </button>
-          <button
-            v-for="pk in ws.packs.value"
-            :key="pk.id"
-            type="button"
-            class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
-            :class="ws.feature.value === pk.id ? 'bg-accent/60' : ''"
-            @click="chooseFeature(pk.id)"
-          >
-            <span class="text-[13px] font-medium">{{ packName(pk) }}</span>
-            <span class="text-[11.5px] leading-relaxed text-muted-foreground">{{ packDesc(pk) }}</span>
-          </button>
-          <p class="px-2.5 pb-1 pt-2 text-[11px] text-muted-foreground">{{ t("ai.featureMore") }}</p>
         </div>
       </div>
     </Teleport>

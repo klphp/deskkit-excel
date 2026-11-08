@@ -13,8 +13,14 @@ import { computed, ref } from "vue";
 import * as Tools from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/toolservice";
 import type { PackInfo } from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/models";
 
-/** 当前功能。空字符串 = 普通对话。 */
-const feature = ref("");
+/**
+ * 当前功能。空字符串 = 普通对话。
+ *
+ * 现在默认就是表格：这一版是单功能产品，让用户在「表格 / 视频 / 文档」里选
+ * 只是把还没做的东西摆出来让人犹豫。等真有第二个能力包了，再谈怎么切换 ——
+ * 那时应该是「装了哪包就用哪包」，而不是让用户承担选择成本。
+ */
+const feature = ref("excel");
 /** 用户选的东西：可能是 1 个文件，也可能是多个文件 / 一个文件夹。 */
 const paths = ref<string[]>([]);
 const packs = ref<PackInfo[]>([]);
