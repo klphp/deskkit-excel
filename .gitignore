@@ -13,5 +13,6 @@ bin/
 # 系统
 .DS_Store
 
-# go build 默认输出（与目录同名）
+# go build 默认输出（模块名/目录名同名，忘了 -o 就会掉在仓库根）
 /wails3-base
+/excel-batch-tool
