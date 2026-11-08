@@ -299,7 +299,7 @@ func registerQueryTools(r *ai.Registry) error {
 	}
 
 	writeDef, err := ai.FunctionTool("write_query_result",
-		"把 SQL 结果写成新的 xlsx 文件（原文件不动）。只在用户看过 query_sheets 的结果并同意后调用。",
+		"把 SQL 结果写成新的文件（原文件不动）。只在用户看过 query_sheets 的结果并同意后调用。文件名用 .csv 结尾就输出 CSV，否则输出 xlsx。",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{

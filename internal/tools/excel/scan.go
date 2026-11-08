@@ -134,7 +134,7 @@ func Scan(ctx context.Context, dir string) (ScanResult, error) {
 // 用 Rows 迭代器而不是 GetRows：后者一次把整表读进内存，
 // 碰上几十万行的导出表会直接把内存吃掉；迭代器是流式的。
 func inspect(path string) (*excelize.File, string, []string, int, error) {
-	f, err := excelize.OpenFile(path, excelize.Options{})
+	f, err := openWorkbook(path)
 	if err != nil {
 		return nil, "", nil, 0, fmt.Errorf("打开失败: %w", err)
 	}

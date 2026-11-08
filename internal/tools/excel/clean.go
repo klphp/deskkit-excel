@@ -227,7 +227,7 @@ func Clean(ctx context.Context, opt CleanOptions) (CleanResult, error) {
 
 // readRaw 读出表头与全部数据行（不做对齐，保留原始列序）。
 func readRaw(info SheetInfo) ([]string, [][]string, error) {
-	f, err := excelize.OpenFile(info.Path, excelize.Options{})
+	f, err := openWorkbook(info.Path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("打开失败: %w", err)
 	}

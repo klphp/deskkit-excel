@@ -197,7 +197,7 @@ type CleanFileResult struct {
 func CleanFile(ctx context.Context, opt CleanFileOptions) (CleanFileResult, error) {
 	res := CleanFileResult{File: filepath.Base(opt.Path), DryRun: opt.DryRun}
 
-	f, err := excelize.OpenFile(opt.Path)
+	f, err := openWorkbook(opt.Path)
 	if err != nil {
 		return res, fmt.Errorf("打不开文件: %w", err)
 	}

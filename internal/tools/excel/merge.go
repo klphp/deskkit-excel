@@ -242,7 +242,7 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 //
 // 返回缺失的列名，供上层汇总成 warning —— 不静默丢列，也不因缺列整份跳过。
 func readAligned(info SheetInfo, columns []string) ([][]string, []string, error) {
-	f, err := excelize.OpenFile(info.Path, excelize.Options{})
+	f, err := openWorkbook(info.Path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("打开失败: %w", err)
 	}

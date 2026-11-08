@@ -161,7 +161,7 @@ func LoadCatalog(ctx context.Context, dir string) (*sql.DB, Catalog, error) {
 }
 
 func loadWorkbook(ctx context.Context, db *sql.DB, path, file string) ([]TableInfo, error) {
-	f, err := excelize.OpenFile(path)
+	f, err := openWorkbook(path)
 	if err != nil {
 		return nil, fmt.Errorf("打不开: %w", err)
 	}
@@ -365,8 +365,26 @@ func WriteQuery(ctx context.Context, db *sql.DB, query, outputDir, fileName stri
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return "", 0, fmt.Errorf("创建输出目录失败: %w", err)
 	}
+
+	// 输出格式由文件名决定：.csv 写 CSV，其余写 xlsx。
+	// 用文件名而不是另加一个 format 参数 —— 用户和模型说的都是「保存成 xxx.csv」，
+	// 多一个参数只会多一种不一致的可能。
+	wantCSV := IsCSV(fileName)
 	if fileName == "" {
 		fileName = "query-" + time.Now().Format("20060102-150405") + ".xlsx"
+	}
+	if wantCSV {
+		table := make([][]string, 0, len(res.Rows)+1)
+		table = append(table, res.Columns)
+		table = append(table, res.Rows...)
+		path := filepath.Join(outputDir, fileName)
+		if !IsCSV(path) {
+			path += ".csv"
+		}
+		if err := WriteCSV(path, table); err != nil {
+			return "", 0, err
+		}
+		return path, len(res.Rows), nil
 	}
 	if ext := strings.ToLower(filepath.Ext(fileName)); ext != ".xlsx" {
 		fileName += ".xlsx"
