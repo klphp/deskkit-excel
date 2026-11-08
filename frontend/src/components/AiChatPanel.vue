@@ -76,7 +76,7 @@ const modelsError = ref("");
  * 左边栏切换会话时，这里自然就换成那一轮的历史。
  * 用 computed 取而不是复制：切回来还是同一份数据，不会丢。
  */
-const turns = computed<ChatTurn[]>(() => sess.current.value?.turns ?? []);
+const turns = sess.turns;
 const draft = ref("");
 const streaming = ref("");
 const scroller = ref<HTMLElement | null>(null);
@@ -285,8 +285,8 @@ async function send() {
   if (expanded.value) expanded.value = false;
   await nextTick();
   autogrow();
-  turns.value.push({ role: "user", content: text });
-  sess.autoTitle(sess.currentId.value);
+  await sess.appendTurn("user", text);
+  await sess.ensureTitle();
   draft.value = "";
   failure.value = "";
   busy.value = true;
@@ -302,7 +302,8 @@ async function send() {
   offTool = onTool((ev: ToolEvent) => {
     if (ev.type === "tool_call") {
       if (streaming.value.trim()) {
-        turns.value.push({ role: "assistant", content: streaming.value });
+        // 落一条到历史：工具调用之间的中间话术也要留痕
+        void sess.appendTurn("assistant", streaming.value);
         streaming.value = "";
       }
       steps.value.push({ tool: ev.tool || "?", detail: ev.args || "", done: false, ok: true });
@@ -327,11 +328,11 @@ async function send() {
     });
     const result = await AIService.ChatAgent(chatInput(provider.value, model.value, history));
     if (streaming.value.trim()) {
-      turns.value.push({ role: "assistant", content: streaming.value });
+      await sess.appendTurn("assistant", streaming.value);
     } else if (result.content && !result.content.trim().startsWith("{")) {
       const last = [...turns.value].reverse().find((x) => x.role === "assistant");
       if (last?.content !== result.content) {
-        turns.value.push({ role: "assistant", content: result.content });
+        await sess.appendTurn("assistant", result.content);
       }
     }
   } catch (err) {
@@ -402,7 +403,7 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => {
-  initSessions();
+  void initSessions();
   refresh().catch((err) => (failure.value = errorText(err)));
   ws.loadPacks().catch(() => {});
 });

@@ -16,14 +16,17 @@ import { initSessions, useSessions } from "../composables/sessions";
 const { t } = useI18n();
 const sess = useSessions();
 
-onMounted(() => initSessions());
+onMounted(() => {
+  void initSessions();
+});
 
 /** 今天 / 更早 分组，避免一长串时间戳。 */
 const groups = computed(() => {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const today: typeof sess.ordered.value = [];
-  const earlier: typeof sess.ordered.value = [];
+  type Item = (typeof sess.ordered.value)[number];
+  const today: Item[] = [];
+  const earlier: Item[] = [];
   for (const s of sess.ordered.value) {
     (s.updatedAt >= startOfToday ? today : earlier).push(s);
   }

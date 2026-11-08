@@ -11,6 +11,9 @@
 # 否则 Gatekeeper 会拦（未签名的应用在 macOS 15 上已经没有「右键打开」的绕法）。
 set -euo pipefail
 
+# ★ cgo 必须开：会话库用 SQLCipher（C 库），关掉 cgo 会链接失败。
+export CGO_ENABLED=1
+
 APP_NAME="DeskKit Excel"
 VERSION="${VERSION:-0.1.0}"
 BIN="bin/deskkit"

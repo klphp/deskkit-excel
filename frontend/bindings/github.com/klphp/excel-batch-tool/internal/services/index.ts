@@ -3,18 +3,20 @@
 
 import * as AIService from "./aiservice.js";
 import * as AppService from "./appservice.js";
+import * as SessionService from "./sessionservice.js";
 import * as ToolService from "./toolservice.js";
 import * as UpdateService from "./updateservice.js";
 import * as WindowService from "./windowservice.js";
 export {
     AIService,
     AppService,
+    SessionService,
     ToolService,
     UpdateService,
     WindowService
 };
 
-export type {
+export {
     AISettings,
     ChatInput,
     ChatResult,

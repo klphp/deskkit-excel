@@ -57,6 +57,8 @@ type Options struct {
 
 // Runtime 装配结果。After 回调拿它做后续绑定。
 type Runtime struct {
+	// AppName 应用标识，用于拼用户数据目录。
+	AppName string
 	App     *application.App
 	Config  *config.Config
 	Server  *server.Server
@@ -65,6 +67,17 @@ type Runtime struct {
 	AISvc   *services.AIService
 	Updater *update.Manager
 	Windows *window.Manager
+}
+
+// DataDir 用户数据目录（~/Library/Application Support/<app> 或平台等价位置）。
+//
+// 会话库、密钥、日志都放这里 —— 不要写程序目录：那里只读，
+// 而且和安装物混在一起，升级时容易被覆盖。
+func (r *Runtime) DataDir() string {
+	if d, err := os.UserConfigDir(); err == nil {
+		return filepath.Join(d, r.AppName)
+	}
+	return "."
 }
 
 // Run 装配并运行应用，阻塞到退出。
@@ -206,7 +219,8 @@ func Run(opts Options) error {
 	window.Bind(windowManager)
 
 	rt := &Runtime{
-		App: app, Config: cfg, Server: srv, API: apiMgr,
+		AppName: opts.AppName,
+		App:     app, Config: cfg, Server: srv, API: apiMgr,
 		AI: aiMgr, AISvc: aiSvc, Updater: updMgr, Windows: windowManager,
 	}
 	if opts.After != nil {
