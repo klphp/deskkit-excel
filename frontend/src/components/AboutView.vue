@@ -21,6 +21,7 @@ type AppInfo = {
 };
 
 import { useI18n } from "../i18n";
+import logoURL from "../assets/logo.svg";
 
 defineProps<{ info: AppInfo | null }>();
 
@@ -30,11 +31,9 @@ const { t } = useI18n();
 <template>
   <div class="mx-auto max-w-md space-y-4 p-6">
     <div class="rounded-lg border border-border bg-card p-6 text-center">
-      <div
-        class="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-xl bg-primary text-xl font-bold text-primary-foreground"
-      >
-        W
-      </div>
+      <!-- 应用标志（不是模板占位字母）。圆角交给 SVG 自己画，
+           外面不再套色块，避免出现「方块套方块」 -->
+      <img :src="logoURL" alt="" class="mx-auto mb-3 h-14 w-14" />
       <h2 class="text-base font-semibold">{{ info?.name ?? t("app.name") }}</h2>
       <p class="mt-1 font-mono text-xs text-muted-foreground">
         v{{ info?.version ?? "0.1.0" }}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="deskkitGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF512F" />
+      <stop offset="100%" stop-color="#DD2476" />
+    </linearGradient>
+  </defs>
+  <!-- 背景圆角卡片 -->
+  <rect x="10" y="10" width="180" height="180" rx="40" fill="url(#deskkitGrad4)" />
+  <!-- 融合播放键与莫比乌斯环的矢量路径 -->
+  <path d="M60 65 C80 40, 120 40, 140 65 C165 95, 120 145, 95 145 C70 145, 45 115, 75 90 L130 130" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- 音频波形/数据节点修饰 -->
+  <circle cx="75" cy="90" r="6" fill="#FFFFFF" />
+  <polygon points="120,80 140,95 120,110" fill="#FFFFFF" />
+</svg>

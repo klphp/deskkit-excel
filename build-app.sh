@@ -30,9 +30,19 @@ mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Resources"
 cp "$BIN" "$OUT/Contents/MacOS/$APP_NAME"
 chmod +x "$OUT/Contents/MacOS/$APP_NAME"
 
-# 图标可选：没有也能跑，只是 Dock 里是默认图标
-if [[ -f build/appicon.png ]]; then
+# 图标。★ 只放 png 到 Resources 是没用的 —— macOS 靠 Info.plist 的
+# CFBundleIconFile 去认，名字对不上就用系统默认图标（实测踩过：
+# Dock 里一直是那个默认方块）。所以统一用 .icns + 写进 plist。
+ICON_KEY=""
+if [[ -f build/darwin/icons.icns ]]; then
+  cp build/darwin/icons.icns "$OUT/Contents/Resources/appicon.icns"
+  ICON_KEY='  <key>CFBundleIconFile</key><string>appicon.icns</string>
+'
+elif [[ -f build/appicon.png ]]; then
+  # 兜底：没有 icns 时至少放 png（新版 macOS 能认，老版本不保证）
   cp build/appicon.png "$OUT/Contents/Resources/appicon.png"
+  ICON_KEY='  <key>CFBundleIconFile</key><string>appicon.png</string>
+'
 fi
 
 cat > "$OUT/Contents/Info.plist" <<PLIST
@@ -45,6 +55,7 @@ cat > "$OUT/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>${APP_NAME}</string>
   <key>CFBundleIdentifier</key><string>com.klphp.deskkit</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+${ICON_KEY}
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
   <key>CFBundleVersion</key><string>${VERSION}</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
