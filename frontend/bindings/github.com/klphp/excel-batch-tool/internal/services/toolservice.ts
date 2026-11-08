@@ -11,7 +11,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -19,6 +19,10 @@ import * as excel$0 from "../tools/excel/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as application$0 from "../../../../wailsapp/wails/v3/pkg/application/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
 
 /**
  * BindApp 后置绑定 app（原生对话框需要它）。
@@ -28,10 +32,32 @@ export function BindApp(app: application$0.App | null): $CancellablePromise<void
 }
 
 /**
+ * CapabilityUsage 返回某个能力包的用法说明（markdown）。
+ * 
+ * 界面在用户选中一个功能时把它塞进系统提示 —— 这样模型一开始就知道
+ * 这批工具怎么调，不用先花一轮去试错。外部 agent 走
+ * GET /api/v1/capabilities/:id/usage 拿同一份内容。
+ */
+export function CapabilityUsage(id: string): $CancellablePromise<string> {
+    return $Call.ByID(4218384178, id);
+}
+
+/**
  * Clean 清洗。DryRun=true 时只统计不写文件。
  */
 export function Clean(opt: excel$0.CleanOptions): $CancellablePromise<excel$0.CleanResult> {
-    return $Call.ByID(3938710218, opt);
+    return $Call.ByID(3938710218, opt).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
+ * InspectFile 打开一个文件，返回表结构（给界面显示「几列几行」，也给模型用）。
+ */
+export function InspectFile(path: string): $CancellablePromise<excel$0.SingleInfo> {
+    return $Call.ByID(3749191037, path).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
 /**
@@ -41,14 +67,37 @@ export function Clean(opt: excel$0.CleanOptions): $CancellablePromise<excel$0.Cl
  * 不往桌面或文档里乱写 —— 那个位置用户找不到也不好删。
  */
 export function MakeSample(): $CancellablePromise<excel$0.SampleInfo> {
-    return $Call.ByID(910632337);
+    return $Call.ByID(910632337).then(($result: any) => {
+        return $$createType2($result);
+    });
 }
 
 /**
  * Merge 合并。DryRun=true 时只预览不写文件。
  */
 export function Merge(opt: excel$0.MergeOptions): $CancellablePromise<excel$0.MergeResult> {
-    return $Call.ByID(2648683803, opt);
+    return $Call.ByID(2648683803, opt).then(($result: any) => {
+        return $$createType3($result);
+    });
+}
+
+/**
+ * Packs 当前可用的能力包，界面上的「功能选择」用它渲染列表。
+ */
+export function Packs(): $CancellablePromise<$models.PackInfo[]> {
+    return $Call.ByID(2223143837).then(($result: any) => {
+        return $$createType5($result);
+    });
+}
+
+/**
+ * PickFile 弹系统文件选择框，返回单个绝对路径（保留：仍需精确选一个文件时用）。
+ * 
+ * 第一版只做单文件：批量要处理「哪些文件、按什么顺序、输出到哪」，
+ * 那是另一套界面和另一套错误处理，等单文件跑顺了再说。
+ */
+export function PickFile(title: string): $CancellablePromise<string> {
+    return $Call.ByID(4288466610, title);
 }
 
 /**
@@ -63,8 +112,33 @@ export function PickFolder(title: string): $CancellablePromise<string> {
 }
 
 /**
+ * PickPaths 弹系统选择框，**文件和文件夹都能选，而且可以多选**。
+ * 
+ * 为什么不替用户决定「单文件还是批量」：这取决于他一句话怎么说，
+ * 我们猜不出来。所以选择器只管放开（单个文件、多个文件、一个文件夹都行），
+ * 工具层两种能力都摆在那里，由 AI 根据用户的话去挑。
+ */
+export function PickPaths(title: string): $CancellablePromise<string[]> {
+    return $Call.ByID(1078787040, title).then(($result: any) => {
+        return $$createType6($result);
+    });
+}
+
+/**
  * Scan 扫描目录，返回文件清单与统计。
  */
 export function Scan(dir: string): $CancellablePromise<excel$0.ScanResult> {
-    return $Call.ByID(1272197868, dir);
+    return $Call.ByID(1272197868, dir).then(($result: any) => {
+        return $$createType7($result);
+    });
 }
+
+// Private type creation functions
+const $$createType0 = excel$0.CleanResult.createFrom;
+const $$createType1 = excel$0.SingleInfo.createFrom;
+const $$createType2 = excel$0.SampleInfo.createFrom;
+const $$createType3 = excel$0.MergeResult.createFrom;
+const $$createType4 = $models.PackInfo.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = $Create.Array($Create.Any);
+const $$createType7 = excel$0.ScanResult.createFrom;

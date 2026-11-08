@@ -2,14 +2,14 @@ package main
 
 import (
 	"embed"
-	"log"
+	"log/slog"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/klphp/excel-batch-tool/internal/ai"
 	"github.com/klphp/excel-batch-tool/internal/boot"
+	"github.com/klphp/excel-batch-tool/internal/packs"
 	"github.com/klphp/excel-batch-tool/internal/services"
-	"github.com/klphp/excel-batch-tool/internal/tools/excel"
 )
 
 // 内核要用的配置（app.yaml + windows.yaml）。
@@ -45,14 +45,26 @@ func main() {
 		After: func(rt *boot.Runtime) error {
 			toolSvc.BindApp(rt.App)
 
+			// 能力包：今天只有表格，之后视频 / PDF 各自是一个包，
+			// 在这里加一行就能进同一个对话框。
 			reg := ai.NewRegistry()
-			if err := excel.Register(reg); err != nil {
+			loaded, err := packs.Register(reg, nil)
+			if err != nil {
 				return err
+			}
+			for _, p := range loaded {
+				slog.Info("能力包已装载", "id", p.ID, "name", p.Name, "tools", reg.Len())
+				if miss := p.Missing(); len(miss) > 0 {
+					// 依赖没装也先让应用起来：表格功能不依赖外部程序，
+					// 只是相关的工具调用会失败，界面上会显示错误。
+					slog.Warn("能力包缺少外部依赖", "id", p.ID, "missing", miss)
+				}
 			}
 			rt.AISvc.SetRegistry(reg)
 			return nil
 		},
 	}); err != nil {
-		log.Fatal(err)
+		slog.Error("启动失败", "err", err)
+		return
 	}
 }

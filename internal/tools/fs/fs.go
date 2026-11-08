@@ -1,0 +1,409 @@
+// Package fs 本地文件操作能力包。
+//
+// 为什么这件事要放在 Go 侧而不是让 AI 现场写 shell / Python：
+//
+//	· 速度：AI 写一段脚本要先发请求、等模型输出、再执行，而我们这里
+//	  一次调用就是一次 os.WalkDir。几百个文件的遍历差一个数量级。
+//	· 可校验：路径在 Go 里能统一做边界检查（不许删系统目录、不许跳出
+//	  工作目录），脚本做不到。
+//	· 可预期：脚本有引号、空格、编码、平台差异的坑；模型写错一次就是
+//	  删错文件。我们提供的是「参数化操作」，不是自由文本。
+//
+// 我们只提供能力，怎么组合由 AI 决定 —— 和表格那边同一个思路。
+package fs
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+)
+
+// Guard 操作边界。
+//
+// 桌面应用的用户把「管理文件」交给模型，所以必须有一层硬边界：
+// 系统目录一律拒绝，删除一律走废纸篓（可恢复），而不是 os.RemoveAll。
+type Guard struct {
+	// Roots 允许操作的根目录（绝对路径）。空表示只允许用户主目录。
+	Roots []string
+}
+
+// DefaultGuard 用户主目录 + 常见外挂卷。
+func DefaultGuard() Guard {
+	g := Guard{}
+	if home, err := os.UserHomeDir(); err == nil {
+		g.Roots = append(g.Roots, home)
+	}
+	for _, vol := range []string{"/Volumes"} {
+		if info, err := os.Stat(vol); err == nil && info.IsDir() {
+			g.Roots = append(g.Roots, vol)
+		}
+	}
+	return g
+}
+
+// 绝不允许触碰的位置。
+//
+// 刻意**不**包含 /tmp 和 /var：macOS 上临时目录就在 /var/folders 下，
+// 用户自己的临时工作完全合法，一律拒绝只会让正常操作报错。
+// 真正的边界由 Roots 决定（默认只有用户主目录和 /Volumes）——
+// 这里列的是任何情况下都不该动的系统目录。
+var forbidden = []string{
+	"/", "/System", "/usr", "/bin", "/sbin", "/etc",
+	"/Library", "/Applications", "/cores", "/dev",
+	"/private/etc", "/private/var/db", "/private/var/vm",
+}
+
+// Check 校验路径是否允许操作。返回绝对路径。
+func (g Guard) Check(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", errors.New("路径为空")
+	}
+	abs, err := filepath.Abs(raw)
+	if err != nil {
+		return "", fmt.Errorf("路径不合法: %w", err)
+	}
+	abs = filepath.Clean(abs)
+
+	for _, bad := range forbidden {
+		if abs == bad || strings.HasPrefix(abs, bad+string(filepath.Separator)) {
+			return "", fmt.Errorf("拒绝操作系统目录: %s", abs)
+		}
+	}
+
+	roots := g.Roots
+	if len(roots) == 0 {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("无法确定用户目录: %w", err)
+		}
+		roots = []string{home}
+	}
+	for _, root := range roots {
+		rootAbs, err := filepath.Abs(root)
+		if err != nil {
+			continue
+		}
+		if abs == rootAbs || strings.HasPrefix(abs, rootAbs+string(filepath.Separator)) {
+			return abs, nil
+		}
+	}
+	return "", fmt.Errorf("路径不在允许范围内: %s（只允许在 %s 下操作）", abs, strings.Join(roots, "、"))
+}
+
+// Entry 一个文件或目录。
+type Entry struct {
+	Path    string `json:"path"`
+	Name    string `json:"name"`
+	Dir     bool   `json:"dir"`
+	Size    int64  `json:"size"`
+	ModTime string `json:"modified"`
+	Ext     string `json:"ext,omitempty"`
+}
+
+// ListOptions 遍历参数。
+type ListOptions struct {
+	Path      string
+	Recursive bool
+	// Pattern 文件名通配（如 *.xlsx）。空表示不过滤。
+	Pattern string
+	// MaxEntries 上限，默认 2000；防止在主目录上做无限遍历。
+	MaxEntries int
+}
+
+// ListResult 遍历结果。
+type ListResult struct {
+	Root      string  `json:"root"`
+	Entries   []Entry `json:"entries"`
+	Truncated bool    `json:"truncated"`
+	Dirs      int     `json:"dirs"`
+	Files     int     `json:"files"`
+	TotalSize int64   `json:"totalSize"`
+}
+
+// List 遍历目录。
+//
+// 用 WalkDir 而不是 ReadDir 递归：WalkDir 不跟随符号链接、按目录顺序读，
+// 不会因为一个循环链接把整棵树走死。
+func (g Guard) List(ctx context.Context, opt ListOptions) (ListResult, error) {
+	root, err := g.Check(opt.Path)
+	if err != nil {
+		return ListResult{}, err
+	}
+	info, err := os.Stat(root)
+	if err != nil {
+		return ListResult{}, fmt.Errorf("打不开: %w", err)
+	}
+	if !info.IsDir() {
+		return ListResult{}, fmt.Errorf("%s 不是目录", root)
+	}
+
+	max := opt.MaxEntries
+	if max <= 0 {
+		max = 2000
+	}
+	res := ListResult{Root: root}
+
+	walkErr := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // 单个条目没权限就跳过，不要中断整次遍历
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if path == root {
+			return nil
+		}
+		if d.IsDir() && !opt.Recursive {
+			return filepath.SkipDir
+		}
+		// 跳过隐藏目录的深层内容：.git / node_modules 之类会淹没有效信息
+		if d.IsDir() && shouldSkipDir(d.Name()) {
+			return filepath.SkipDir
+		}
+		if !d.IsDir() && opt.Pattern != "" {
+			ok, _ := filepath.Match(opt.Pattern, d.Name())
+			if !ok {
+				return nil
+			}
+		}
+		if len(res.Entries) >= max {
+			res.Truncated = true
+			return filepath.SkipAll
+		}
+		fi, e := d.Info()
+		if e != nil {
+			return nil
+		}
+		entry := Entry{
+			Path:    path,
+			Name:    d.Name(),
+			Dir:     d.IsDir(),
+			Size:    fi.Size(),
+			ModTime: fi.ModTime().Format(time.RFC3339),
+		}
+		if !d.IsDir() {
+			entry.Ext = strings.ToLower(filepath.Ext(path))
+			res.Files++
+			res.TotalSize += fi.Size()
+		} else {
+			res.Dirs++
+		}
+		res.Entries = append(res.Entries, entry)
+		return nil
+	})
+	if walkErr != nil {
+		return res, walkErr
+	}
+	return res, nil
+}
+
+func shouldSkipDir(name string) bool {
+	switch name {
+	case ".git", ".svn", "node_modules", ".cache", ".Trash", "Library":
+		return true
+	}
+	return strings.HasPrefix(name, ".") && len(name) > 1
+}
+
+// MakeDir 创建目录。已存在且是目录时视为成功 —— 用户说「建个目录保存结果」，
+// 目录本来就在不该算失败。
+func (g Guard) MakeDir(path string) (string, error) {
+	abs, err := g.Check(path)
+	if err != nil {
+		return "", err
+	}
+	if info, err := os.Stat(abs); err == nil {
+		if info.IsDir() {
+			return abs, nil
+		}
+		return "", fmt.Errorf("%s 已存在且不是目录", abs)
+	}
+	if err := os.MkdirAll(abs, 0o755); err != nil {
+		return "", fmt.Errorf("创建目录失败: %w", err)
+	}
+	return abs, nil
+}
+
+// Move 移动 / 重命名。目标已存在时拒绝，避免悄悄覆盖。
+func (g Guard) Move(from, to string) (string, error) {
+	src, err := g.Check(from)
+	if err != nil {
+		return "", err
+	}
+	dst, err := g.Check(to)
+	if err != nil {
+		return "", err
+	}
+	if _, err := os.Stat(src); err != nil {
+		return "", fmt.Errorf("源不存在: %w", err)
+	}
+	if _, err := os.Stat(dst); err == nil {
+		return "", fmt.Errorf("目标已存在，拒绝覆盖: %s", dst)
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return "", fmt.Errorf("创建目标目录失败: %w", err)
+	}
+	if err := os.Rename(src, dst); err != nil {
+		return "", fmt.Errorf("移动失败: %w", err)
+	}
+	return dst, nil
+}
+
+// Copy 复制文件或目录树。
+func (g Guard) Copy(from, to string) (string, error) {
+	src, err := g.Check(from)
+	if err != nil {
+		return "", err
+	}
+	dst, err := g.Check(to)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(src)
+	if err != nil {
+		return "", fmt.Errorf("源不存在: %w", err)
+	}
+	if _, err := os.Stat(dst); err == nil {
+		return "", fmt.Errorf("目标已存在，拒绝覆盖: %s", dst)
+	}
+
+	if info.IsDir() {
+		if err := copyTree(src, dst); err != nil {
+			return "", err
+		}
+		return dst, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return "", err
+	}
+	if err := copyFile(src, dst, info.Mode()); err != nil {
+		return "", err
+	}
+	return dst, nil
+}
+
+func copyTree(src, dst string) error {
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		return copyFile(path, target, info.Mode())
+	})
+}
+
+func copyFile(src, dst string, mode os.FileMode) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		os.Remove(dst)
+		return err
+	}
+	return out.Close()
+}
+
+// DeleteResult 删除结果。删除默认进废纸篓，所以要把「移到哪」告诉用户。
+type DeleteResult struct {
+	Path string `json:"path"`
+	To   string `json:"to"`
+}
+
+// Delete 删除 —— 默认移到废纸篓，不是 os.RemoveAll。
+//
+// 理由：模型判断错一次，文件就找不回来了。废纸篓是可恢复的，
+// 而「清理回收站」是用户自己的动作，不该由我们代做。
+// 同一个卷上移动几乎是瞬时的，几百个文件也很快。
+func (g Guard) Delete(paths []string, permanent bool) ([]DeleteResult, []string, error) {
+	if len(paths) == 0 {
+		return nil, nil, errors.New("没有要删除的路径")
+	}
+	var done []DeleteResult
+	var failed []string
+
+	for _, raw := range paths {
+		abs, err := g.Check(raw)
+		if err != nil {
+			failed = append(failed, err.Error())
+			continue
+		}
+		if abs == "/" || abs == filepath.Dir(abs) {
+			failed = append(failed, "拒绝删除根目录: "+abs)
+			continue
+		}
+		if _, err := os.Stat(abs); err != nil {
+			failed = append(failed, "不存在: "+abs)
+			continue
+		}
+
+		if permanent {
+			if err := os.RemoveAll(abs); err != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", abs, err))
+				continue
+			}
+			done = append(done, DeleteResult{Path: abs, To: "（已永久删除）"})
+			continue
+		}
+
+		to, err := moveToTrash(abs)
+		if err != nil {
+			// 跨卷等情况下退化为「原地改名」，仍然可恢复
+			fallback := abs + ".deleted-" + time.Now().Format("20060102-150405")
+			if e := os.Rename(abs, fallback); e != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", abs, err))
+				continue
+			}
+			done = append(done, DeleteResult{Path: abs, To: fallback})
+			continue
+		}
+		done = append(done, DeleteResult{Path: abs, To: to})
+	}
+	return done, failed, nil
+}
+
+// moveToTrash 移到用户废纸篓，重名时加时间戳。
+func moveToTrash(path string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	trash := filepath.Join(home, ".Trash")
+	if info, err := os.Stat(trash); err != nil || !info.IsDir() {
+		return "", errors.New("废纸篓不可用")
+	}
+	target := filepath.Join(trash, filepath.Base(path))
+	if _, err := os.Stat(target); err == nil {
+		ext := filepath.Ext(path)
+		stem := strings.TrimSuffix(filepath.Base(path), ext)
+		target = filepath.Join(trash, fmt.Sprintf("%s-%s%s", stem, time.Now().Format("20060102-150405"), ext))
+	}
+	if err := os.Rename(path, target); err != nil {
+		return "", err
+	}
+	return target, nil
+}

@@ -3,14 +3,38 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import { Create as $Create } from "@wailsio/runtime";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as json$0 from "../../../../../encoding/json/models.js";
 
 /**
  * FunctionCall 工具名与参数（参数是 JSON 字符串，不是对象 —— 这是协议规定的）。
  */
-export interface FunctionCall {
+export class FunctionCall {
     "name": string;
     "arguments": string;
+
+    /** Creates a new FunctionCall instance. */
+    constructor($$source: Partial<FunctionCall> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("arguments" in $$source)) {
+            this["arguments"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FunctionCall instance from a string or object.
+     */
+    static createFrom($$source: any = {}): FunctionCall {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FunctionCall($$parsedSource as Partial<FunctionCall>);
+    }
 }
 
 /**
@@ -19,10 +43,30 @@ export interface FunctionCall {
  * Parameters 用 json.RawMessage 而不是 map：JSON Schema 里允许嵌套 anyOf、
  * required、enum 这些结构，逐层建模既啰嗦又容易丢字段。
  */
-export interface FunctionDef {
+export class FunctionDef {
     "name": string;
     "description": string;
     "parameters"?: json$0.RawMessage;
+
+    /** Creates a new FunctionDef instance. */
+    constructor($$source: Partial<FunctionDef> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("description" in $$source)) {
+            this["description"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FunctionDef instance from a string or object.
+     */
+    static createFrom($$source: any = {}): FunctionDef {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FunctionDef($$parsedSource as Partial<FunctionDef>);
+    }
 }
 
 /**
@@ -32,7 +76,21 @@ export interface FunctionDef {
  * 优先级规则（用户设置 > 配置文件 > 环境变量）必须只有一处实现，
  * 否则调试时永远说不清哪个值生效了。
  */
-export interface Manager {
+export class Manager {
+
+    /** Creates a new Manager instance. */
+    constructor($$source: Partial<Manager> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Manager instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Manager {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Manager($$parsedSource as Partial<Manager>);
+    }
 }
 
 /**
@@ -41,18 +99,39 @@ export interface Manager {
  * ToolCalls 只在 assistant 消息上有值；ToolCallID 只在 tool 消息上有值
  * （把工具执行结果回灌给模型时必须带上它，否则模型不知道这是对哪次调用的答复）。
  */
-export interface Message {
+export class Message {
     "role": string;
     "content"?: string;
-    "tool_calls"?: ToolCall[] | null;
+    "tool_calls"?: ToolCall[];
     "tool_call_id"?: string;
     "name"?: string;
+
+    /** Creates a new Message instance. */
+    constructor($$source: Partial<Message> = {}) {
+        if (!("role" in $$source)) {
+            this["role"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Message instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Message {
+        const $$createField2_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("tool_calls" in $$parsedSource) {
+            $$parsedSource["tool_calls"] = $$createField2_0($$parsedSource["tool_calls"]);
+        }
+        return new Message($$parsedSource as Partial<Message>);
+    }
 }
 
 /**
  * ProviderInfo 给前端用的服务商快照。
  */
-export interface ProviderInfo {
+export class ProviderInfo {
     "name": string;
     "label": string;
     "kind": string;
@@ -74,7 +153,49 @@ export interface ProviderInfo {
      */
     "ready": boolean;
     "error"?: string;
-    "models"?: string[] | null;
+    "models"?: string[];
+
+    /** Creates a new ProviderInfo instance. */
+    constructor($$source: Partial<ProviderInfo> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("label" in $$source)) {
+            this["label"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("baseURL" in $$source)) {
+            this["baseURL"] = "";
+        }
+        if (!("model" in $$source)) {
+            this["model"] = "";
+        }
+        if (!("hasKey" in $$source)) {
+            this["hasKey"] = false;
+        }
+        if (!("local" in $$source)) {
+            this["local"] = false;
+        }
+        if (!("ready" in $$source)) {
+            this["ready"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ProviderInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ProviderInfo {
+        const $$createField9_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("models" in $$parsedSource) {
+            $$parsedSource["models"] = $$createField9_0($$parsedSource["models"]);
+        }
+        return new ProviderInfo($$parsedSource as Partial<ProviderInfo>);
+    }
 }
 
 /**
@@ -83,25 +204,97 @@ export interface ProviderInfo {
  * 这是整个「AI 操作应用」的核心：UI 按钮和 AI 调的是同一批函数，
  * 所以行为一致、可测试、可批量。AI 不应该去模拟点界面。
  */
-export interface Registry {
+export class Registry {
+
+    /** Creates a new Registry instance. */
+    constructor($$source: Partial<Registry> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Registry instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Registry {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Registry($$parsedSource as Partial<Registry>);
+    }
 }
 
 /**
  * Tool 是暴露给模型的工具定义。
  */
-export interface Tool {
+export class Tool {
     /**
      * 目前只有 "function"
      */
     "type": string;
     "function": FunctionDef;
+
+    /** Creates a new Tool instance. */
+    constructor($$source: Partial<Tool> = {}) {
+        if (!("type" in $$source)) {
+            this["type"] = "";
+        }
+        if (!("function" in $$source)) {
+            this["function"] = (new FunctionDef());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Tool instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Tool {
+        const $$createField1_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("function" in $$parsedSource) {
+            $$parsedSource["function"] = $$createField1_0($$parsedSource["function"]);
+        }
+        return new Tool($$parsedSource as Partial<Tool>);
+    }
 }
 
 /**
  * ToolCall 模型发起的一次工具调用。
  */
-export interface ToolCall {
+export class ToolCall {
     "id": string;
     "type": string;
     "function": FunctionCall;
+
+    /** Creates a new ToolCall instance. */
+    constructor($$source: Partial<ToolCall> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("type" in $$source)) {
+            this["type"] = "";
+        }
+        if (!("function" in $$source)) {
+            this["function"] = (new FunctionCall());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ToolCall instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ToolCall {
+        const $$createField2_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("function" in $$parsedSource) {
+            $$parsedSource["function"] = $$createField2_0($$parsedSource["function"]);
+        }
+        return new ToolCall($$parsedSource as Partial<ToolCall>);
+    }
 }
+
+// Private type creation functions
+const $$createType0 = ToolCall.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $Create.Array($Create.Any);
+const $$createType3 = FunctionDef.createFrom;
+const $$createType4 = FunctionCall.createFrom;

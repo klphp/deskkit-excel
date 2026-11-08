@@ -218,7 +218,9 @@ func Register(r *ai.Registry) error {
 		return err
 	}
 
-	return nil
+	// 第一版界面走的是单文件工具（不做批量），但目录版工具也留着：
+	// 模型在用户明确说「这个文件夹里所有表」时仍然能用。
+	return registerFileTools(r)
 }
 
 func registerQueryTools(r *ai.Registry) error {

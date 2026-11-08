@@ -41,33 +41,53 @@ export function toMessages(turns: ChatTurn[]): Message[] {
  * 界面上已经选好了，不该让用户每次在话里重复一遍。
  */
 export type Workspace = {
-  dir?: string;
-  outDir?: string;
+  /** 用户选中的东西：可能是单个文件、多个文件、或一个文件夹。 */
+  paths?: string[];
+  /** 后端算好的输出路径：同目录、同名、带时间戳。 */
+  outputHint?: string;
   summary?: string;
   columns?: string[];
+  /** 选中的功能包（空 = 普通对话）。 */
+  feature?: string;
+  /** 该功能包的用法说明（由工具定义自动生成）。 */
+  usage?: string;
 };
 
+/**
+ * 把当前上下文塞成 system 提示。
+ *
+ * 模型要调工具就必须知道绝对路径，也要明确「结果该写到哪、原文件不能动」——
+ * 这两件事界面上已经定了，不该让用户每次在话里重复一遍。
+ */
 export function withWorkspace(turns: ChatTurn[], ws: Workspace): ChatTurn[] {
-  if (!ws.dir) {
-    return [
-      {
-        role: "system",
-        content: "用户还没选择要处理的文件夹。先请他选择一个目录（界面上的「输入」按钮），再动手。",
-      },
-      ...turns,
-    ];
+  const lines: string[] = [];
+
+  if (ws.paths && ws.paths.length > 0) {
+    lines.push(`用户选中的路径：${ws.paths.join("、")}`);
+    if (ws.summary) lines.push(`文件情况：${ws.summary}`);
+    if (ws.columns?.length) lines.push(`这些表的列名（并集）：${ws.columns.join("、")}`);
+    if (ws.outputHint) {
+      lines.push(`输出路径：${ws.outputHint}`);
+      lines.push("这是后端已经算好的路径（原目录、原文件名加时间戳）。原文件永远不要修改。");
+    }
+    lines.push("");
+    lines.push("路径已经给了，不要再问用户要。选中文件夹时用 scan_excel_folder 看有哪些表；");
+    lines.push("选中单个文件时用 inspect_file。改数据一律输出新文件，原文件不动；");
+    lines.push("输出位置默认与原文件同目录、原名加时间戳，用户另有要求时按他说的。");
+  } else {
+    lines.push("用户还没有选中任何路径。如果他要处理文件，提醒他先点输入框左边的文件夹按钮；闲聊就正常聊。");
   }
 
-  const lines = [
-    `当前输入目录：${ws.dir}`,
-    ws.outDir ? `输出目录：${ws.outDir}` : "",
-    ws.summary ? `文件情况：${ws.summary}` : "",
-    ws.columns?.length ? `这些表的列名（并集）：${ws.columns.join("、")}` : "",
-    "",
-    "调用工具时直接使用上面的绝对路径，不要让用户再提供一次。",
-    "开始动手前先用预览类工具（preview_*）看清会发生什么，把关键数字告诉用户，",
-    "得到同意后再用执行类工具（run_*）落盘。",
-  ].filter(Boolean);
+  if (ws.feature) {
+    lines.push(`当前选中的功能：${ws.feature}`);
+    if (ws.usage) {
+      lines.push("");
+      lines.push("以下是这个功能的接口用法（工具名、参数、调用示例）：");
+      lines.push(ws.usage);
+    }
+  } else {
+    lines.push("用户没有选择功能，这是普通对话：不要主动去调用文件处理工具，除非他明确要求。");
+  }
 
   return [{ role: "system", content: lines.join("\n") }, ...turns];
 }

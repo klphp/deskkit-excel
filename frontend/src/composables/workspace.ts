@@ -1,128 +1,129 @@
 /**
- * 工作区状态（选哪批文件、输出到哪）。
+ * 工作区状态：当前打开的是哪个文件、用的是哪个功能。
  *
- * 抽成 composable 是因为它已经不属于「某个页面的顶部栏」了 —— 现在
- * 整窗就是一个对话，文件选择变成输入框旁的附件按钮，状态得能被对话区
- * 和输入区同时读到。
+ * 第一版只做单文件（不做批量）：用户选一个表，说一句要干什么，
+ * 结果写回同一个目录、同名加时间戳。原因很实在 ——
+ * 批量要先回答「哪些文件、按什么顺序、输出到哪」，那是另一套交互和
+ * 另一套错误处理；单文件跑顺了再谈批量。
  *
- * 状态只有一份（模块级 ref），多个组件读同一份，不会各自算一遍扫描结果。
+ * 功能选择的默认值是「普通对话」：不选功能时就是个纯 AI 对话，
+ * 不假设用户一定要处理文件。
  */
 import { computed, ref } from "vue";
 import * as Tools from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/toolservice";
-import type { ScanResult } from "../../bindings/github.com/klphp/excel-batch-tool/internal/tools/excel/models";
+import type { PackInfo } from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/models";
+import type { SingleInfo } from "../../bindings/github.com/klphp/excel-batch-tool/internal/tools/excel/models";
 
-const dir = ref("");
-const outDir = ref("");
-const scan = ref<ScanResult | null>(null);
-const busyScan = ref(false);
+/** 当前功能。空字符串 = 普通对话。 */
+const feature = ref("");
+/** 用户选的东西：可能是 1 个文件，也可能是多个文件 / 一个文件夹。 */
+const paths = ref<string[]>([]);
+const info = ref<SingleInfo | null>(null);
+const packs = ref<PackInfo[]>([]);
+const busy = ref(false);
+/** 当前功能的用法说明（markdown），给模型当提示词。 */
+const usage = ref("");
 const failure = ref("");
 
-/** 可用文件（读不了的不算进统计）。 */
-const usable = computed(() => (scan.value?.files ?? []).filter((f) => !f.error));
-const broken = computed(() => (scan.value?.files ?? []).filter((f) => f.error));
-const totalRows = computed(() => usable.value.reduce((sum, f) => sum + f.rows, 0));
-
-/** 文件夹名：路径太长，对话里只显示最后一段。 */
-const dirName = computed(() => {
-  if (!dir.value) return "";
-  const parts = dir.value.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? dir.value;
+/** 选择摘要：一个就显示名字，多个显示「3 项」。 */
+const selectionLabel = computed(() => {
+  const list = paths.value;
+  if (list.length === 0) return "";
+  if (list.length === 1) return list[0].split("/").pop() ?? list[0];
+  return `${list.length} 项`;
 });
 
-/** 列名并集：让模型（和用户）一眼看到这批表有哪些列。 */
+/** 表结构摘要：几张表、多少列多少行。 */
+const summary = computed(() => {
+  const tables = info.value?.tables ?? [];
+  if (tables.length === 0) return "";
+  const rows = tables.reduce((n, t) => n + t.rows, 0);
+  return `${tables.length} 张表 · ${rows} 行`;
+});
+
+/** 列名并集，给模型和界面做参考。 */
 const columns = computed(() => {
   const seen = new Set<string>();
-  for (const f of usable.value) for (const h of f.headers ?? []) if (h) seen.add(h);
+  for (const t of info.value?.tables ?? []) for (const c of t.columns ?? []) if (c) seen.add(c);
   return [...seen].slice(0, 30);
 });
 
-/** 给模型的一句话现状。 */
-const summary = computed(() => {
-  if (!dir.value || !scan.value) return "";
-  if (usable.value.length === 0) return "目录里没有可读的表格";
-  return `${usable.value.length} 个文件 · ${totalRows.value} 行`;
-});
+/** 输出会写到哪（后端算好的，界面照抄，不自己拼路径）。 */
+const outputHint = computed(() => info.value?.outputHint ?? "");
 
-/** 输出目录：没单独选就是输入目录下的 deskkit-out。 */
-const effectiveOutDir = computed(() => outDir.value || (dir.value ? `${dir.value}/deskkit-out` : ""));
-
-async function rescan() {
-  if (!dir.value) return;
-  busyScan.value = true;
-  failure.value = "";
+async function loadPacks() {
   try {
-    scan.value = await Tools.Scan(dir.value);
+    packs.value = (await Tools.Packs()) ?? [];
   } catch (err) {
     failure.value = String(err);
-    scan.value = null;
+  }
+}
+
+async function pickPaths(title: string) {
+  failure.value = "";
+  busy.value = true;
+  try {
+    const picked = (await Tools.PickPaths(title)) ?? [];
+    if (picked.length === 0) return;
+    paths.value = picked;
+    // 只选了一个文件时顺手读它、显示「几张表几行」，让用户心里有数。
+    // 选了文件夹或多个文件就不猜了 —— 结构由 AI 用工具自己去看。
+    if (picked.length === 1 && /\.xlsx?$/i.test(picked[0]) === false && /\.xlsm$/i.test(picked[0])) {
+      info.value = await Tools.InspectFile(picked[0]);
+    } else if (picked.length === 1 && /\.(xlsx|xlsm)$/i.test(picked[0])) {
+      info.value = await Tools.InspectFile(picked[0]);
+    } else {
+      info.value = null;
+    }
+  } catch (err) {
+    failure.value = String(err);
+    paths.value = [];
+    info.value = null;
   } finally {
-    busyScan.value = false;
+    busy.value = false;
   }
 }
 
-async function pickInput(title: string) {
+function clearPaths() {
+  paths.value = [];
+  info.value = null;
   failure.value = "";
+}
+
+/**
+ * 切功能。
+ *
+ * 切过去的同时把那份用法说明取回来：模型据此知道有哪些工具、
+ * 每个工具收什么参数，不用靠猜。用法由工具定义自动生成，
+ * 和 /api/v1/capabilities/:id/usage 是同一份内容。
+ */
+async function setFeature(id: string) {
+  feature.value = id;
+  usage.value = "";
+  if (!id) return;
   try {
-    const picked = await Tools.PickFolder(title);
-    if (!picked) return;
-    dir.value = picked;
-    outDir.value = "";
-    await rescan();
+    usage.value = (await Tools.CapabilityUsage(id)) ?? "";
   } catch (err) {
     failure.value = String(err);
   }
-}
-
-async function pickOutput(title: string) {
-  try {
-    const picked = await Tools.PickFolder(title);
-    if (picked) outDir.value = picked;
-  } catch (err) {
-    failure.value = String(err);
-  }
-}
-
-/** 示例数据：手上没有表格也能立刻开始。 */
-async function useSample() {
-  busyScan.value = true;
-  failure.value = "";
-  try {
-    const sample = await Tools.MakeSample();
-    dir.value = sample.dir;
-    outDir.value = "";
-    await rescan();
-  } catch (err) {
-    failure.value = String(err);
-  } finally {
-    busyScan.value = false;
-  }
-}
-
-function clearInput() {
-  dir.value = "";
-  outDir.value = "";
-  scan.value = null;
-  failure.value = "";
 }
 
 export function useWorkspace() {
   return {
-    dir,
-    outDir,
-    effectiveOutDir,
-    dirName,
-    scan,
-    usable,
-    broken,
-    totalRows,
-    columns,
+    feature,
+    packs,
+    paths,
+    selectionLabel,
+    info,
     summary,
-    busyScan,
+    columns,
+    outputHint,
+    busy,
     failure,
-    rescan,
-    pickInput,
-    pickOutput,
-    useSample,
-    clearInput,
+    usage,
+    loadPacks,
+    pickPaths,
+    clearPaths,
+    setFeature,
   };
 }

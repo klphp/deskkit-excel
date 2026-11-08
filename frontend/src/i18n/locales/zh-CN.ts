@@ -56,6 +56,16 @@ export const zhCN = {
   "ai.pickOutput": "选择输出位置",
   "ai.useSample": "用示例数据试用一下",
   "ai.outputTo": "输出到",
+  "ai.pickFeature": "选择功能",
+  "ai.featureNone": "普通对话",
+  "ai.featureNoneHint": "不处理文件，就是聊天 / 问问题",
+  "ai.featureMore": "更多功能（视频处理、PDF 转换…）之后加。",
+  "ai.placeholderFeature": "告诉我要对这个表做什么…",
+  "ai.willWriteTo": "结果写到",
+  "ai.packBundled": "这个功能的组件已随应用装好，直接可用。",
+  "ai.packDownload": "首次使用需要下载功能组件。这台机器上还没装：",
+  "ai.useFeature": "开始使用",
+  "ai.downloadFeature": "下载组件",
   "ai.thinking": "正在处理…",
 
   // ── 模型配置 ──

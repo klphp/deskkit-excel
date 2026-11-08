@@ -11,7 +11,7 @@
  * 把流式文字和工具步骤显示出来、没接入模型时把设置打开。
  */
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
-import { ArrowUp, Check, FolderOpen, Loader2, Settings2, Sparkles, Wrench, X } from "@lucide/vue";
+import { ArrowUp, Check, FolderOpen, Layers, Loader2, Settings2, Wrench, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import { useWorkspace } from "../composables/workspace";
 import {
@@ -44,6 +44,10 @@ const testing = ref(false);
 const testResult = ref<TestResult | null>(null);
 const failure = ref("");
 const showSettings = ref(false);
+/** 功能选择下拉。 */
+const showFeatures = ref(false);
+/** 首次选某个功能时的组件提示。 */
+const pendingPack = ref<{ id: string; name: string; bundled: boolean; missing: string[] } | null>(null);
 
 /** 接入与选模型是两步 —— 和 opencode / Hermes 的顺序一致。 */
 const connected = ref(false);
@@ -65,8 +69,8 @@ const isCustom = computed(() => provider.value === "custom");
 const ready = computed(() => providers.value.some((p) => p.ready));
 
 const suggestions = computed(() =>
-  ws.dir.value
-    ? [t("ai.askMerge"), t("ai.askClean"), t("ai.askSummary"), t("ai.askLook")]
+  ws.paths.value.length > 0
+    ? [t("ai.askClean"), t("ai.askSummary"), t("ai.askLook")]
     : [t("ai.askBrowse"), t("ai.askWhat")],
 );
 
@@ -172,7 +176,7 @@ async function scrollToBottom() {
 
 function useSuggestion(text: string) {
   if (text === t("ai.askBrowse")) {
-    ws.pickInput(t("ai.pickInput"));
+    ws.pickPaths(t("ai.pickInput"));
     return;
   }
   if (text === t("ai.askWhat")) {
@@ -182,6 +186,47 @@ function useSuggestion(text: string) {
   }
   draft.value = text;
   inputEl.value?.focus();
+}
+
+const featureName = computed(() => {
+  const p = ws.packs.value.find((x) => x.id === ws.feature.value);
+  return p?.name ?? ws.feature.value;
+});
+
+/**
+ * 选功能。
+ *
+ * 第一次选某个功能时先给一个组件提示：功能组件是不是已经在本机。
+ * 纯 Go 实现的能力（表格）随应用装好，直接可用；将来接视频 / PDF 这类
+ * 需要 ffmpeg / pandoc 的包，会在这里显示要下载什么 —— 与其让用户
+ * 点了才看到「exec: ffmpeg not found」，不如提前说清楚。
+ */
+function chooseFeature(id: string) {
+  showFeatures.value = false;
+  if (!id) {
+    ws.setFeature("");
+    return;
+  }
+  const pack = ws.packs.value.find((x) => x.id === id);
+  if (!pack) return;
+  const seenKey = `deskkit-feature-seen-${id}`;
+  if (localStorage.getItem(seenKey)) {
+    ws.setFeature(id);
+    return;
+  }
+  pendingPack.value = {
+    id: pack.id,
+    name: pack.name,
+    bundled: Boolean(pack.bundled),
+    missing: pack.missing ?? [],
+  };
+}
+
+function confirmFeature() {
+  if (!pendingPack.value) return;
+  localStorage.setItem(`deskkit-feature-seen-${pendingPack.value.id}`, "1");
+  ws.setFeature(pendingPack.value.id);
+  pendingPack.value = null;
 }
 
 function openSettings() {
@@ -232,10 +277,11 @@ async function send() {
 
   try {
     const history = withWorkspace(turns.value, {
-      dir: ws.dir.value,
-      outDir: ws.effectiveOutDir.value,
+      paths: ws.paths.value,
+      outputHint: ws.outputHint.value,
       summary: ws.summary.value,
       columns: ws.columns.value,
+      feature: ws.feature.value,
     });
     const result = await AIService.ChatAgent(chatInput(provider.value, model.value, history));
     if (streaming.value.trim()) {
@@ -268,6 +314,7 @@ function onKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   refresh().catch((err) => (failure.value = errorText(err)));
+  ws.loadPacks().catch(() => {});
 });
 onUnmounted(() => {
   offDelta?.();
@@ -337,55 +384,89 @@ onUnmounted(() => {
     <!-- ── 输入区：对话的一部分，不是工具栏 ── -->
     <div class="shrink-0 px-6 pb-5">
       <div class="mx-auto max-w-[760px]">
-        <!-- 已选文件：显示成一个小标签，点 × 取消 -->
-        <div v-if="ws.dir.value" class="mb-2 flex flex-wrap items-center gap-2">
+        <!-- 已选文件：一个小标签。第二行小字说明结果会写到哪 -->
+        <div v-if="ws.paths.value.length > 0" class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12.5px]">
             <FolderOpen :size="12" class="shrink-0 text-muted-foreground" />
-            <button type="button" class="truncate font-medium hover:underline" :title="ws.dir.value" @click="ws.pickInput(t('ai.pickInput'))">
-              {{ ws.dirName.value }}
+            <button type="button" class="truncate font-medium hover:underline" :title="ws.paths.value.join('\n')" @click="ws.pickPaths(t('ai.pickInput'))">
+              {{ ws.selectionLabel.value }}
             </button>
             <span class="shrink-0 text-muted-foreground">{{ ws.summary.value }}</span>
-            <button type="button" class="shrink-0 text-muted-foreground hover:text-foreground" @click="ws.clearInput()">
+            <button type="button" class="shrink-0 text-muted-foreground hover:text-foreground" @click="ws.clearPaths()">
               <X :size="12" />
             </button>
           </span>
           <button
+            v-if="ws.feature.value"
             type="button"
-            class="text-[12.5px] text-muted-foreground hover:text-foreground"
-            :title="ws.effectiveOutDir.value"
-            @click="ws.pickOutput(t('ai.pickOutput'))"
+            class="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[12.5px] text-muted-foreground hover:bg-accent"
+            @click="showFeatures = true"
           >
-            {{ t("ai.outputTo") }} {{ ws.outDir.value ? ws.outDir.value.split("/").pop() : "deskkit-out" }}
+            <Layers :size="12" />{{ featureName }}
           </button>
+          <span v-if="ws.outputHint.value" class="truncate text-[12px] text-muted-foreground" :title="ws.outputHint.value">
+            {{ t("ai.willWriteTo") }} {{ ws.outputHint.value.split("/").pop() }}
+          </span>
         </div>
 
         <div class="flex items-end gap-1.5 rounded-xl border border-input bg-background px-2 py-2 focus-within:ring-1 focus-within:ring-ring">
-          <!-- 附件：选文件夹。没有它，对话就不知道该处理哪些表。 -->
+          <!-- ① 选文件 -->
           <button
             type="button"
             class="mb-0.5 grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
             :title="t('ai.pickInput')"
-            :disabled="ws.busyScan.value"
-            @click="ws.pickInput(t('ai.pickInput'))"
+            :disabled="ws.busy.value"
+            @click="ws.pickPaths(t('ai.pickInput'))"
           >
-            <Loader2 v-if="ws.busyScan.value" :size="15" class="animate-spin" />
+            <Loader2 v-if="ws.busy.value" :size="15" class="animate-spin" />
             <FolderOpen v-else :size="15" />
           </button>
-          <button
-            v-if="!ws.dir.value"
-            type="button"
-            class="mb-0.5 grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            :title="t('ai.useSample')"
-            @click="ws.useSample()"
-          >
-            <Sparkles :size="15" />
-          </button>
+
+          <!-- ② 功能选择。不选就是普通对话。 -->
+          <div class="relative mb-0.5 shrink-0">
+            <button
+              type="button"
+              class="grid size-8 place-items-center rounded-lg transition-colors hover:bg-accent"
+              :class="ws.feature.value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'"
+              :title="t('ai.pickFeature')"
+              @click="showFeatures = !showFeatures"
+            >
+              <Layers :size="15" />
+            </button>
+
+            <div
+              v-if="showFeatures"
+              class="absolute bottom-10 left-0 z-40 w-[300px] rounded-xl border border-border bg-background p-1.5 shadow-xl"
+            >
+              <button
+                type="button"
+                class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
+                :class="!ws.feature.value ? 'bg-accent/60' : ''"
+                @click="chooseFeature('')"
+              >
+                <span class="text-[13px] font-medium">{{ t("ai.featureNone") }}</span>
+                <span class="text-[11.5px] text-muted-foreground">{{ t("ai.featureNoneHint") }}</span>
+              </button>
+              <button
+                v-for="p in ws.packs.value"
+                :key="p.id"
+                type="button"
+                class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
+                :class="ws.feature.value === p.id ? 'bg-accent/60' : ''"
+                @click="chooseFeature(p.id)"
+              >
+                <span class="text-[13px] font-medium">{{ p.name }}</span>
+                <span class="text-[11.5px] leading-relaxed text-muted-foreground">{{ p.description }}</span>
+              </button>
+              <p class="px-2.5 pb-1 pt-2 text-[11px] text-muted-foreground">{{ t("ai.featureMore") }}</p>
+            </div>
+          </div>
 
           <textarea
             ref="inputEl"
             v-model="draft"
             rows="1"
-            :placeholder="t('ai.placeholder')"
+            :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
             class="max-h-40 min-h-[26px] flex-1 resize-none bg-transparent px-1 py-1 text-[13.5px] leading-relaxed outline-none placeholder:text-muted-foreground"
             @keydown="onKeydown"
           />
@@ -415,6 +496,36 @@ onUnmounted(() => {
             {{ t("ai.configureFirst") }}
           </button>
           <span class="font-mono">{{ ws.columns.value.length ? ws.columns.value.slice(0, 6).join(" · ") : "" }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 首次使用某功能的组件提示 ── -->
+    <div
+      v-if="pendingPack"
+      class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-6"
+      @click.self="pendingPack = null"
+    >
+      <div class="w-full max-w-[460px] rounded-xl border border-border bg-background p-5 shadow-xl">
+        <div class="flex items-start gap-2">
+          <Layers :size="16" class="mt-0.5 shrink-0 text-primary" />
+          <div>
+            <h3 class="text-[14.5px] font-semibold">{{ pendingPack.name }}</h3>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+              {{ pendingPack.bundled ? t("ai.packBundled") : t("ai.packDownload") }}
+            </p>
+            <ul v-if="pendingPack.missing.length" class="mt-2 list-inside list-disc text-[12.5px] text-amber-600">
+              <li v-for="m in pendingPack.missing" :key="m">{{ m }}</li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" class="h-9 rounded-md border border-input px-3.5 text-[13.5px] hover:bg-accent" @click="pendingPack = null">
+            {{ t("ai.cancel") }}
+          </button>
+          <button type="button" class="h-9 rounded-md bg-primary px-4 text-[13.5px] font-medium text-primary-foreground" @click="confirmFeature">
+            {{ pendingPack.bundled ? t("ai.useFeature") : t("ai.downloadFeature") }}
+          </button>
         </div>
       </div>
     </div>

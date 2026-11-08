@@ -11,7 +11,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -42,7 +42,9 @@ export function BindManager(m: ai$0.Manager | null): $CancellablePromise<void> {
  * Chat 非流式对话。
  */
 export function Chat($in: $models.ChatInput): $CancellablePromise<$models.ChatResult> {
-    return $Call.ByID(4159164747, $in);
+    return $Call.ByID(4159164747, $in).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 /**
@@ -53,7 +55,9 @@ export function Chat($in: $models.ChatInput): $CancellablePromise<$models.ChatRe
  * 用户在界面上能看到「它在做什么」，而不是干等一句结论。
  */
 export function ChatAgent($in: $models.ChatInput): $CancellablePromise<$models.ChatResult> {
-    return $Call.ByID(697794552, $in);
+    return $Call.ByID(697794552, $in).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 /**
@@ -63,7 +67,9 @@ export function ChatAgent($in: $models.ChatInput): $CancellablePromise<$models.C
  * 也应该用返回值落库，否则断线时历史里只有半句话。
  */
 export function ChatStream($in: $models.ChatInput): $CancellablePromise<$models.ChatResult> {
-    return $Call.ByID(1755400707, $in);
+    return $Call.ByID(1755400707, $in).then(($result: any) => {
+        return $$createType0($result);
+    });
 }
 
 /**
@@ -76,15 +82,19 @@ export function Enabled(): $CancellablePromise<boolean> {
 /**
  * Models 列举某个服务商的模型。
  */
-export function Models(provider: string): $CancellablePromise<string[] | null> {
-    return $Call.ByID(3847552043, provider);
+export function Models(provider: string): $CancellablePromise<string[]> {
+    return $Call.ByID(3847552043, provider).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
 /**
  * Providers 可选服务商（含本地探测结果）。
  */
-export function Providers(): $CancellablePromise<ai$0.ProviderInfo[] | null> {
-    return $Call.ByID(1434383613);
+export function Providers(): $CancellablePromise<ai$0.ProviderInfo[]> {
+    return $Call.ByID(1434383613).then(($result: any) => {
+        return $$createType3($result);
+    });
 }
 
 /**
@@ -105,7 +115,9 @@ export function SetRegistry(r: ai$0.Registry | null): $CancellablePromise<void> 
  * Settings 当前设置。
  */
 export function Settings(): $CancellablePromise<$models.AISettings> {
-    return $Call.ByID(1031440296);
+    return $Call.ByID(1031440296).then(($result: any) => {
+        return $$createType4($result);
+    });
 }
 
 /**
@@ -115,5 +127,15 @@ export function Settings(): $CancellablePromise<$models.AISettings> {
  * 不支持工具调用而失败。这里直接发一条最小请求。
  */
 export function Test(provider: string): $CancellablePromise<$models.TestResult> {
-    return $Call.ByID(90879621, provider);
+    return $Call.ByID(90879621, provider).then(($result: any) => {
+        return $$createType5($result);
+    });
 }
+
+// Private type creation functions
+const $$createType0 = $models.ChatResult.createFrom;
+const $$createType1 = $Create.Array($Create.Any);
+const $$createType2 = ai$0.ProviderInfo.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = $models.AISettings.createFrom;
+const $$createType5 = $models.TestResult.createFrom;

@@ -23,14 +23,19 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/klphp/excel-batch-tool/internal/capability"
+	"github.com/klphp/excel-batch-tool/internal/packs"
 
 	"github.com/klphp/excel-batch-tool/internal/config"
 )
@@ -132,6 +137,111 @@ func (s *Server) registerRoutes(r *gin.Engine) {
 
 	api := r.Group("/api/v1")
 	{
+		// ── 能力包接口 ──
+		//
+		// 这两条不只是给界面用的：外部 agent（MCP 客户端、脚本）也能拿到
+		// 「本机有哪些能力、每个工具收什么参数」。用法说明由工具定义自动
+		// 生成，所以永远不会和实现脱节。
+		api.GET("/capabilities", func(c *gin.Context) {
+			docs, err := capability.BuildAllUsage(packs.All(), nil)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			// markdown 在清单里没意义（太长），列表只回摘要
+			type item struct {
+				ID          string   `json:"id"`
+				Name        string   `json:"name"`
+				Description string   `json:"description"`
+				Bundled     bool     `json:"bundled"`
+				Requires    []string `json:"requires,omitempty"`
+				Missing     []string `json:"missing,omitempty"`
+				ToolCount   int      `json:"toolCount"`
+				Tools       []string `json:"tools"`
+			}
+			items := make([]item, 0, len(docs))
+			for _, d := range docs {
+				names := make([]string, 0, len(d.Tools))
+				for _, t := range d.Tools {
+					names = append(names, t.Name)
+				}
+				items = append(items, item{
+					ID: d.ID, Name: d.Name, Description: d.Description,
+					Bundled: d.Bundled, Requires: d.Requires, Missing: d.Missing,
+					ToolCount: len(d.Tools), Tools: names,
+				})
+			}
+			c.JSON(http.StatusOK, gin.H{"capabilities": items})
+		})
+
+		// 全部工具的机器可读清单：外部 agent 拿这一份就够写调用了。
+		// 结构和 OpenAI 的 tools 定义一致，直接能塞进请求体。
+		api.GET("/tools.json", func(c *gin.Context) {
+			docs, err := capability.BuildAllUsage(packs.All(), nil)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			type toolOut struct {
+				Name        string          `json:"name"`
+				Description string          `json:"description"`
+				Parameters  json.RawMessage `json:"parameters,omitempty"`
+				Example     string          `json:"example,omitempty"`
+			}
+			capsOut := make([]gin.H, 0, len(docs))
+			for _, d := range docs {
+				tools := make([]toolOut, 0, len(d.Tools))
+				for _, t := range d.Tools {
+					tools = append(tools, toolOut{Name: t.Name, Description: t.Description, Parameters: t.Parameters, Example: t.Example})
+				}
+				capsOut = append(capsOut, gin.H{
+					"id": d.ID, "name": d.Name, "description": d.Description,
+					"bundled": d.Bundled, "requires": d.Requires, "missing": d.Missing,
+					"tools": tools,
+				})
+			}
+			c.JSON(http.StatusOK, gin.H{"app": "deskkit", "capabilities": capsOut})
+		})
+
+		// 全部用法合并成一份 markdown：一次请求就能把整本说明书塞进提示词
+		api.GET("/usage", func(c *gin.Context) {
+			docs, err := capability.BuildAllUsage(packs.All(), nil)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			var b strings.Builder
+			b.WriteString("# DeskKit 能力说明\n\n")
+			b.WriteString("本机可用的文件/表格处理能力，全部在本机执行，数据不上传。\n\n")
+			for _, d := range docs {
+				b.WriteString(d.Markdown)
+				b.WriteString("\n")
+			}
+			c.String(http.StatusOK, b.String())
+		})
+
+		// 用法说明：给模型当提示词，也给开发者当文档
+		api.GET("/capabilities/:id/usage", func(c *gin.Context) {
+			id := c.Param("id")
+			for _, p := range packs.All() {
+				if p.ID != id {
+					continue
+				}
+				doc, err := capability.BuildUsage(p)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+				if c.Query("format") == "md" {
+					c.String(http.StatusOK, doc.Markdown)
+					return
+				}
+				c.JSON(http.StatusOK, doc)
+				return
+			}
+			c.JSON(http.StatusNotFound, gin.H{"error": "没有这个能力包: " + id})
+		})
+
 		api.GET("/ping", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"pong": true, "time": time.Now().Format(time.RFC3339)})
 		})

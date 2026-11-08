@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,12 +31,19 @@ type Client struct {
 	model   string
 	apiKey  string
 	headers map[string]string
+
+	// session 本次运行内的会话标识，用于 ${session} 占位替换。
+	session string
 	retry   config.Retry
 	timeout time.Duration
 	http    *http.Client
 }
 
 // NewClient 从配置构造。apiKey 由调用方解析（环境变量或用户设置）。
+func newSessionID() string {
+	return "deskkit-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+}
+
 func NewClient(name string, p config.Provider, apiKey string) *Client {
 	kind := p.Kind
 	if kind == "" {
@@ -53,6 +61,7 @@ func NewClient(name string, p config.Provider, apiKey string) *Client {
 		model:   p.Model,
 		apiKey:  strings.TrimSpace(apiKey),
 		headers: p.Headers,
+		session: newSessionID(),
 		retry:   p.Retry,
 		timeout: timeout,
 		http: &http.Client{
@@ -311,12 +320,17 @@ func (c *Client) newRequest(ctx context.Context, body []byte) (*http.Request, er
 	return req, nil
 }
 
+// applyHeaders 设置请求头。
+//
+// 支持 ${session} 占位符：有些网关（opencode 就要求）用会话标识做路由，
+// 且不希望所有请求都挤在同一个会话下。每次构造客户端时生成一个，
+// 配置里写 x-opencode-session: ${session} 即可，不用把值写死进配置文件。
 func (c *Client) applyHeaders(req *http.Request) {
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
 	for k, v := range c.headers {
-		req.Header.Set(k, v)
+		req.Header.Set(k, strings.ReplaceAll(v, "${session}", c.session))
 	}
 }
 

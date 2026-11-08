@@ -157,9 +157,13 @@ ai:
       kind: openai
       label: opencode
       baseURL: https://opencode.ai/zen/go/v1
-      model: claude-sonnet-4-5
+      model: deepseek-v4.1-flash
       apiKeyEnv: OPENCODE_API_KEY
       timeout: 90s
+      # 这个网关要求带会话标识，否则直接拒绝（提示 cannot be routed）。
+      # ${session} 由客户端每次启动生成一个，不写死。
+      headers:
+        x-opencode-session: ${session}
 
     # Gemini 的 OpenAI 兼容端点（不是原生 generateContent）
     gemini:

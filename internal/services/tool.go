@@ -9,6 +9,8 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"github.com/klphp/excel-batch-tool/internal/capability"
+	"github.com/klphp/excel-batch-tool/internal/packs"
 	"github.com/klphp/excel-batch-tool/internal/tools/excel"
 )
 
@@ -54,6 +56,115 @@ func (s *ToolService) PickFolder(title string) (string, error) {
 		AllowsMultipleSelection: false,
 	})
 	return dialog.PromptForSingleSelection()
+}
+
+// PickPaths 弹系统选择框，**文件和文件夹都能选，而且可以多选**。
+//
+// 为什么不替用户决定「单文件还是批量」：这取决于他一句话怎么说，
+// 我们猜不出来。所以选择器只管放开（单个文件、多个文件、一个文件夹都行），
+// 工具层两种能力都摆在那里，由 AI 根据用户的话去挑。
+func (s *ToolService) PickPaths(title string) ([]string, error) {
+	app := s.application()
+	if app == nil || app.Dialog == nil {
+		return nil, errors.New("对话框不可用")
+	}
+	if title == "" {
+		title = "选择要处理的文件或文件夹"
+	}
+	dialog := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Title:                   title,
+		CanChooseFiles:          true,
+		CanChooseDirectories:    true,
+		AllowsMultipleSelection: true,
+		Filters: []application.FileFilter{
+			{DisplayName: "表格与全部文件", Pattern: "*.xlsx;*.xlsm;*.csv;*.*"},
+		},
+	})
+	paths, err := dialog.PromptForMultipleSelection()
+	if err != nil {
+		return nil, err
+	}
+	return paths, nil
+}
+
+// PickFile 弹系统文件选择框，返回单个绝对路径（保留：仍需精确选一个文件时用）。
+//
+// 第一版只做单文件：批量要处理「哪些文件、按什么顺序、输出到哪」，
+// 那是另一套界面和另一套错误处理，等单文件跑顺了再说。
+func (s *ToolService) PickFile(title string) (string, error) {
+	app := s.application()
+	if app == nil || app.Dialog == nil {
+		return "", errors.New("对话框不可用")
+	}
+	if title == "" {
+		title = "选择要处理的表格"
+	}
+	dialog := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Title:                   title,
+		CanChooseFiles:          true,
+		CanChooseDirectories:    false,
+		AllowsMultipleSelection: false,
+		Filters: []application.FileFilter{
+			{DisplayName: "Excel 表格", Pattern: "*.xlsx;*.xlsm"},
+			{DisplayName: "全部文件", Pattern: "*.*"},
+		},
+	})
+	return dialog.PromptForSingleSelection()
+}
+
+// InspectFile 打开一个文件，返回表结构（给界面显示「几列几行」，也给模型用）。
+func (s *ToolService) InspectFile(ctx context.Context, path string) (excel.SingleInfo, error) {
+	db, info, err := excel.LoadWorkbookFile(ctx, path)
+	if db != nil {
+		db.Close()
+	}
+	return info, err
+}
+
+// Packs 当前可用的能力包，界面上的「功能选择」用它渲染列表。
+func (s *ToolService) Packs() []PackInfo {
+	out := make([]PackInfo, 0, 4)
+	for _, p := range packs.All() {
+		out = append(out, PackInfo{
+			ID:          p.ID,
+			Name:        p.Name,
+			Description: p.Description,
+			Requires:    p.Requires,
+			Missing:     p.Missing(),
+			Bundled:     p.Bundled(),
+		})
+	}
+	return out
+}
+
+// PackInfo 给界面用的能力包描述。
+type PackInfo struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Requires    []string `json:"requires,omitempty"`
+	Missing     []string `json:"missing,omitempty"`
+	// Bundled 为 true 表示功能组件已随应用内置，首次使用不需要下载。
+	Bundled bool `json:"bundled"`
+}
+
+// CapabilityUsage 返回某个能力包的用法说明（markdown）。
+//
+// 界面在用户选中一个功能时把它塞进系统提示 —— 这样模型一开始就知道
+// 这批工具怎么调，不用先花一轮去试错。外部 agent 走
+// GET /api/v1/capabilities/:id/usage 拿同一份内容。
+func (s *ToolService) CapabilityUsage(id string) (string, error) {
+	for _, p := range packs.All() {
+		if p.ID != id {
+			continue
+		}
+		doc, err := capability.BuildUsage(p)
+		if err != nil {
+			return "", err
+		}
+		return doc.Markdown, nil
+	}
+	return "", errors.New("没有这个能力包: " + id)
 }
 
 // Scan 扫描目录，返回文件清单与统计。
