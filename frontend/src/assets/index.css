@@ -175,8 +175,11 @@
   --destructive: oklch(70% 0.16 25);
   --destructive-foreground: oklch(18% 0.02 25);
 
-  --border: oklch(31% 0.008 250);
-  --input: oklch(24% 0.008 250);
+  --border: oklch(33% 0.008 250);
+  /* 输入框边框要比分隔线更亮一点：深色下 --border 只有 31%，
+     对 21% 的底色几乎看不出来 —— 用户会以为那里是空白，不知道能填。
+     40% 对 21% 有足够的明度差，又不刺眼。 */
+  --input: oklch(40% 0.012 250);
   --ring: oklch(50% 0.075 80);
 }
 
