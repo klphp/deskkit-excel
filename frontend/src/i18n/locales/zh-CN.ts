@@ -99,6 +99,10 @@ export const zhCN = {
   "ai.collapse": "收起",
   "ai.expandTitle": "编辑指令",
   "ai.expandHint": "Enter 发送 · Shift+Enter 换行",
+  "session.rename": "重命名",
+  "session.confirmDelete": "删除这个会话？",
+  "session.cancel": "取消",
+  "session.more": "更多",
   "ai.thinking": "正在处理…",
 
   // ── 模型配置 ──

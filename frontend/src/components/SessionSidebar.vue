@@ -2,14 +2,15 @@
 /**
  * 左侧会话栏。
  *
- * 之前砍掉过侧边栏（当时只有三个页面，导航纯占地方）。现在它有意义了：
- * 对话是有历史的，用户需要能新开一轮、回看上一轮。
+ * 交互参照 Gemini 的会话列表：hover 出现「⋯」，点开只有两项 ——
+ * 重命名、删除。没有再多的动作：这是本地工具，分享/固定/笔记本那些
+ * 对当前场景没有意义，多一项就多一分犹豫。
  *
- * 宽度窄（232px）而不是 280：这一栏是索引，不是主体 —— 主体永远是右边
- * 那次对话。
+ * 重命名做成行内编辑（不弹窗），删除做成行内二次确认（不弹窗）：
+ * 弹窗会打断视线，而这两个动作都在这一行里就能说清楚。
  */
-import { computed, onMounted } from "vue";
-import { Plus, Trash2 } from "@lucide/vue";
+import { computed, nextTick, onMounted, ref } from "vue";
+import { Plus, MoreHorizontal, Pencil, Trash2, Check, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import { initSessions, useSessions } from "../composables/sessions";
 
@@ -20,15 +21,24 @@ onMounted(() => {
   void initSessions();
 });
 
-/** 今天 / 更早 分组，避免一长串时间戳。 */
+/** 打开菜单的会话 id。 */
+const menuFor = ref("");
+/** 正在重命名的会话 id 与草稿。 */
+const editingId = ref("");
+const draftTitle = ref("");
+const editInput = ref<HTMLInputElement | null>(null);
+/** 正在确认删除的会话 id。 */
+const confirmId = ref("");
+
+/** 今天 / 更早分组，避免一长串时间戳。 */
 const groups = computed(() => {
+  type Item = (typeof sess.ordered.value)[number];
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  type Item = (typeof sess.ordered.value)[number];
   const today: Item[] = [];
   const earlier: Item[] = [];
   for (const s of sess.ordered.value) {
-    (s.updatedAt >= startOfToday ? today : earlier).push(s);
+    (s.updatedAt * 1000 >= startOfToday ? today : earlier).push(s);
   }
   return [
     { label: t("session.today"), items: today },
@@ -37,26 +47,61 @@ const groups = computed(() => {
 });
 
 function timeOf(ts: number): string {
-  const d = new Date(ts);
+  // 后端存的是秒
+  const d = new Date(ts * 1000);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function onNew() {
-  sess.create();
+  void sess.create();
 }
 
 function onSelect(id: string) {
-  sess.select(id);
+  if (editingId.value || confirmId.value) return;
+  void sess.select(id);
 }
 
-function onRemove(id: string, ev: MouseEvent) {
+function openMenu(id: string, ev: MouseEvent) {
   ev.stopPropagation();
-  sess.remove(id);
+  confirmId.value = "";
+  menuFor.value = menuFor.value === id ? "" : id;
+}
+
+function startRename(id: string, ev: MouseEvent) {
+  ev.stopPropagation();
+  menuFor.value = "";
+  editingId.value = id;
+  draftTitle.value = sess.summaries.value.find((s) => s.id === id)?.title ?? "";
+  nextTick(() => editInput.value?.focus());
+}
+
+async function commitRename() {
+  const id = editingId.value;
+  const title = draftTitle.value.trim();
+  editingId.value = "";
+  if (id && title) await sess.rename(id, title);
+}
+
+function cancelRename() {
+  editingId.value = "";
+  draftTitle.value = "";
+}
+
+function askDelete(id: string, ev: MouseEvent) {
+  ev.stopPropagation();
+  menuFor.value = "";
+  confirmId.value = id;
+}
+
+async function doDelete(id: string, ev: MouseEvent) {
+  ev.stopPropagation();
+  confirmId.value = "";
+  await sess.remove(id);
 }
 </script>
 
 <template>
-  <aside class="flex w-[232px] shrink-0 flex-col border-r border-border bg-muted/30">
+  <aside class="flex w-[282px] shrink-0 flex-col border-r border-border bg-muted/30">
     <div class="p-2.5">
       <button
         type="button"
@@ -77,38 +122,105 @@ function onRemove(id: string, ev: MouseEvent) {
         <p class="px-1.5 pb-1 pt-2.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
           {{ g.label }}
         </p>
-        <div
-          v-for="s in g.items"
-          :key="s.id"
-          class="group relative mb-0.5 flex items-center gap-2 rounded-lg px-2.5 py-[7px] text-[14px] transition-colors"
-          :class="
-            s.id === sess.currentId.value
-              ? 'bg-accent font-medium text-accent-foreground'
-              : 'text-muted-foreground hover:bg-accent/60'
-          "
-          role="button"
-          tabindex="0"
-          @click="onSelect(s.id)"
-          @keydown.enter="onSelect(s.id)"
-        >
-          <!-- 当前会话左侧一条主色竖线：比只改底色更容易一眼找到 -->
-          <span
-            v-if="s.id === sess.currentId.value"
-            class="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full bg-primary"
-            aria-hidden="true"
-          />
-          <span class="min-w-0 flex-1 truncate">{{ s.title || t("session.untitled") }}</span>
-          <span class="shrink-0 text-[12px] text-muted-foreground group-hover:hidden">{{ timeOf(s.updatedAt) }}</span>
-          <button
-            type="button"
-            class="hidden shrink-0 rounded p-0.5 text-muted-foreground hover:text-destructive group-hover:block"
-            :title="t('session.delete')"
-            @click="onRemove(s.id, $event)"
+
+        <div v-for="s in g.items" :key="s.id" class="relative">
+          <!-- 重命名：行内输入 -->
+          <div v-if="editingId === s.id" class="flex items-center gap-1 rounded-lg bg-accent px-2 py-[5px]">
+            <input
+              ref="editInput"
+              v-model="draftTitle"
+              class="min-w-0 flex-1 rounded border border-input bg-background px-1.5 py-0.5 text-[14px] outline-none focus:border-ring"
+              @keydown.enter.prevent="commitRename"
+              @keydown.esc.prevent="cancelRename"
+              @click.stop
+            />
+            <button type="button" class="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground" @click.stop="commitRename">
+              <Check :size="13" />
+            </button>
+            <button type="button" class="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground" @click.stop="cancelRename">
+              <X :size="13" />
+            </button>
+          </div>
+
+          <!-- 删除确认：也在行内 -->
+          <div v-else-if="confirmId === s.id" class="flex items-center gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-[7px]">
+            <span class="min-w-0 flex-1 truncate text-[13px] text-destructive">{{ t("session.confirmDelete") }}</span>
+            <button
+              type="button"
+              class="shrink-0 rounded px-1.5 py-0.5 text-[12.5px] font-medium text-destructive hover:bg-destructive/15"
+              @click.stop="doDelete(s.id, $event)"
+            >
+              {{ t("session.delete") }}
+            </button>
+            <button
+              type="button"
+              class="shrink-0 rounded px-1.5 py-0.5 text-[12.5px] text-muted-foreground hover:bg-accent"
+              @click.stop="confirmId = ''"
+            >
+              {{ t("session.cancel") }}
+            </button>
+          </div>
+
+          <!-- 正常行 -->
+          <div
+            v-else
+            class="group relative flex items-center gap-1.5 rounded-lg px-2.5 py-[7px] text-[14px] transition-colors"
+            :class="
+              s.id === sess.currentId.value
+                ? 'bg-accent font-medium text-accent-foreground'
+                : 'text-muted-foreground hover:bg-accent/60'
+            "
+            role="button"
+            tabindex="0"
+            @click="onSelect(s.id)"
+            @keydown.enter="onSelect(s.id)"
+            @contextmenu.prevent="openMenu(s.id, $event)"
           >
-            <Trash2 :size="12" />
-          </button>
+            <span
+              v-if="s.id === sess.currentId.value"
+              class="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full bg-primary"
+              aria-hidden="true"
+            />
+            <span class="min-w-0 flex-1 truncate">{{ s.title || t("session.untitled") }}</span>
+            <span class="shrink-0 text-[12px] text-muted-foreground group-hover:hidden">{{ timeOf(s.updatedAt) }}</span>
+            <button
+              type="button"
+              class="hidden shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground group-hover:block"
+              :title="t('session.more')"
+              @click="openMenu(s.id, $event)"
+            >
+              <MoreHorizontal :size="14" />
+            </button>
+          </div>
+
+          <!-- 菜单：只有重命名和删除 -->
+          <div
+            v-if="menuFor === s.id"
+            class="absolute right-1 top-8 z-30 w-[132px] rounded-lg border border-border bg-background py-1 shadow-xl"
+            @click.stop
+          >
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] hover:bg-accent"
+              @click="startRename(s.id, $event)"
+            >
+              <Pencil :size="13" class="text-muted-foreground" />
+              {{ t("session.rename") }}
+            </button>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] text-destructive hover:bg-destructive/10"
+              @click="askDelete(s.id, $event)"
+            >
+              <Trash2 :size="13" />
+              {{ t("session.delete") }}
+            </button>
+          </div>
         </div>
       </template>
     </div>
+
+    <!-- 点空白处关掉菜单 -->
+    <div v-if="menuFor" class="fixed inset-0 z-20" @click="menuFor = ''" />
   </aside>
 </template>

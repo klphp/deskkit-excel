@@ -94,6 +94,10 @@ export const enUS = {
   "ai.collapse": "Collapse",
   "ai.expandTitle": "Edit prompt",
   "ai.expandHint": "Enter to send · Shift+Enter for a new line",
+  "session.rename": "Rename",
+  "session.confirmDelete": "Delete this chat?",
+  "session.cancel": "Cancel",
+  "session.more": "More",
   "ai.thinking": "Working…",
 
   "ai.disabledHint": "AI is turned off in the config file. Batch processing works without it, but you need it to drive the tool by sentence.",
