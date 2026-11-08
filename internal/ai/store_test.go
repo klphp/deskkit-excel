@@ -3,6 +3,7 @@ package ai
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -32,7 +33,13 @@ func TestSettingsFileMode0600(t *testing.T) {
 		t.Fatalf("文件不存在: %v", err)
 	}
 	if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Fatalf("权限应为 0600，实际 %o", perm)
+		// Windows 没有 POSIX 权限位（实测 os.Chmod(0600) 后 Stat 仍是 0666），
+		// 这个断言只在 POSIX 平台上成立；Windows 上真正的保护靠用户目录 ACL。
+		if runtime.GOOS == "windows" {
+			t.Logf("跳过权限断言：Windows 无 POSIX 权限位（实际 %o）", perm)
+		} else {
+			t.Fatalf("权限应为 0600，实际 %o", perm)
+		}
 	}
 }
 
@@ -48,7 +55,13 @@ func TestSaveTightensExistingPerms(t *testing.T) {
 	}
 	info, _ := os.Stat(path)
 	if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Fatalf("权限应收紧到 0600，实际 %o", perm)
+		// Windows 没有 POSIX 权限位（实测 os.Chmod(0600) 后 Stat 仍是 0666），
+		// 这个断言只在 POSIX 平台上成立；Windows 上真正的保护靠 ACL。
+		if runtime.GOOS == "windows" {
+			t.Logf("跳过权限断言：Windows 无 POSIX 权限位（实际 %o）", perm)
+		} else {
+			t.Fatalf("权限应收紧到 0600，实际 %o", perm)
+		}
 	}
 }
 

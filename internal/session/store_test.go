@@ -3,6 +3,7 @@ package session
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -233,10 +234,42 @@ func TestKeyFileFallback(t *testing.T) {
 		t.Fatalf("密钥文件不存在: %v", err)
 	}
 	if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Fatalf("密钥文件权限应为 0600，实际 %o", perm)
+		// Windows 没有 POSIX 权限位：os.Chmod(0600) 之后 Stat 仍可能报 0666（实测）。
+		// 这不是缺陷，是平台差异 —— 断言只在 POSIX 平台上成立。
+		if runtime.GOOS == "windows" {
+			t.Logf("跳过权限断言：Windows 无 POSIX 权限位（实际 %o）", perm)
+		} else {
+			t.Fatalf("密钥文件权限应为 0600，实际 %o", perm)
+		}
 	}
 	if k, err := readKeyFile(dir); err != nil || len(k) != 64 {
 		t.Fatalf("读回失败: %q %v", k, err)
+	}
+}
+
+func TestLoadOrCreateKeyReusesKeyFileWithoutKeyring(t *testing.T) {
+	// 模拟没有钥匙串的平台（Windows / Linux / CI）。
+	oldRead, oldWrite := keychainRead, keychainWrite
+	keychainRead = func() (string, error) { return "", errNoKeyring }
+	keychainWrite = func(string) error { return errNoKeyring }
+	defer func() { keychainRead, keychainWrite = oldRead, oldWrite }()
+
+	dir := t.TempDir()
+	k1, err := loadOrCreateKey(dir)
+	if err != nil {
+		t.Fatalf("首次生成密钥失败: %v", err)
+	}
+	// 再取一次必须拿到**同一把**密钥。Windows 实测过反面：每次都生成新的，
+	// 库是上一把加密的，重启后报 file is not a database，历史全丢。
+	k2, err := loadOrCreateKey(dir)
+	if err != nil {
+		t.Fatalf("再次取密钥失败: %v", err)
+	}
+	if k1 != k2 {
+		t.Fatalf("重新打开时换了新密钥（%s… → %s…）：库会打不开，会话历史丢失", k1[:8], k2[:8])
+	}
+	if len(k1) != 64 {
+		t.Fatalf("密钥长度应为 64，实际 %d", len(k1))
 	}
 }
 

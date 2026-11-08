@@ -26,9 +26,27 @@ const (
 	keyAccount = "session-db-key"
 )
 
+// keychainRead / keychainWrite 钥匙串读写。
+//
+// 提成变量是为了能测「没有钥匙串」的平台（Windows / Linux / CI）：
+// 直接调 readKey/writeKey 的话，macOS 上钥匙串总是可用，
+// 那条路径在开发机上永远测不到（Windows 上实测就是这么翻的车）。
+var (
+	keychainRead  = readKey
+	keychainWrite = writeKey
+)
+
 // loadOrCreateKey 取回密钥；没有就生成一个并落盘到平台钥匙串。
 func loadOrCreateKey(dir string) (string, error) {
-	if k, err := readKey(); err == nil && len(k) == 64 {
+	if k, err := keychainRead(); err == nil && len(k) == 64 {
+		return k, nil
+	}
+
+	// ★ 钥匙串不可用时，**先读本地的密钥文件**，别急着生成新密钥。
+	// 少了这一步的后果（Windows 实测）：每次 Open 都生成一把新密钥并覆盖
+	// session-db.key，而库文件是上一把密钥加密的 —— 于是重启后打不开，
+	// 报 "file is not a database"，用户的会话历史全丢。
+	if k, err := readKeyFile(dir); err == nil && len(k) == 64 {
 		return k, nil
 	}
 
@@ -38,8 +56,8 @@ func loadOrCreateKey(dir string) (string, error) {
 	}
 	key := hex.EncodeToString(buf) // 64 位 hex，SQLCipher 的 raw key 格式
 
-	if err := writeKey(key); err != nil {
-		// 钥匙串不可用（无桌面会话、CI、容器）时退化成本地文件。
+	if err := keychainWrite(key); err != nil {
+		// 钥匙串不可用（无桌面会话、CI、容器、Windows）时退化成本地文件。
 		// 这不是理想状态，但总比「应用起不来」好，而且文件是 0600。
 		if ferr := writeKeyFile(dir, key); ferr != nil {
 			return "", fmt.Errorf("保存密钥失败（钥匙串: %v；文件: %v）", err, ferr)

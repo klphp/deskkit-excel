@@ -26,10 +26,17 @@ func IsXLS(path string) bool {
 
 // readXLS 读 .xls 的所有工作表。
 func readXLS(path string) ([]sheetData, error) {
-	if _, err := os.Stat(path); err != nil {
+	// ★ 自己 os.Open 再交给 xls.OpenReader，不要用 xls.Open。
+	// 原因：xls.Open 内部 os.Open 拿到文件句柄后，整个库没有 Close 方法，
+	// 句柄只能等 GC —— Windows 上实测表现为「文件被另一进程占用」：
+	// 处理完 .xls 之后用户删不掉、改不了那个文件，测试里连临时目录都清理失败。
+	fi, err := os.Open(path)
+	if err != nil {
 		return nil, fmt.Errorf("读不了这个文件: %w", err)
 	}
-	wb, err := xls.Open(path, "utf-8")
+	defer fi.Close()
+
+	wb, err := xls.OpenReader(fi, "utf-8")
 	if err != nil {
 		return nil, fmt.Errorf("这个 .xls 读不了（可能是加密文件或格式损坏）: %w", err)
 	}

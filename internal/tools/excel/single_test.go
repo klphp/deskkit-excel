@@ -12,14 +12,17 @@ import (
 
 // 输出必须落在**原文件同目录**、同名、带时间戳 —— 这是第一版的核心约定。
 func TestSuggestOutputPathKeepsFolderAndStem(t *testing.T) {
-	got := SuggestOutputPath("/tmp/报表/销售部-10月.xlsx", "20260101-120000")
-	want := "/tmp/报表/销售部-10月-20260101-120000.xlsx"
+	// 用 filepath.Join 而不是写死 "/tmp/..."：Windows 上分隔符是反斜杠，
+	// 写死 POSIX 路径会让这条测试在 Windows 必然失败（实测 got "	mp\报表\..."）。
+	src := filepath.Join("/tmp", "报表", "销售部-10月.xlsx")
+	want := filepath.Join("/tmp", "报表", "销售部-10月-20260101-120000.xlsx")
+	got := SuggestOutputPath(src, "20260101-120000")
 	if got != want {
 		t.Fatalf("输出路径不符:\n  得到 %s\n  期望 %s", got, want)
 	}
 	// 不带后缀时自动加时间戳，且与源文件不同名
-	auto := SuggestOutputPath("/tmp/报表/销售部-10月.xlsx", "")
-	if auto == "/tmp/报表/销售部-10月.xlsx" {
+	auto := SuggestOutputPath(src, "")
+	if auto == src {
 		t.Fatal("不能和源文件同名，否则会覆盖原表")
 	}
 	if !strings.HasSuffix(auto, ".xlsx") {
