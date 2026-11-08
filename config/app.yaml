@@ -136,6 +136,11 @@ ai:
       kind: openai
       label: DeepSeek
       baseURL: https://api.deepseek.com/v1
+      # 候选模型：选中服务商就能从下拉里选，不必先有 key 去拉 /v1/models。
+      # 点「刷新可用模型」会用真实 key 去拉，覆盖这份清单。
+      models:
+        - deepseek-chat
+        - deepseek-reasoner
       model: deepseek-chat
       apiKeyEnv: DEEPSEEK_API_KEY
       timeout: 60s
@@ -157,6 +162,8 @@ ai:
       kind: openai
       label: opencode
       baseURL: https://opencode.ai/zen/go/v1
+      models:
+        - deepseek-v4.1-flash
       model: deepseek-v4.1-flash
       apiKeyEnv: OPENCODE_API_KEY
       timeout: 90s
@@ -170,6 +177,9 @@ ai:
       kind: openai
       label: Google Gemini
       baseURL: https://generativelanguage.googleapis.com/v1beta/openai
+      models:
+        - gemini-2.5-pro
+        - gemini-2.5-flash
       model: gemini-2.5-flash
       apiKeyEnv: GEMINI_API_KEY
       timeout: 60s

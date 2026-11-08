@@ -45,6 +45,8 @@ export const zhCN = {
   "ai.refreshHint": "点「刷新模型」向服务商要一次列表",
   "ai.modelsCount": "共 {n} 个模型",
   "ai.noModels": "对方没有返回模型列表，手动填一个模型名",
+  "ai.pickModelHint": "先接入并刷新模型（或选「手动输入」）",
+  "ai.customModel": "手动输入模型名…",
   "ai.modelPlaceholder": "模型名，如 deepseek-chat",
   "ai.useThisModel": "用这个模型",
   "ai.baseURL": "接口地址",

@@ -40,6 +40,8 @@ export const enUS = {
   "ai.refreshHint": "Hit Refresh to fetch the list from the provider",
   "ai.modelsCount": "{n} models",
   "ai.noModels": "The provider returned no model list — type a model name",
+  "ai.pickModelHint": "Connect and refresh models first (or pick custom)",
+  "ai.customModel": "Enter a model name…",
   "ai.modelPlaceholder": "e.g. deepseek-chat",
   "ai.useThisModel": "Use this model",
   "ai.baseURL": "Endpoint",

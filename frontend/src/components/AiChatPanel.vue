@@ -74,6 +74,25 @@ const connected = ref(false);
 const models = ref<string[]>([]);
 const loadingModels = ref(false);
 const modelsError = ref("");
+/**
+ * 模型选择默认是下拉 —— 服务商有什么模型，就列什么模型。
+ * 文本框只作为兜底：有些自建网关的模型名不在任何清单里，
+ * 但那是例外，不该让所有人都面对一个空输入框猜名字。
+ */
+const customModel = ref(false);
+const CUSTOM = "__custom__";
+const modelChoice = computed({
+  get: () => (customModel.value ? CUSTOM : model.value),
+  set: (v: string) => {
+    if (v === CUSTOM) {
+      customModel.value = true;
+      model.value = "";
+      return;
+    }
+    customModel.value = false;
+    model.value = v;
+  },
+});
 
 /**
  * 消息挂在「当前会话」上，而不是组件自己的 ref ——
@@ -170,6 +189,12 @@ async function refresh() {
     model.value = st.model || preferred.model;
     baseURL.value = st.baseURL || "";
     connected.value = preferred.ready;
+    // ★ 候选清单必须在这里就填上：下拉没有 options，当前值匹配不到任何一项，
+    //   结果就是一个空白框 —— 用户会以为模型没选。
+    models.value = preferred.models ?? [];
+    customModel.value = !!model.value && !models.value.includes(model.value) && models.value.length > 0;
+    // 已接上的服务商顺手要一次真实清单（覆盖候选）
+    if (preferred.ready) void loadModels();
   }
 }
 
@@ -179,10 +204,13 @@ function pickProvider(name: string) {
   model.value = p?.model ?? "";
   baseURL.value = "";
   models.value = p?.models ?? [];
+  customModel.value = !model.value && models.value.length === 0;
   modelsError.value = "";
   testResult.value = null;
   failure.value = "";
   connected.value = Boolean(p?.ready);
+  // 已接上的服务商直接拉真实清单，用户看到的就是「它到底有什么模型」
+  if (p?.ready) void loadModels();
 }
 
 async function connect() {
@@ -218,10 +246,13 @@ async function loadModels() {
   modelsError.value = "";
   try {
     const list = (await AIService.Models(provider.value)) ?? [];
-    models.value = list;
     if (list.length === 0) {
       modelsError.value = t("ai.noModels");
-    } else if (!model.value || !list.includes(model.value)) {
+      return;
+    }
+    models.value = list;
+    customModel.value = false;
+    if (!model.value || !list.includes(model.value)) {
       model.value = list[0];
     }
   } catch (err) {
@@ -889,34 +920,36 @@ onUnmounted(() => {
             <p class="mb-2 flex items-center gap-2 text-[13px] font-medium">
               <span class="grid size-5 place-items-center rounded-full bg-primary text-[11px] text-primary-foreground">2</span>
               {{ t("ai.stepModel") }}
+            </p>
+
+            <!-- 下拉 + 刷新并排：先看服务商有什么，不满意就再要一次 -->
+            <div class="flex items-center gap-2">
+              <select
+                v-model="modelChoice"
+                class="min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 py-1.5 font-mono text-[13px]"
+              >
+                <option v-if="models.length === 0" value="" disabled>{{ t("ai.pickModelHint") }}</option>
+                <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
+                <option :value="CUSTOM">{{ t("ai.customModel") }}</option>
+              </select>
+              <!-- 向服务商要一次模型列表。用主色：它是个动作，不是装饰 -->
               <button
                 type="button"
-                class="ml-1 inline-flex items-center gap-1 rounded-md border border-input px-2 py-0.5 text-[12px] transition-colors hover:bg-accent disabled:opacity-50"
+                class="inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-[transform,opacity] active:scale-[0.97] disabled:opacity-45"
                 :disabled="loadingModels || !(connected || ready)"
                 @click="loadModels"
               >
-                <Loader2 v-if="loadingModels" :size="11" class="animate-spin" />
+                <RefreshCw :size="13" :class="loadingModels ? 'animate-spin' : ''" />
                 {{ t("ai.refreshModels") }}
               </button>
-            </p>
-
-            <select
-              v-if="models.length"
-              v-model="model"
-              class="w-full rounded-md border border-input bg-background px-2.5 py-1.5 font-mono text-[13px]"
-            >
-              <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
-            </select>
+            </div>
             <input
-              v-else
+              v-if="customModel"
               v-model="model"
-              class="w-full rounded-md border border-input bg-background px-2.5 py-1.5 font-mono text-[13px]"
+              class="mt-2 w-full rounded-md border border-input bg-background px-2.5 py-1.5 font-mono text-[13px]"
               :placeholder="t('ai.modelPlaceholder')"
             />
             <p v-if="modelsError" class="mt-1.5 text-[13px] text-destructive">{{ modelsError }}</p>
-            <p v-else class="mt-1.5 text-[13px] text-muted-foreground">
-              {{ models.length ? t("ai.modelsCount").replace("{n}", String(models.length)) : t("ai.refreshHint") }}
-            </p>
           </section>
 
           <p v-if="failure" class="text-[13px] text-destructive">{{ failure }}</p>
