@@ -771,7 +771,10 @@ onUnmounted(() => {
 <template>
   <div class="relative flex h-full min-h-0 flex-col">
     <!-- ── 对话 ── -->
-    <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto" @click="onContentClick" @scroll.passive="onScrollerScroll">
+    <!-- 滚动区外面套一层 relative：浮动按钮要相对「聊天记录区域」定位，
+         而不是相对整列（那样会贴到输入框边上）。 -->
+    <div class="relative min-h-0 flex-1">
+      <div ref="scroller" class="h-full selectable overflow-y-auto" @click="onContentClick" @scroll.passive="onScrollerScroll">
       <div class="mx-auto max-w-[800px] px-6 py-8">
         <!-- 更早的消息：吸在顶部一直可见，点一下或往上滚都能加载。
              不显示这个的话，用户会以为会话只有这么长。 -->
@@ -959,18 +962,21 @@ onUnmounted(() => {
       </div>
     </div>
 
+
       <!-- 回到底部：翻了一段历史之后一路滚回去很累。
-           只在离开底部时出现，平时不占地方。 -->
+           浮动在聊天记录区底部，离开底部才出现，平时不占地方。
+           用主色（暖琥珀）而不是灰底：它是「动作」，不是状态提示。 -->
       <button
         v-if="showJumpDown"
         type="button"
-        class="absolute bottom-4 left-1/2 z-20 grid h-9 w-9 -translate-x-1/2 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-md transition-[opacity,transform] duration-150 hover:text-foreground active:scale-[0.92]"
+        class="absolute bottom-4 left-1/2 z-20 grid h-9 w-9 -translate-x-1/2 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-[opacity,transform,background-color] duration-150 hover:bg-primary/90 active:scale-[0.92]"
         :title="t('chat.jumpToBottom')"
         :aria-label="t('chat.jumpToBottom')"
         @click="jumpToBottom"
       >
         <ArrowDown :size="16" />
       </button>
+    </div>
 
     <!-- ── 输入区：对话的一部分，不是工具栏 ── -->
     <div class="shrink-0 px-6 pb-5">
