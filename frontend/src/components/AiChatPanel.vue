@@ -16,6 +16,7 @@ import { useI18n } from "../i18n";
 import { renderMarkdown } from "../lib/markdown";
 import { useWorkspace } from "../composables/workspace";
 import AttachButton from "./AttachButton.vue";
+import SelectedPaths from "./SelectedPaths.vue";
 import * as Tools from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/toolservice";
 import * as Prefs from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/prefsservice";
 import * as Sessions from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/sessionservice";
@@ -977,17 +978,7 @@ onUnmounted(() => {
     <div class="shrink-0 px-6 pb-5">
       <div class="mx-auto max-w-[800px]">
         <!-- 已选文件：一个小标签。第二行小字说明结果会写到哪 -->
-        <div v-if="ws.paths.value.length > 0" class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[13px]">
-            <FolderOpen :size="12" class="shrink-0 text-muted-foreground" />
-            <button type="button" class="truncate font-medium hover:underline" :title="ws.paths.value.join('\n')" @click="ws.pickPaths(t('ai.pickInput'))">
-              {{ ws.selectionLabel.value }}
-            </button>
-            <button type="button" class="shrink-0 text-muted-foreground hover:text-foreground" @click="ws.clearPaths()">
-              <X :size="12" />
-            </button>
-          </span>
-        </div>
+        <SelectedPaths />
 
         <!-- 输入框按 Gemini 的分层：
              上方只有内容 + 右上角的缩放角标；
@@ -1109,6 +1100,7 @@ onUnmounted(() => {
           />
           <!-- 两个图标和折叠态一致（选文件 / 选功能），右边发送；
                另一个「收起」在顶部条右侧 -->
+          <SelectedPaths />
           <div class="flex shrink-0 items-center gap-1 pt-3">
             <AttachButton />
 

@@ -92,6 +92,11 @@ async function pickPaths(title: string) {
   }
 }
 
+/** 从已选里去掉一项（框选选错了要能单个撤，不然只能整批重选）。 */
+function removePath(target: string) {
+  paths.value = paths.value.filter((p) => p !== target);
+}
+
 function clearPaths() {
   paths.value = [];
   failure.value = "";
@@ -128,6 +133,7 @@ export function useWorkspace() {
     pickPaths,
     pickFiles,
     pickDirs,
+    removePath,
     clearPaths,
     setFeature,
   };

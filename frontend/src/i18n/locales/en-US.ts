@@ -3,6 +3,8 @@
  * for GitHub distribution, with Chinese as a first-class secondary.
  */
 export const enUS = {
+  "ai.removePath": "Remove this item",
+  "ai.clearPaths": "Clear all",
   "ai.attach": "Add files or folders",
   "ai.pickFiles": "Choose files",
   "ai.pickFolder": "Choose folder",
