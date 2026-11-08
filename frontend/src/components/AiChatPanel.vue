@@ -25,6 +25,7 @@ import {
   Settings2,
   ThumbsUp,
   ThumbsDown,
+  ChevronDown,
   Copy,
   Wrench,
   X,
@@ -924,18 +925,24 @@ onUnmounted(() => {
 
             <!-- 下拉 + 刷新并排：先看服务商有什么，不满意就再要一次 -->
             <div class="flex items-center gap-2">
-              <select
-                v-model="modelChoice"
-                class="min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 py-1.5 font-mono text-[13px]"
-              >
-                <option v-if="models.length === 0" value="" disabled>{{ t("ai.pickModelHint") }}</option>
-                <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
-                <option :value="CUSTOM">{{ t("ai.customModel") }}</option>
-              </select>
+              <div class="relative min-w-0 flex-1">
+                <select
+                  v-model="modelChoice"
+                  class="h-9 w-full appearance-none rounded-md border border-input bg-background pl-2.5 pr-8 font-mono text-[13px]"
+                >
+                  <option v-if="models.length === 0" value="" disabled>{{ t("ai.pickModelHint") }}</option>
+                  <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
+                  <option :value="CUSTOM">{{ t("ai.customModel") }}</option>
+                </select>
+                <ChevronDown
+                  :size="14"
+                  class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
+              </div>
               <!-- 向服务商要一次模型列表。用主色：它是个动作，不是装饰 -->
               <button
                 type="button"
-                class="inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-[transform,opacity] active:scale-[0.97] disabled:opacity-45"
+                class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-[transform,opacity] active:scale-[0.97] disabled:opacity-45"
                 :disabled="loadingModels || !(connected || ready)"
                 @click="loadModels"
               >
@@ -946,7 +953,7 @@ onUnmounted(() => {
             <input
               v-if="customModel"
               v-model="model"
-              class="mt-2 w-full rounded-md border border-input bg-background px-2.5 py-1.5 font-mono text-[13px]"
+              class="mt-2 h-9 w-full rounded-md border border-input bg-background px-2.5 font-mono text-[13px]"
               :placeholder="t('ai.modelPlaceholder')"
             />
             <p v-if="modelsError" class="mt-1.5 text-[13px] text-destructive">{{ modelsError }}</p>

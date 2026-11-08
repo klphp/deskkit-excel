@@ -48,7 +48,7 @@ export const zhCN = {
   "ai.pickModelHint": "先接入并刷新模型（或选「手动输入」）",
   "ai.customModel": "手动输入模型名…",
   "ai.modelPlaceholder": "模型名，如 deepseek-chat",
-  "ai.useThisModel": "用这个模型",
+  "ai.useThisModel": "保存",
   "ai.baseURL": "接口地址",
   "ai.configureFirst": "还没接入模型 —— 点这里接入",
   "ai.askBrowse": "先选一个文件夹",

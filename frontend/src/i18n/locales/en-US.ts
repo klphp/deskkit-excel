@@ -43,7 +43,7 @@ export const enUS = {
   "ai.pickModelHint": "Connect and refresh models first (or pick custom)",
   "ai.customModel": "Enter a model name…",
   "ai.modelPlaceholder": "e.g. deepseek-chat",
-  "ai.useThisModel": "Use this model",
+  "ai.useThisModel": "Save",
   "ai.baseURL": "Endpoint",
   "ai.configureFirst": "No model connected — click to set up",
   "ai.askBrowse": "Pick a folder",
