@@ -860,21 +860,22 @@ onUnmounted(() => {
               <span class="grid size-5 place-items-center rounded-full bg-primary text-[11px] text-primary-foreground">1</span>
               {{ t("ai.stepConnect") }}
             </p>
-            <div class="grid grid-cols-3 gap-2">
-              <button
-                v-for="p in providers"
-                :key="p.name"
-                type="button"
-                class="flex flex-col items-start gap-1 rounded-lg border px-3 py-2 text-left transition-colors"
-                :class="provider === p.name ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'"
-                @click="pickProvider(p.name)"
+            <!-- 服务商也用下拉，和下面的模型选择长得一样。
+                 九个格子摊在弹窗里像张仪表盘，实际每次只会选一个。 -->
+            <div class="relative">
+              <select
+                :value="provider"
+                class="h-9 w-full appearance-none rounded-md border border-input bg-background pl-2.5 pr-8 text-[13px]"
+                @change="pickProvider(($event.target as HTMLSelectElement).value)"
               >
-                <span class="truncate text-[13px] font-medium">{{ p.label || p.name }}</span>
-                <span class="flex items-center gap-1 text-[11.5px] text-muted-foreground">
-                  <Check v-if="p.ready" :size="11" class="text-emerald-600" />
-                  {{ p.ready ? t("ai.ready") : p.local ? t("ai.notRunning") : t("ai.needsKey") }}
-                </span>
-              </button>
+                <option v-for="p in providers" :key="p.name" :value="p.name">
+                  {{ p.label || p.name }} · {{ p.ready ? t("ai.ready") : p.local ? t("ai.notRunning") : t("ai.needsKey") }}
+                </option>
+              </select>
+              <ChevronDown
+                :size="14"
+                class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
             </div>
 
             <label v-if="isCustom" class="mt-3 block">
