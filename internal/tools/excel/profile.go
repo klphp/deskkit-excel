@@ -300,7 +300,9 @@ func FindDuplicates(t *Table, cols []string, limit int) ([][]string, int, error)
 	for ri, row := range t.Rows {
 		parts := make([]string, len(idx))
 		for k, ci := range idx {
-			parts[k] = strings.TrimSpace(cellAt(row, ci))
+			// 键归一：1001 / 1001.0 / " 1001" / 001001 是同一个值。
+			// 不归一的话 find_duplicates 对「写法不同的同一笔」判不出重复。
+			parts[k] = normalizeKeyValue(cellAt(row, ci))
 		}
 		key := strings.Join(parts, "\x00")
 		count[key]++

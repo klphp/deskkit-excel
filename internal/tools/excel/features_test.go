@@ -229,6 +229,8 @@ func TestJoinMatchedAndDuplicateKeys(t *testing.T) {
 	res, err := Join(JoinOptions{
 		LeftPath: left.Path, RightPath: right.Path,
 		LeftKey: "工号", RightKey: "工号", Bring: []string{"级别"},
+		// 右表 001 出现两次 → 必须显式选择怎么取；老行为是 first
+		OnDuplicate: "first",
 	})
 	if err != nil {
 		t.Fatal(err)

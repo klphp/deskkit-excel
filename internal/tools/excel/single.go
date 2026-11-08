@@ -87,8 +87,11 @@ func SuggestOutputPath(src, suffix string) string {
 }
 
 // WriteRowsAlong 把结果写到源文件旁边，返回实际路径与行数。
+//
+// ★ 落盘前必走 uniquePath：时间戳只到秒，用户连点两次「执行」或模型重试一次，
+// 第二次就会覆盖第一次的结果（两次返回同一路径），结果既不可复现也不可追溯。
 func WriteRowsAlong(src, suffix string, columns []string, rows [][]string) (string, error) {
-	path := SuggestOutputPath(src, suffix)
+	path := uniquePath(SuggestOutputPath(src, suffix))
 
 	f := excelize.NewFile()
 	defer f.Close()
@@ -221,6 +224,23 @@ func CleanFile(ctx context.Context, opt CleanFileOptions) (CleanFileResult, erro
 	headers := rows[0]
 	body := rows[1:]
 	res.RowsIn = len(body)
+
+	// ★ 表头规范化 + 按最大宽度补齐，绝不按表头宽度截断数据行。
+	// 以前 cells := make([]string, len(headers)) 直接拷贝：表头漏写一格
+	// （或 CSV 末尾多一个分隔符）那一列数据就整列消失，还不报错。
+	var headerWarns []string
+	headers, headerWarns = normalizeHeadersWarn(headers)
+	res.Warnings = append(res.Warnings, headerWarns...)
+	grow := &Table{Headers: headers}
+	width := len(headers)
+	for _, r := range body {
+		if len(r) > width {
+			width = len(r)
+		}
+	}
+	grow.extendHeaders(width)
+	res.Warnings = append(res.Warnings, grow.Warnings...)
+	headers = grow.Headers
 
 	// 去重键的列序号
 	var keyIdx []int

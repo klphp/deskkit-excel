@@ -27,6 +27,11 @@ type Table struct {
 	Headers []string `json:"headers"`
 	// Rows 数据行，每行长度与 Headers 一致。
 	Rows [][]string `json:"rows"`
+	// Warnings 读表过程中「自动修正过什么」的说明。
+	//
+	// 为什么要带出来：补表头、重名列改名、按文本写编号这些动作都改变用户看到的结果，
+	// 静默修正和静默丢数据一样危险 —— 用户必须能知道「这一列的名字是我补的」。
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // LoadTable 读某张表。sheet 为空时取第一个工作表。
@@ -61,8 +66,16 @@ func LoadTable(path, sheet string) (*Table, error) {
 			return nil, fmt.Errorf("读取行内容失败: %w", err)
 		}
 		if t.Headers == nil {
-			t.Headers = normalizeHeaders(cells)
+			var warns []string
+			t.Headers, warns = normalizeHeadersWarn(cells)
+			t.Warnings = append(t.Warnings, warns...)
 			continue
+		}
+		// ★ 数据行比表头宽时按最大宽度补表头，绝不截断数据行。
+		// 以前这里按表头宽度截断：表头漏写一格（或多一格合并单元格留下的空表头）
+		// 那一列数据就整列消失，不报错、不 warning —— 财务表里极难发现。
+		if len(t.Headers) > 0 && len(cells) > len(t.Headers) {
+			t.extendHeaders(len(cells))
 		}
 		t.Rows = append(t.Rows, padRow(cells, len(t.Headers)))
 	}
@@ -159,6 +172,16 @@ var (
 	integerHeaderWords = []string{"数量", "件数", "人数", "笔数", "单数", "行数", "库存", "次"}
 )
 
+// numberLikeHeaderWords 这些列名里的值几乎一定是「编号 / 号码」，不是能参与计算的数值。
+//
+// 为什么要按列名再拦一道：光靠位数拦不住 11 位手机号、13 位订单号，
+// 而 Excel 的数值只有 15 位有效数字 —— 写进去末位就被改写了。
+// 与 moneyHeaderWords 冲突时（如「电话费」）以金额为准：那一列是要合计的。
+var numberLikeHeaderWords = []string{
+	"身份证", "证件", "卡号", "账号", "帐号", "工号", "单号",
+	"电话", "手机", "邮编", "税号", "编码", "编号", "证号",
+}
+
 // WriteOptions 写出选项。
 type WriteOptions struct {
 	// Sheet 工作表名，默认用「结果」。
@@ -212,11 +235,16 @@ func WriteTable(path string, t *Table, opt WriteOptions) (string, error) {
 	if err := f.SetSheetName(f.GetSheetName(0), sheet); err != nil {
 		sheet = f.GetSheetName(0)
 	}
-	if err := putTableInto(f, sheet, t, opt); err != nil {
+	warns, err := putTableInto(f, sheet, t, opt)
+	if err != nil {
 		return "", err
 	}
-	// 默认带一页「处理说明」：财务要能追溯，出问题也要能说清是哪次处理
+	// 默认带一页「处理说明」：财务要能追溯，出问题也要能说清是哪次处理。
+	// 读表时自动修正过的东西（补表头 / 重名列改名 / 编号强制文本）一并写进去 ——
+	// 静默修正和静默丢数据一样不可接受。
 	if !opt.NoMeta {
+		opt.Meta = append(append([]string(nil), opt.Meta...), warns...)
+		opt.Meta = append(opt.Meta, t.Warnings...)
 		if err := addMetaSheet(f, t, opt); err != nil {
 			return "", err
 		}
@@ -248,7 +276,12 @@ func uniqueSheetName(f *excelize.File, name string) string {
 }
 
 // putTableInto 把表写进已打开工作簿的某个工作表。WriteTable 与 WriteMultiSheet 共用。
-func putTableInto(f *excelize.File, sheet string, t *Table, opt WriteOptions) error {
+//
+// 返回 warnings：本次写出过程中对「原本会写成数值」的列做了强制文本处理，
+// 这些必须写进「处理说明」，否则用户不知道为什么会多出一堆文本单元格。
+func putTableInto(f *excelize.File, sheet string, t *Table, opt WriteOptions) ([]string, error) {
+	var warnings []string
+
 	// 表头样式
 	var headerStyle int
 	if opt.BoldHeader {
@@ -262,7 +295,25 @@ func putTableInto(f *excelize.File, sheet string, t *Table, opt WriteOptions) er
 		}
 	}
 
-	put := func(idx int, values []string, style int) error {
+	// ★ 按列名强制文本：身份证 / 卡号 / 工号 / 单号 这类列即使长得像数字
+	// 也不能写成数值。与金额列冲突时（如「电话费」）以金额为准。
+	var textCols map[int]bool
+	if opt.NumbersAsNumbers {
+		textCols = forceTextColumns(t.Headers)
+		if len(textCols) > 0 {
+			names := make([]string, 0, len(textCols))
+			for i, h := range t.Headers {
+				if textCols[i] {
+					names = append(names, h)
+				}
+			}
+			warnings = append(warnings, fmt.Sprintf(
+				"列 %s 按文本写出（编号/号码写成数值会丢末位，Excel 只有 15 位有效数字）",
+				strings.Join(names, "、")))
+		}
+	}
+
+	put := func(idx int, values []string, style int, isData bool) error {
 		first, err := excelize.CoordinatesToCellName(1, idx)
 		if err != nil {
 			return err
@@ -272,7 +323,8 @@ func putTableInto(f *excelize.File, sheet string, t *Table, opt WriteOptions) er
 			if err != nil {
 				return err
 			}
-			if opt.NumbersAsNumbers {
+			// 表头永远按文本写；数据行才判断能不能当数字
+			if isData && opt.NumbersAsNumbers && !textCols[j] {
 				if num, ok := asNumber(v); ok {
 					if err := f.SetCellValue(sheet, c, num); err != nil {
 						return err
@@ -295,12 +347,12 @@ func putTableInto(f *excelize.File, sheet string, t *Table, opt WriteOptions) er
 		return nil
 	}
 
-	if err := put(1, t.Headers, headerStyle); err != nil {
-		return err
+	if err := put(1, t.Headers, headerStyle, false); err != nil {
+		return nil, err
 	}
 	for i, r := range t.Rows {
-		if err := put(i+2, r, 0); err != nil {
-			return err
+		if err := put(i+2, r, 0, true); err != nil {
+			return nil, err
 		}
 	}
 
@@ -313,9 +365,36 @@ func putTableInto(f *excelize.File, sheet string, t *Table, opt WriteOptions) er
 		autoWidth(f, sheet, t.Headers, t.Rows)
 	}
 	if opt.NumbersAsNumbers && !opt.NoNumberFormat {
-		applyNumberFormats(f, sheet, t, opt)
+		applyNumberFormats(f, sheet, t, opt, textCols)
 	}
-	return nil
+	return warnings, nil
+}
+
+// forceTextColumns 找出必须按文本写出的列（返回列号集合）。
+func forceTextColumns(headers []string) map[int]bool {
+	var out map[int]bool
+	for i, h := range headers {
+		if !matchAnyWord(h, numberLikeHeaderWords) {
+			continue
+		}
+		if matchAnyWord(h, moneyHeaderWords) {
+			continue // 「电话费」这类是金额，要参与合计
+		}
+		if out == nil {
+			out = make(map[int]bool, 2)
+		}
+		out[i] = true
+	}
+	return out
+}
+
+func matchAnyWord(s string, words []string) bool {
+	for _, w := range words {
+		if strings.Contains(s, w) {
+			return true
+		}
+	}
+	return false
 }
 
 // applyNumberFormats 给金额列/整数列套上会计看得懂的格式。
@@ -328,7 +407,7 @@ func putTableInto(f *excelize.File, sheet string, t *Table, opt WriteOptions) er
 //
 //	金额   #,##0.00;[Red]-#,##0.00
 //	整数   #,##0
-func applyNumberFormats(f *excelize.File, sheet string, t *Table, opt WriteOptions) {
+func applyNumberFormats(f *excelize.File, sheet string, t *Table, opt WriteOptions, textCols map[int]bool) {
 	moneyIdx := resolveCols(t, opt.MoneyColumns, moneyHeaderWords)
 	intIdx := resolveCols(t, opt.IntegerColumns, integerHeaderWords)
 
@@ -352,6 +431,9 @@ func applyNumberFormats(f *excelize.File, sheet string, t *Table, opt WriteOptio
 			return
 		}
 		for _, ci := range cols {
+			if textCols[ci] {
+				continue // 按文本写出的列不套数字格式
+			}
 			first, err := excelize.CoordinatesToCellName(ci+1, 2)
 			if err != nil {
 				continue
@@ -485,6 +567,13 @@ func asNumber(s string) (float64, bool) {
 	if len(v) > 1 && v[0] == '0' && v[1] != '.' {
 		return 0, false
 	}
+	// ★ 16 位以上纯整数一律按文本：身份证（18 位）、银行卡（19 位）、
+	// 合同号、订单号。Excel 的数值只有 15 位有效数字，写成数值后末 3 位会被
+	// 改写成 0（110101199003071234 → 110101199003071000），文件不报错、
+	// 单元格看起来还是一串数字 —— 拿去报税 / 打款就是错的。
+	if isLongInteger(v) {
+		return 0, false
+	}
 	for _, r := range v {
 		if !(r >= '0' && r <= '9') && r != '.' && r != '-' && r != '+' && r != 'e' && r != 'E' {
 			return 0, false
@@ -566,11 +655,43 @@ func endColumn(n int) string {
 
 func padRow(cells []string, n int) []string {
 	if len(cells) >= n {
-		return cells[:n]
+		// ★ 只补不截：截断等于整列数据静默丢失。调用方必须先按最大宽度补好表头
+		// （LoadTable 的 extendHeaders），这里再兜一层不再截断。
+		return cells
 	}
 	out := make([]string, n)
 	copy(out, cells)
 	return out
+}
+
+// extendHeaders 数据行比表头宽时按最大宽度补表头，并把已有行补空。
+//
+// 触发场景很常见：表头漏写一格、合并单元格导致后几列没表头、CSV 末尾多一个分隔符。
+// 以前的做法是按表头宽度截断数据行 —— 那一列整列消失且不报错，财务表里极难发现。
+func (t *Table) extendHeaders(width int) {
+	if width <= len(t.Headers) {
+		return
+	}
+	old := len(t.Headers)
+	var added []string
+	for i := old; i < width; i++ {
+		name := fmt.Sprintf("列%d", i+1)
+		for n := 2; contains(t.Headers, name); n++ {
+			name = fmt.Sprintf("列%d-%d", i+1, n)
+		}
+		t.Headers = append(t.Headers, name)
+		added = append(added, name)
+	}
+	t.Warnings = append(t.Warnings, fmt.Sprintf(
+		"数据行有 %d 列但表头只有 %d 列，已补表头 %s（数据完整保留）",
+		width, old, strings.Join(added, "、")))
+	for i := range t.Rows {
+		if len(t.Rows[i]) < width {
+			row := make([]string, width)
+			copy(row, t.Rows[i])
+			t.Rows[i] = row
+		}
+	}
 }
 
 func contains(list []string, s string) bool {

@@ -48,6 +48,8 @@ type SheetInfo struct {
 	Headers []string `json:"headers"`
 	Rows    int      `json:"rows"`
 	Size    int64    `json:"size"`
+	// Warnings 读这个文件时自动修正过什么（补表头 / 重名列改名）。
+	Warnings []string `json:"warnings,omitempty"`
 	// Err 非空表示这个文件读不了（加密、损坏、被占用），不影响其它文件。
 	Err string `json:"error,omitempty"`
 }
@@ -117,8 +119,8 @@ func Scan(ctx context.Context, dir string) (ScanResult, error) {
 			size = fi.Size()
 		}
 
-		sheet, sheetName, headers, rows, readErr := inspect(path)
-		item := SheetInfo{Path: path, Name: name, Sheet: sheetName, Headers: headers, Rows: rows, Size: size}
+		sheet, sheetName, headers, rows, warns, readErr := inspect(path)
+		item := SheetInfo{Path: path, Name: name, Sheet: sheetName, Headers: headers, Rows: rows, Size: size, Warnings: warns}
 		if readErr != nil {
 			item.Err = readErr.Error()
 		} else {
@@ -138,35 +140,35 @@ func Scan(ctx context.Context, dir string) (ScanResult, error) {
 //
 // 用 Rows 迭代器而不是 GetRows：后者一次把整表读进内存，
 // 碰上几十万行的导出表会直接把内存吃掉；迭代器是流式的。
-func inspect(path string) (*excelize.File, string, []string, int, error) {
+func inspect(path string) (*excelize.File, string, []string, int, []string, error) {
 	f, err := openWorkbook(path)
 	if err != nil {
-		return nil, "", nil, 0, fmt.Errorf("打开失败: %w", err)
+		return nil, "", nil, 0, nil, fmt.Errorf("打开失败: %w", err)
 	}
 	defer f.Close()
 
 	sheets := f.GetSheetList()
 	if len(sheets) == 0 {
-		return f, "", nil, 0, fmt.Errorf("没有工作表")
+		return f, "", nil, 0, nil, fmt.Errorf("没有工作表")
 	}
 	sheet := sheets[0]
 
 	rows, err := f.Rows(sheet)
 	if err != nil {
-		return f, sheet, nil, 0, fmt.Errorf("读取行失败: %w", err)
+		return f, sheet, nil, 0, nil, fmt.Errorf("读取行失败: %w", err)
 	}
 	defer rows.Close()
 
-	var headers []string
+	var headers, warns []string
 	dataRows := 0
 	for rows.Next() {
 		row, err := rows.Columns()
 		if err != nil {
-			return f, sheet, headers, dataRows, fmt.Errorf("读取行内容失败: %w", err)
+			return f, sheet, headers, dataRows, warns, fmt.Errorf("读取行内容失败: %w", err)
 		}
 		if headers == nil {
 			// 第一行当表头；全空的第一行说明表不是从 A1 开始的，也照样用它
-			headers = normalizeHeaders(row)
+			headers, warns = normalizeHeadersWarn(row)
 			continue
 		}
 		if isBlankRow(row) {
@@ -174,14 +176,23 @@ func inspect(path string) (*excelize.File, string, []string, int, error) {
 		}
 		dataRows++
 	}
-	return f, sheet, headers, dataRows, nil
+	return f, sheet, headers, dataRows, warns, nil
 }
 
-// normalizeHeaders 去掉尾部空列、去空白。
+// normalizeHeaders 去掉尾部空列、去空白、给无名列起名、重名列加序号。
 //
 // 尾部空列必须去掉：Excel 里「曾经写过又删掉」的单元格会留下空表头，
 // 不去掉会让后面按列名对齐时凭空多出无名的列。
+//
+// 但**中间**的空表头不能丢也不能空着 —— 那是「表头漏写一格」或合并单元格留下的，
+// 裁掉就等于整列数据消失。
 func normalizeHeaders(row []string) []string {
+	h, _ := normalizeHeadersWarn(row)
+	return h
+}
+
+// normalizeHeadersWarn 同 normalizeHeaders，并把「补名 / 改名」的说明交给调用方汇总成 warnings。
+func normalizeHeadersWarn(row []string) ([]string, []string) {
 	out := make([]string, len(row))
 	for i, cell := range row {
 		out[i] = strings.TrimSpace(cell)
@@ -189,7 +200,36 @@ func normalizeHeaders(row []string) []string {
 	for len(out) > 0 && out[len(out)-1] == "" {
 		out = out[:len(out)-1]
 	}
-	return out
+
+	var warns []string
+	for i, h := range out {
+		if h == "" {
+			out[i] = fmt.Sprintf("列%d", i+1)
+			warns = append(warns, fmt.Sprintf("第 %d 列没有表头，已命名为「%s」", i+1, out[i]))
+		}
+	}
+
+	// 重名列改名：两列都叫「金额」时，按列名对齐只认第一列，
+	// 第二列整列数据会静默消失（合并 20 份报表少一块合计就是这么来的）。
+	seen := make(map[string]bool, len(out))
+	for i, h := range out {
+		if !seen[h] {
+			seen[h] = true
+			continue
+		}
+		base := h
+		for n := 2; ; n++ {
+			cand := fmt.Sprintf("%s-%d", base, n)
+			if seen[cand] {
+				continue
+			}
+			out[i] = cand
+			seen[cand] = true
+			warns = append(warns, fmt.Sprintf("列名「%s」重复，第 %d 列已改名为「%s」", base, i+1, cand))
+			break
+		}
+	}
+	return out, warns
 }
 
 func isBlankRow(row []string) bool {

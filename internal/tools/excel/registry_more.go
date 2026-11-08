@@ -538,16 +538,17 @@ func registerJoinTool(r *ai.Registry) error {
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"leftPath":   map[string]any{"type": "string", "description": "主表（保留它的行）"},
-				"rightPath":  map[string]any{"type": "string", "description": "要带列进来的表"},
-				"leftSheet":  map[string]any{"type": "string"},
-				"rightSheet": map[string]any{"type": "string"},
-				"leftKey":    map[string]any{"type": "string", "description": "主表的匹配列"},
-				"rightKey":   map[string]any{"type": "string", "description": "另一张表的匹配列（可与 leftKey 不同名）"},
-				"bring":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "带哪些列；留空=除 key 外全部"},
-				"how":        map[string]any{"type": "string", "description": "left(默认,保留主表全部) / inner(只要匹配上的) / right(还要没匹配上的)"},
-				"prefix":     map[string]any{"type": "string", "description": "带过来的列名前缀，默认「右表.」"},
-				"outputPath": map[string]any{"type": "string", "description": "输出路径；留空只预览"},
+				"leftPath":    map[string]any{"type": "string", "description": "主表（保留它的行）"},
+				"rightPath":   map[string]any{"type": "string", "description": "要带列进来的表"},
+				"leftSheet":   map[string]any{"type": "string"},
+				"rightSheet":  map[string]any{"type": "string"},
+				"leftKey":     map[string]any{"type": "string", "description": "主表的匹配列"},
+				"rightKey":    map[string]any{"type": "string", "description": "另一张表的匹配列（可与 leftKey 不同名）"},
+				"bring":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "带哪些列；留空=除 key 外全部"},
+				"how":         map[string]any{"type": "string", "description": "left(默认,保留主表全部) / inner(只要匹配上的) / right(还要没匹配上的)"},
+				"prefix":      map[string]any{"type": "string", "description": "带过来的列名前缀，默认「右表.」"},
+				"onDuplicate": map[string]any{"type": "string", "description": "右表 key 重复时怎么取值：error(默认，直接报错要求先弄唯一) / first(取第一条) / sum(数值列求和) / all(行展开)。带金额时不要用 first，用 sum 或 all"},
+				"outputPath":  map[string]any{"type": "string", "description": "输出路径；留空只预览"},
 			},
 			"required": []string{"leftPath", "rightPath", "leftKey", "rightKey"},
 		})
@@ -571,11 +572,11 @@ func registerJoinTool(r *ai.Registry) error {
 			"matched": res.Matched, "unmatched": res.Unmatched,
 			"rightDuplicateKeys": res.RightDupKeys, "duplicateSamples": res.DuplicateSamples,
 			"outputRows": res.OutputRows, "headers": res.Table.Headers,
-			"preview": OffsetPaging(res.Table, 0, 10).Rows,
+			"onDuplicate": res.OnDuplicate,
+			"preview":     OffsetPaging(res.Table, 0, 10).Rows,
 		}
-		if res.RightDupKeys > 0 {
-			out["warning"] = fmt.Sprintf("右表有 %d 个 key 对应多行，只取第一条带入；"+
-				"如果这些应该是唯一值，右表本身有重复，需要先确认", res.RightDupKeys)
+		if res.Warning != "" {
+			out["warning"] = res.Warning
 		}
 		if in.OutputPath != "" {
 			p, err := WriteTable(in.OutputPath, res.Table, WriteOptions{BoldHeader: true, AutoWidth: true, NumbersAsNumbers: true})

@@ -44,6 +44,10 @@ func Sort(t *Table, keys []SortKey) (*Table, error) {
 		nums []float64
 		tims []int64
 		strs []string
+		// oks 这一行的每个排序键是否真的解析成功了。
+		// 没解析出来的（"暂无"、"N/A"、"-"）必须沉底，
+		// 不能当 0 参与比较 —— 那会把「暂无」夹在 0 和 1 之间，用户读成 0。
+		oks []bool
 	}, len(out.Rows))
 	for i, r := range out.Rows {
 		p := struct {
@@ -51,6 +55,7 @@ func Sort(t *Table, keys []SortKey) (*Table, error) {
 			nums []float64
 			tims []int64
 			strs []string
+			oks  []bool
 		}{row: r}
 		for _, k := range infos {
 			v := strings.TrimSpace(cellAt(r, k.col))
@@ -65,6 +70,16 @@ func Sort(t *Table, keys []SortKey) (*Table, error) {
 				p.tims = append(p.tims, 0)
 			}
 			p.strs = append(p.strs, v)
+			// 按列类型判断这一格「排得动吗」
+			okKey := true
+			switch k.kind {
+			case "number":
+				_, okKey = asNumber(v)
+			case "date":
+				_, err := parseDate(v)
+				okKey = err == nil
+			}
+			p.oks = append(p.oks, okKey)
 		}
 		prepared[i] = p
 	}
@@ -80,6 +95,18 @@ func Sort(t *Table, keys []SortKey) (*Table, error) {
 			}
 			if aEmpty && bEmpty {
 				continue
+			}
+			// 排不动的值一律沉底，升序降序都一样：
+			// 以前把它们补成 0 参与比较，「暂无」就夹在 0 和 1 之间，
+			// 用户按金额排完序人工核对时会把「暂无」读成 0。
+			if k.kind == "number" || k.kind == "date" {
+				aOK, bOK := av.oks[ki], bv.oks[ki]
+				if aOK != bOK {
+					return aOK
+				}
+				if !aOK && !bOK {
+					continue
+				}
 			}
 			cmp := 0
 			switch k.kind {

@@ -208,6 +208,11 @@ func registerWithGuard(r *ai.Registry, g Guard) error {
 		if err := json.Unmarshal(args, &in); err != nil {
 			return "", err
 		}
+		// 空列表不生成确认清单：给用户看一张「即将删除以下内容」的空清单，
+		// 他点确认之后什么也没删，反而是个说不清的体验。
+		if len(in.Paths) == 0 {
+			return "", fmt.Errorf("paths 为空：请给出要删除的文件或目录")
+		}
 
 		// ★ 硬门：没有用户点过的令牌，一步都不执行。
 		if !ai.DefaultConfirms().Consume(in.ConfirmToken, "fs_delete", string(args)) {

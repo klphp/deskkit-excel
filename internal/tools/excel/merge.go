@@ -83,6 +83,11 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 		if f.Err != "" {
 			continue
 		}
+		// 读表时自动修正过的东西（重名列改名、补表头）必须转述给用户：
+		// 否则合并结果里凭空多出「金额-2」这一列，没人知道它从哪来。
+		for _, w := range f.Warnings {
+			out.Warnings = append(out.Warnings, fmt.Sprintf("%s: %s", f.Name, w))
+		}
 		for _, h := range f.Headers {
 			if h == "" || seenCol[h] {
 				continue
@@ -189,7 +194,11 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 	// 统一走 WriteTable：数字写成数值（金额列自动千分位两位小数、负数红）、
 	// 表头加粗冻结、并附一页「处理说明」。
 	// 之前这里自己拼 SetSheetRow，所有单元格都是文本 —— 用户合并完连合计都看不到。
-	if _, err := WriteTable(path, &Table{
+	//
+	// ★ 必须用 WriteTable 的返回值：它内部会 uniquePath（同名加 -1），
+	// 丢掉返回值就会出现「回显 merged.xlsx，实际写的是 merged-1.xlsx」——
+	// 用户第二次合并时打开的是上一次的旧数据。
+	written, err := WriteTable(path, &Table{
 		Sheet:   "merged",
 		Headers: columns,
 		Rows:    rows,
@@ -203,11 +212,12 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 			fmt.Sprintf("行数：%d → %d（去重 %d 行）", out.RowsIn, out.RowsOut, out.Duplicates),
 			"列：" + strings.Join(columns, " / "),
 		},
-	}); err != nil {
+	})
+	if err != nil {
 		return out, err
 	}
 
-	out.OutputPath = path
+	out.OutputPath = written
 	out.ElapsedMS = time.Since(start).Milliseconds()
 	_ = first
 	return out, nil
@@ -284,14 +294,21 @@ func readAligned(info SheetInfo, columns []string) ([][]string, []string, error)
 // idx 为 nil 表示「不去重」，两者语义不同，调用方用 nil 与 []int{} 区分。
 //
 // 分隔符用不可见字符：用逗号之类会让 "a,b" + "c" 与 "a" + "b,c" 撞键。
+//
+// 每个值都过一遍 normalizeKeyValue：不归一的话 1001 / 1001.0 / " 1001" / 001001
+// 会被当成四条不同的单据，对账时「重复行查不出来」，合计直接翻倍。
 func rowKey(row []string, idx []int) string {
 	if len(idx) == 0 {
-		return strings.Join(row, "\x1f")
+		parts := make([]string, len(row))
+		for i, v := range row {
+			parts[i] = normalizeKeyValue(v)
+		}
+		return strings.Join(parts, "\x1f")
 	}
 	parts := make([]string, 0, len(idx))
 	for _, i := range idx {
 		if i < len(row) {
-			parts = append(parts, row[i])
+			parts = append(parts, normalizeKeyValue(row[i]))
 		}
 	}
 	return strings.Join(parts, "\x1f")

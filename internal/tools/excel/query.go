@@ -50,7 +50,18 @@ type QueryResult struct {
 	Rows    [][]string `json:"rows"`
 	Count   int        `json:"count"`
 	Elapsed int64      `json:"elapsedMs"`
+	// Truncated 命中返回行数硬上限，Rows 只是前一部分。
+	Truncated bool `json:"truncated,omitempty"`
+	// Note 给模型看的补充说明（例如「已截断，请用 write_query_result 落盘」）。
+	Note string `json:"note,omitempty"`
 }
+
+// MaxQueryRows 单次查询返回给模型的行数硬上限。
+//
+// 为什么必须有：limit 是模型给的，它一高兴写 10000000，一次调用就能吐
+// 95067 字节 ≈ 31.7k tokens，把上下文直接顶爆（实测）。要全量结果请走
+// write_query_result 落盘 —— 那才是「大结果」该走的路径。
+const MaxQueryRows = 500
 
 var unsafeIdent = regexp.MustCompile(`[^0-9a-zA-Z_\p{Han}]`)
 
@@ -106,6 +117,11 @@ func numericColumn(values []string) bool {
 		if leadingZero.MatchString(v) {
 			return false
 		}
+		// 16 位以上纯整数（身份证 / 银行卡）不能进 REAL 列：
+		// SQLite 的 REAL 就是 float64，只有 15 位有效数字，存进去末位就变了。
+		if isLongInteger(v) {
+			return false
+		}
 		if _, ok := numericValue(v); !ok {
 			return false
 		}
@@ -142,7 +158,10 @@ func LoadCatalog(ctx context.Context, dir string) (*sql.DB, Catalog, error) {
 			continue
 		}
 		ext := strings.ToLower(filepath.Ext(name))
-		if ext != ".xlsx" && ext != ".xlsm" {
+		// ★ 走 supported 而不是只认 .xlsx/.xlsm：openWorkbook 已经支持 CSV 与 .xls，
+		// 但这里以前直接 continue，于是用户说「这个文件夹里的表」时，
+		// CSV 里的金额被静默漏掉、模型还回答「没有可读的表格」。
+		if !supported[ext] {
 			continue
 		}
 
@@ -282,6 +301,15 @@ var readOnlyQuery = regexp.MustCompile(`(?is)^\s*(select|with)\b`)
 // 卡死写入和 DDL —— 用户的原始文件不在库里，但内存库也不该被当成
 // 可以随便改的地方。
 func Query(ctx context.Context, db *sql.DB, query string, limit int) (QueryResult, error) {
+	return runQuery(ctx, db, query, limit, MaxQueryRows)
+}
+
+// queryAll 内部用：写文件要全量，不受 MaxQueryRows 约束。
+func queryAll(ctx context.Context, db *sql.DB, query string, limit int) (QueryResult, error) {
+	return runQuery(ctx, db, query, limit, 0)
+}
+
+func runQuery(ctx context.Context, db *sql.DB, query string, limit, maxRows int) (QueryResult, error) {
 	var res QueryResult
 	if strings.TrimSpace(query) == "" {
 		return res, fmt.Errorf("SQL 不能为空")
@@ -292,10 +320,20 @@ func Query(ctx context.Context, db *sql.DB, query string, limit int) (QueryResul
 	if limit <= 0 {
 		limit = 200
 	}
+	capped := false
+	if maxRows > 0 && limit > maxRows {
+		limit = maxRows
+		capped = true
+	}
 
 	// 外面套一层 LIMIT：用户（模型）写的 SQL 不一定带 LIMIT，
 	// 一张十万行的表直接全量返回会把界面和上下文都撑爆。
-	wrapped := fmt.Sprintf("SELECT * FROM (%s) LIMIT %d", strings.TrimSuffix(strings.TrimSpace(query), ";"), limit)
+	// 上限命中时多取一行，用来判断「是否真的还有更多」。
+	probe := limit
+	if capped {
+		probe = limit + 1
+	}
+	wrapped := fmt.Sprintf("SELECT * FROM (%s) LIMIT %d", strings.TrimSuffix(strings.TrimSpace(query), ";"), probe)
 	rows, err := db.QueryContext(ctx, wrapped)
 	if err != nil {
 		return res, fmt.Errorf("查询失败: %w", err)
@@ -326,6 +364,15 @@ func Query(ctx context.Context, db *sql.DB, query string, limit int) (QueryResul
 	if err := rows.Err(); err != nil {
 		return res, err
 	}
+	if len(res.Rows) > limit {
+		res.Rows = res.Rows[:limit]
+		res.Truncated = true
+	}
+	if res.Truncated {
+		res.Note = fmt.Sprintf(
+			"结果超过 %d 行，只返回了前 %d 行。要看/要全部结果请用 write_query_result 落盘成文件。",
+			limit, limit)
+	}
 	res.Count = len(res.Rows)
 	return res, nil
 }
@@ -348,13 +395,17 @@ func cellText(v any) string {
 	}
 }
 
-// WriteQuery 把查询结果写成新的 xlsx。
+// WriteQuery 把查询结果写成新的文件。
 //
 // 单独一个函数而不是给 Query 加参数：查询是「看一眼」，写文件是
 // 「落地」，两件事分开，AI 也就必须分两步做 —— 先给你看结果，
 // 你说行它再写。
-func WriteQuery(ctx context.Context, db *sql.DB, query, outputDir, fileName string) (string, int, error) {
-	res, err := Query(ctx, db, query, 1_000_000)
+//
+// protect 传源文件路径：目标路径命中任何一个源文件就直接报错。
+// 这是全项目唯一曾经能覆盖用户原文件的落盘路径（实测「结果存回原目录、
+// 名字就叫 销售.csv」会把源 CSV 直接替换掉，无备份无提示）。
+func WriteQuery(ctx context.Context, db *sql.DB, query, outputDir, fileName string, protect ...string) (string, int, error) {
+	res, err := queryAll(ctx, db, query, 1_000_000)
 	if err != nil {
 		return "", 0, err
 	}
@@ -370,26 +421,42 @@ func WriteQuery(ctx context.Context, db *sql.DB, query, outputDir, fileName stri
 	// 用文件名而不是另加一个 format 参数 —— 用户和模型说的都是「保存成 xxx.csv」，
 	// 多一个参数只会多一种不一致的可能。
 	wantCSV := IsCSV(fileName)
-	if fileName == "" {
+	if strings.TrimSpace(fileName) == "" {
 		fileName = "query-" + time.Now().Format("20060102-150405") + ".xlsx"
+		wantCSV = false
 	}
-	if wantCSV {
+	name := fileName
+	if wantCSV && !IsCSV(name) {
+		name += ".csv"
+	}
+	if !wantCSV && strings.ToLower(filepath.Ext(name)) != ".xlsx" {
+		name += ".xlsx"
+	}
+	// 文件名不许带路径（模型给 ../ 就能在任意位置落盘）
+	raw, err := safeOutputPath(outputDir, name)
+	if err != nil {
+		return "", 0, err
+	}
+	// ★ 硬校验：目标就是某个源文件 → 直接拒绝，别靠加后缀「悄悄」避开
+	for _, src := range protect {
+		if sameFile(raw, src) {
+			return "", 0, fmt.Errorf(
+				"拒绝写入源文件 %s：这会直接覆盖你的原始文件。请换一个文件名，或让它输出到 %s",
+				filepath.Base(raw), filepath.Join(outputDir, "deskkit-out"))
+		}
+	}
+	// 剩下的同名情况走 uniquePath（-1、-2），绝不覆盖已有文件
+	path := uniquePath(raw)
+
+	if IsCSV(path) {
 		table := make([][]string, 0, len(res.Rows)+1)
 		table = append(table, res.Columns)
 		table = append(table, res.Rows...)
-		path := filepath.Join(outputDir, fileName)
-		if !IsCSV(path) {
-			path += ".csv"
-		}
 		if err := WriteCSV(path, table); err != nil {
 			return "", 0, err
 		}
 		return path, len(res.Rows), nil
 	}
-	if ext := strings.ToLower(filepath.Ext(fileName)); ext != ".xlsx" {
-		fileName += ".xlsx"
-	}
-	path := filepath.Join(outputDir, fileName)
 
 	f := excelize.NewFile()
 	defer f.Close()

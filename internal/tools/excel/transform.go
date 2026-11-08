@@ -401,7 +401,9 @@ func Dedup(t *Table, cols []string) (*Table, int, error) {
 	for _, r := range t.Rows {
 		parts := make([]string, len(idx))
 		for k, ci := range idx {
-			parts[k] = strings.TrimSpace(cellAt(r, ci))
+			// 键归一：1001 / 1001.0 / 001001 / 全角是同一个值，
+			// 不归一就会出现「同一笔单据两种写法各留一条，合计翻倍」。
+			parts[k] = normalizeKeyValue(cellAt(r, ci))
 		}
 		key := strings.Join(parts, "\x00")
 		if _, ok := seen[key]; ok {

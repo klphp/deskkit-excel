@@ -169,7 +169,7 @@ func WriteMultiSheet(path string, tables []*Table, opt WriteOptions) (string, er
 				return "", err
 			}
 		}
-		if err := putTableInto(f, name, t, opt); err != nil {
+		if _, err := putTableInto(f, name, t, opt); err != nil {
 			return "", err
 		}
 	}

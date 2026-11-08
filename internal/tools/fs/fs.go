@@ -64,15 +64,29 @@ func (g Guard) Check(raw string) (string, error) {
 	if raw == "" {
 		return "", errors.New("路径为空")
 	}
+	// ~ 不展开的话，模型/用户写「~/Desktop」会得到 <cwd>/~/Desktop 这种
+	// 根本不存在、报错还看不懂的路径。
+	raw = expandHome(raw)
 	abs, err := filepath.Abs(raw)
 	if err != nil {
 		return "", fmt.Errorf("路径不合法: %w", err)
 	}
 	abs = filepath.Clean(abs)
 
+	// ★ 解析符号链接后再比对：`~/Documents → 外置盘` 这种软链很常见，
+	// 只看字面路径的话「只允许在主目录操作」的承诺就失效了
+	// （实测 root/link → 外部目录，Delete 真的把外部文件删了）。
+	real, err := resolveSymlinks(abs)
+	if err != nil {
+		// 解析不出来（权限、损坏链接）就按拒绝处理：安全侧宁严不松
+		return "", fmt.Errorf("路径无法解析，已拒绝: %s（%v）", abs, err)
+	}
+
 	for _, bad := range forbidden {
-		if abs == bad || strings.HasPrefix(abs, bad+string(filepath.Separator)) {
-			return "", fmt.Errorf("拒绝操作系统目录: %s", abs)
+		for _, p := range []string{abs, real} {
+			if p == bad || strings.HasPrefix(p, bad+string(filepath.Separator)) {
+				return "", fmt.Errorf("拒绝操作系统目录: %s", abs)
+			}
 		}
 	}
 
@@ -84,16 +98,75 @@ func (g Guard) Check(raw string) (string, error) {
 		}
 		roots = []string{home}
 	}
+	// 返回给调用方的仍是原始绝对路径（不改变用户的路径语义），
+	// 但「是否在允许范围内」必须按**解析后的真实路径**判断：
+	// 只比字面路径的话，root/link → 外部目录 这种软链就能整个绕过边界。
 	for _, root := range roots {
-		rootAbs, err := filepath.Abs(root)
+		rootAbs, err := filepath.Abs(expandHome(root))
 		if err != nil {
 			continue
 		}
-		if abs == rootAbs || strings.HasPrefix(abs, rootAbs+string(filepath.Separator)) {
+		rootReal, err := resolveSymlinks(rootAbs)
+		if err != nil {
+			rootReal = rootAbs
+		}
+		if real == rootReal || strings.HasPrefix(real, rootReal+string(filepath.Separator)) {
 			return abs, nil
+		}
+		if rootReal != rootAbs {
+			// 兜底：root 本身解析前后不一致时，也接受按原样比较（只在 root 存在时成立）
+			if _, err := os.Stat(rootAbs); err != nil && (abs == rootAbs || strings.HasPrefix(abs, rootAbs+string(filepath.Separator))) {
+				return abs, nil
+			}
 		}
 	}
 	return "", fmt.Errorf("路径不在允许范围内: %s（只允许在 %s 下操作）", abs, strings.Join(roots, "、"))
+}
+
+// expandHome 把开头的 ~ 展开成用户主目录。
+func expandHome(p string) string {
+	if p == "~" {
+		if home, err := os.UserHomeDir(); err == nil {
+			return home
+		}
+		return p
+	}
+	if strings.HasPrefix(p, "~/") || strings.HasPrefix(p, "~"+string(filepath.Separator)) {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, p[2:])
+		}
+	}
+	return p
+}
+
+// resolveSymlinks 解析路径里的符号链接；目标还不存在时逐段向上找到最近的存在前缀再拼接。
+//
+// 逐段解析是必须的：「新建一个文件」的目标路径本身不存在，
+// 但它的父目录完全可能是个软链 —— 只对整条路径 EvalSymlinks 会直接失败，
+// 于是又退化成「字面比较」，软链绕过的洞就还在。
+func resolveSymlinks(abs string) (string, error) {
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		return resolved, nil
+	}
+	dir := abs
+	var rest string
+	for {
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("找不到可解析的上级目录")
+		}
+		if rest == "" {
+			rest = filepath.Base(dir)
+		} else {
+			rest = filepath.Join(filepath.Base(dir), rest)
+		}
+		dir = parent
+		resolved, err := filepath.EvalSymlinks(dir)
+		if err != nil {
+			continue
+		}
+		return filepath.Join(resolved, rest), nil
+	}
 }
 
 // Entry 一个文件或目录。

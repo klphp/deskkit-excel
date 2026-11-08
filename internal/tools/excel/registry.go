@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/klphp/excel-batch-tool/internal/ai"
 )
@@ -334,12 +335,18 @@ func registerQueryTools(r *ai.Registry) error {
 		if outDir == "" {
 			outDir = fmt.Sprintf("%s/deskkit-out", in.Dir)
 		}
-		db, _, err := LoadCatalog(ctx, in.Dir)
+		db, cat, err := LoadCatalog(ctx, in.Dir)
 		if err != nil {
 			return "", err
 		}
 		defer db.Close()
-		path, rows, err := WriteQuery(ctx, db, in.SQL, outDir, in.FileName)
+		// 把目录里的源文件都列为「不许覆盖」：模型完全可能照着用户的话
+		// 说「就存回原目录、名字叫 销售.csv」，那会直接替换掉用户的原始表格。
+		protect := make([]string, 0, len(cat.Tables))
+		for _, t := range cat.Tables {
+			protect = append(protect, filepath.Join(in.Dir, t.File))
+		}
+		path, rows, err := WriteQuery(ctx, db, in.SQL, outDir, in.FileName, protect...)
 		if err != nil {
 			return "", err
 		}
