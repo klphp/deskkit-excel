@@ -17,7 +17,14 @@ export { AIService };
 export type { AISettings, ProviderInfo, TestResult };
 
 /** 一轮对话。只保留纯文本 —— 工具调用步骤走事件，不进历史。 */
-export type ChatTurn = { role: "user" | "assistant" | "system"; content: string };
+export type ChatTurn = {
+  role: "user" | "assistant" | "system";
+  content: string;
+  /** 库里的消息 id。分页加载时用它当稳定 key / 滚动锚点。 */
+  id?: number;
+  /** 消息时间（unix 秒），用于分页标记上的时间。 */
+  at?: number;
+};
 
 /** 工具循环推过来的步骤事件（对应 Go 侧 ai.Event）。 */
 export type ToolEvent = {

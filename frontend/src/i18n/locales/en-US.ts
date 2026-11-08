@@ -3,7 +3,7 @@
  * for GitHub distribution, with Chinese as a first-class secondary.
  */
 export const enUS = {
-  "chat.loadOlder": "↑ Load earlier messages",
+  "chat.loadOlder": "Scroll up to load earlier messages",
   "chat.loadingOlder": "Loading earlier messages…",
   "app.name": "DeskKit Excel",
   "app.tagline": "Excel batch processing",

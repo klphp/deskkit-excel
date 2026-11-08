@@ -70,8 +70,8 @@ function newID(): string {
   return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
-function toTurn(role: string, content: string): ChatTurn {
-  return { role: role === "assistant" ? "assistant" : "user", content };
+function toTurn(role: string, content: string, id?: number, at?: number): ChatTurn {
+  return { role: role === "assistant" ? "assistant" : "user", content, id, at };
 }
 
 /** 从 Go 侧重读列表。 */
@@ -99,7 +99,7 @@ async function select(id: string) {
     // 只取最后一屏：打开会话时用户要看的是最后在聊什么
     const page = await Sessions.MessagesPage(id, MSG_PAGE, 0);
     const msgs = page?.messages ?? [];
-    turns.value = msgs.map((m) => toTurn(m.role, m.content));
+    turns.value = msgs.map((m) => toTurn(m.role, m.content, m.id, m.createdAt));
     hasMoreTurns.value = !!page?.hasMore;
     oldestMsgID = msgs.length > 0 ? msgs[0].id : 0;
   } catch (err) {
@@ -127,7 +127,7 @@ async function loadOlderTurns(): Promise<number> {
       hasMoreTurns.value = false;
       return 0;
     }
-    turns.value = [...msgs.map((m) => toTurn(m.role, m.content)), ...turns.value];
+    turns.value = [...msgs.map((m) => toTurn(m.role, m.content, m.id, m.createdAt)), ...turns.value];
     hasMoreTurns.value = !!page?.hasMore;
     oldestMsgID = msgs[0].id;
     return msgs.length;

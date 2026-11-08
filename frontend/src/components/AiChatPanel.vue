@@ -73,6 +73,17 @@ type Step = { tool: string; detail: string; done: boolean; ok: boolean };
 const HIDDEN_TOOLS = new Set(["describe_capability", "remember_instructions"]);
 const steps = ref<Step[]>([]);
 
+/** 与 sessions.ts 的每页条数保持一致：分页标记就打在每页的分界处。 */
+const MSG_PAGE = 20;
+
+/** 分页标记上的文字：这条消息的时间。 */
+function pageMarkLabel(at?: number): string {
+  if (!at) return "更早的消息";
+  const d = new Date(at * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 const enabled = ref(false);
 const providers = ref<ProviderInfo[]>([]);
 const provider = ref("");
@@ -450,17 +461,50 @@ async function onScroll() {
   if (el.scrollTop > 120) return;
   if (!sess.hasMoreTurns.value) return;
 
+  // 记「锚点」而不是记高度差：高度差算法假设内容只从上面长出来、且没人动过
+  // scrollTop，但浏览器自己的滚动锚定、加载提示条的插入/移除都会让这个假设失效
+  // —— 表现就是加载完画面往前蹿了几条（用户看到的「41 条跳到 51 条」）。
+  // 记下当前第一条可见消息的位置，加载完把它放回原处，才是准的。
+  const anchor = captureAnchor(el);
   const prevHeight = el.scrollHeight;
-  const prevTop = el.scrollTop;
   try {
     const added = await sess.loadOlderTurns();
     if (added > 0) {
       await nextTick();
-      el.scrollTop = prevTop + (el.scrollHeight - prevHeight);
+      restoreAnchor(el, anchor, el.scrollHeight - prevHeight);
     }
   } catch {
     /* 失败时 hasMoreTurns 会被置位，用户再点一次即可 */
   }
+}
+
+type Anchor = { key: string; offset: number };
+
+/** 记下第一条「还看得见」的消息，以及它相对视口顶部的偏移。 */
+function captureAnchor(el: HTMLElement): Anchor | null {
+  const top = el.getBoundingClientRect().top;
+  for (const node of Array.from(el.querySelectorAll<HTMLElement>("[data-turn-key]"))) {
+    const r = node.getBoundingClientRect();
+    if (r.bottom > top + 1) {
+      return { key: node.dataset.turnKey ?? "", offset: r.top - top };
+    }
+  }
+  return null;
+}
+
+/** 把同一条消息放回原来的位置。找不到就退回高度差补偿。 */
+function restoreAnchor(el: HTMLElement, anchor: Anchor | null, fallbackDelta: number) {
+  if (!anchor) {
+    el.scrollTop += fallbackDelta;
+    return;
+  }
+  const node = el.querySelector<HTMLElement>(`[data-turn-key="${CSS.escape(anchor.key)}"]`);
+  if (!node) {
+    el.scrollTop += fallbackDelta;
+    return;
+  }
+  const top = el.getBoundingClientRect().top;
+  el.scrollTop += node.getBoundingClientRect().top - top - anchor.offset;
 }
 
 /**
@@ -724,21 +768,11 @@ onUnmounted(() => {
         <!-- 更早的消息：吸在顶部一直可见，点一下或往上滚都能加载。
              不显示这个的话，用户会以为会话只有这么长。 -->
         <div v-if="sess.hasMoreTurns.value || sess.loadingOlder.value" class="sticky top-0 z-10 -mt-6 mb-4 flex justify-center pt-2">
-          <div
-            v-if="sess.loadingOlder.value"
-            class="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[12px] text-muted-foreground"
-          >
-            <Loader2 :size="12" class="animate-spin" />
-            {{ t("chat.loadingOlder") }}
+          <div class="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[12px] text-muted-foreground">
+            <Loader2 v-if="sess.loadingOlder.value" :size="12" class="animate-spin" />
+            <ArrowUp v-else :size="12" />
+            {{ sess.loadingOlder.value ? t("chat.loadingOlder") : t("chat.loadOlder") }}
           </div>
-          <button
-            v-else
-            type="button"
-            class="rounded-full border border-border bg-card px-3 py-1 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
-            @click="onScroll"
-          >
-            {{ t("chat.loadOlder") }}
-          </button>
         </div>
 
         <!-- 首屏 = 产品介绍。用户第一次打开不知道它能干什么，
@@ -775,7 +809,14 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-for="(turn, i) in turns" :key="i" class="mb-5">
+        <template v-for="(turn, i) in turns" :key="turn.id ?? i">
+          <!-- 每 20 条一个分页标记：既是视觉上的「到哪儿了」，也是往上翻时的落点参考 -->
+          <div v-if="i % MSG_PAGE === 0" class="my-4 flex items-center gap-2 text-[11.5px] text-muted-foreground/70">
+            <span class="h-px flex-1 bg-border" />
+            <span>{{ pageMarkLabel(turn.at) }}</span>
+            <span class="h-px flex-1 bg-border" />
+          </div>
+          <div :data-turn-key="String(turn.id ?? i)" class="mb-5">
           <div v-if="turn.role === 'user'" class="flex justify-end">
             <div class="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-[length:var(--chat-fs)] leading-[1.7] text-primary-foreground">
               {{ turn.content }}
@@ -826,7 +867,8 @@ onUnmounted(() => {
               </button>
             </div>
           </template>
-        </div>
+          </div>
+        </template>
 
         <div v-if="steps.length" class="mb-3 space-y-1">
           <div
