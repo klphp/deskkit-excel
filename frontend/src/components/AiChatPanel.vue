@@ -575,27 +575,6 @@ onUnmounted(() => {
             >
               <Settings2 :size="17" />
             </button>
-            <button
-              type="button"
-              class="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-              :title="t('ai.pickInput')"
-              :disabled="ws.busy.value"
-              @click="ws.pickPaths(t('ai.pickInput'))"
-            >
-              <Loader2 v-if="ws.busy.value" :size="17" class="animate-spin" />
-              <FolderOpen v-else :size="17" />
-            </button>
-            <button
-              type="button"
-              class="grid size-9 place-items-center rounded-full transition-colors hover:bg-accent"
-              :class="ws.feature.value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'"
-              :title="t('ai.pickFeature')"
-              @click="showFeatures = true"
-            >
-              <Layers :size="17" />
-            </button>
-
-            <div class="flex-1" />
 
             <button
               type="button"
@@ -649,12 +628,9 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- ── 满屏编辑 ──
-         Teleport 到 body：就地放大时会被父容器的 overflow/transform 夹住，
-         表现就是「只有半屏、按钮还被挤没」。独立挂到 body 上，位置和尺寸
-         只由视口决定，也不会有祖先把它裁掉。 -->
-    <!-- 只覆盖会话区：左边会话记录不该被盖住。
-         定位基准是外层 relative 容器（= 标题栏以下、侧栏以右的那块）。 -->
+    <!-- ── 满屏编辑：只覆盖会话区 ──
+         定位基准是外层 relative 容器（= 标题栏以下、侧栏以右的那块），
+         所以顶栏和左侧会话记录都不会被盖住。 -->
     <div v-if="expanded" class="absolute inset-0 z-40 flex flex-col bg-background">
         <div class="flex shrink-0 items-center justify-between border-b border-border px-5 py-2.5">
           <span class="text-[13px] text-muted-foreground">{{ t("ai.expandTitle") }}</span>
