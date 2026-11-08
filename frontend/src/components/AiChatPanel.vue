@@ -662,7 +662,11 @@ onUnmounted(() => {
          表现就是「只有半屏、按钮还被挤没」。独立挂到 body 上，位置和尺寸
          只由视口决定，也不会有祖先把它裁掉。 -->
     <Teleport to="body">
-      <div v-if="expanded" class="fixed inset-0 z-[60] flex flex-col bg-background">
+      <div
+        v-if="expanded"
+        class="fixed inset-x-0 bottom-0 z-[60] flex flex-col bg-background"
+        :style="{ top: 'var(--titlebar-height)' }"
+      >
         <div class="flex shrink-0 items-center justify-between border-b border-border px-5 py-2.5">
           <span class="text-[13px] text-muted-foreground">{{ t("ai.expandTitle") }}</span>
           <button
@@ -672,7 +676,6 @@ onUnmounted(() => {
           >
             <Minimize2 :size="13" />
             {{ t("ai.collapse") }}
-            <span class="ml-0.5 text-[11.5px] text-muted-foreground">Esc</span>
           </button>
         </div>
 
@@ -685,16 +688,16 @@ onUnmounted(() => {
             @keydown="onKeydown"
             @keydown.esc="onEscape"
           />
-          <div class="flex shrink-0 items-center justify-between pt-3">
-            <span class="text-[12.5px] text-muted-foreground">{{ t("ai.expandHint") }}</span>
+          <!-- 只留一个发送按钮（另一个「收起」在顶部条右侧） -->
+          <div class="flex shrink-0 items-center justify-end pt-3">
             <button
               type="button"
-              class="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[13.5px] font-medium text-primary-foreground disabled:opacity-40"
+              class="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
               :disabled="!draft.trim() || busy"
+              :title="t('ai.send')"
               @click="send"
             >
-              <ArrowUp :size="15" />
-              {{ t("ai.send") }}
+              <ArrowUp :size="16" />
             </button>
           </div>
         </div>
