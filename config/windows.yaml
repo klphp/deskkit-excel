@@ -30,34 +30,11 @@ windows:
     showSettingsButton: true
 
   # 设置窗口：示例，用来演示「配置即可用」
-  settings:
-    title: 设置
-    # 尺寸尽量贴近实际内容高度：打开后还要按内容自适应重算一次，
-    # 初始值离得太远会看到一次明显的「往下缩」。几个像素的微调没关系。
-    width: 760
-    height: 420
-    minWidth: 600
-    minHeight: 450
-    url: /?view=settings
-    # 统一用自绘标题栏。不设的话 macOS 会显示系统标题栏，和我们的
-    # 标题栏叠成两层，关闭按钮还可能被盖住。
-    frameless: true
-    resizable: true
-    # 同时只允许开一个；从主窗口再点一次会把已有窗口拉到前面
-    singleton: true
-    # 模态：打开后父窗口不能操作，必须在设置窗口里完成或关掉它。
-    # 注意这不是「全局置顶」—— 它只压在父窗口之上，不会盖住别的应用。
-    modal: true
-    parent: main
+  # 设置 / 关于不再开子窗口 —— 它们在主窗口里是 Vue 浮层。
+  #
+  # 为什么改：每个 Wails 窗口是独立 WebView、独立 JS 运行时。在设置窗口里
+  # 切语言，主窗口的 i18n 状态根本不知道（主题那边靠 localStorage 的
+  # storage 事件跨窗口同步过，语言没做，就露馅了：只有设置窗口变了）。
+  # 改成浮层后同一个运行时、同一份状态，切换立刻处处生效，
+  # 也省掉窗口定位与内容自适应那一整套。
 
-  # 关于窗口：固定尺寸、不可调整
-  about:
-    title: 关于
-    width: 460
-    height: 360
-    url: /?view=about
-    frameless: true
-    resizable: false
-    singleton: true
-    modal: true
-    parent: main
