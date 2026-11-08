@@ -57,7 +57,7 @@ function onRemove(id: string, ev: MouseEvent) {
     <div class="p-2.5">
       <button
         type="button"
-        class="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-[14px] font-medium transition-colors hover:border-primary/40 hover:bg-accent"
+        class="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-2.5 py-[9px] text-[14px] font-medium transition-colors hover:border-primary/40 hover:bg-accent"
         @click="onNew"
       >
         <Plus :size="15" class="text-primary" />
@@ -77,7 +77,7 @@ function onRemove(id: string, ev: MouseEvent) {
         <div
           v-for="s in g.items"
           :key="s.id"
-          class="group relative mb-0.5 flex items-center gap-2 rounded-md px-2.5 py-2 text-[14px] transition-colors"
+          class="group relative mb-0.5 flex items-center gap-2 rounded-lg px-2.5 py-[7px] text-[14px] transition-colors"
           :class="
             s.id === sess.currentId.value
               ? 'bg-accent font-medium text-accent-foreground'

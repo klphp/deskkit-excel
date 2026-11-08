@@ -398,7 +398,7 @@ onUnmounted(() => {
   <div class="flex h-full min-h-0 flex-col">
     <!-- ── 对话 ── -->
     <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto">
-      <div class="mx-auto max-w-[760px] px-6 py-8">
+      <div class="mx-auto max-w-[800px] px-6 py-8">
         <!-- 首屏 = 产品介绍。用户第一次打开不知道它能干什么，
              与其放一句「你想做什么」，不如把能力和边界直接摊开：
              现在能用的、还要等组件的，都写清楚。 -->
@@ -408,8 +408,8 @@ onUnmounted(() => {
               <FileSpreadsheet :size="18" class="text-primary" />
               <span class="text-[12.5px] font-medium uppercase tracking-wide text-muted-foreground">{{ t("intro.kicker") }}</span>
             </div>
-            <h1 class="text-[24px] font-semibold leading-snug tracking-tight">{{ t("intro.title") }}</h1>
-            <p class="mt-2.5 max-w-[560px] text-[14px] leading-[1.7] text-muted-foreground">{{ t("intro.lead") }}</p>
+            <h1 class="text-[26px] font-semibold leading-[1.3] tracking-tight">{{ t("intro.title") }}</h1>
+            <p class="mt-3 max-w-[560px] text-[14.5px] leading-[1.75] text-muted-foreground">{{ t("intro.lead") }}</p>
 
             <!-- 能力清单：三组，逐条列它到底能干什么 -->
             <div class="mt-6 space-y-2.5">
@@ -435,11 +435,11 @@ onUnmounted(() => {
 
         <div v-for="(turn, i) in turns" :key="i" class="mb-5">
           <div v-if="turn.role === 'user'" class="flex justify-end">
-            <div class="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-[14px] leading-relaxed text-primary-foreground">
+            <div class="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-[15px] leading-[1.7] text-primary-foreground">
               {{ turn.content }}
             </div>
           </div>
-          <div v-else-if="turn.role === 'assistant'" class="whitespace-pre-wrap text-[14px] leading-[1.8]">
+          <div v-else-if="turn.role === 'assistant'" class="whitespace-pre-wrap text-[15px] leading-[1.75]">
             {{ turn.content }}
           </div>
         </div>
@@ -459,7 +459,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="streaming" class="whitespace-pre-wrap text-[14px] leading-[1.8]">{{ streaming }}</div>
+        <div v-if="streaming" class="whitespace-pre-wrap text-[15px] leading-[1.75]">{{ streaming }}</div>
         <div v-if="busy && !streaming" class="flex items-center gap-2 text-[13px] text-muted-foreground">
           <Loader2 :size="13" class="animate-spin" />{{ t("ai.thinking") }}
         </div>
@@ -471,7 +471,7 @@ onUnmounted(() => {
 
     <!-- ── 输入区：对话的一部分，不是工具栏 ── -->
     <div class="shrink-0 px-6 pb-5">
-      <div class="mx-auto max-w-[760px]">
+      <div class="mx-auto max-w-[800px]">
         <!-- 已选文件：一个小标签。第二行小字说明结果会写到哪 -->
         <div v-if="ws.paths.value.length > 0" class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[13px]">
@@ -498,19 +498,19 @@ onUnmounted(() => {
         </div>
 
         <div
-          class="relative flex items-end gap-1.5 rounded-2xl border border-input bg-card px-2.5 py-2 transition-shadow focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
+          class="relative flex items-end gap-2 rounded-[26px] border border-input bg-card px-3 py-2.5 transition-shadow focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
           :class="expanded ? 'shadow-lg' : ''"
         >
           <!-- ① 选文件 -->
           <button
             type="button"
-            class="mb-0.5 grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+            class="mb-0.5 grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
             :title="t('ai.pickInput')"
             :disabled="ws.busy.value"
             @click="ws.pickPaths(t('ai.pickInput'))"
           >
             <Loader2 v-if="ws.busy.value" :size="15" class="animate-spin" />
-            <FolderOpen v-else :size="15" />
+            <FolderOpen v-else :size="17" />
           </button>
 
           <!-- ② 功能选择。不选就是普通对话。 -->
@@ -522,7 +522,7 @@ onUnmounted(() => {
               :title="t('ai.pickFeature')"
               @click="showFeatures = !showFeatures"
             >
-              <Layers :size="15" />
+              <Layers :size="17" />
             </button>
 
             <div
@@ -558,7 +558,7 @@ onUnmounted(() => {
             v-model="draft"
             rows="3"
             :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
-            class="flex-1 resize-none bg-transparent px-1 py-1.5 pr-8 text-[14px] leading-[1.65] outline-none placeholder:text-muted-foreground"
+            class="flex-1 resize-none bg-transparent px-1 py-2 pr-8 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground"
             :class="expanded ? 'min-h-[38vh]' : 'min-h-[76px] max-h-[200px]'"
             @input="autogrow"
             @keydown="onKeydown"
@@ -582,16 +582,16 @@ onUnmounted(() => {
             :title="t('ai.modelSettings')"
             @click="openSettings"
           >
-            <Settings2 :size="15" />
+            <Settings2 :size="17" />
           </button>
           <button
             type="button"
-            class="mb-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40"
+            class="mb-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
             :disabled="!draft.trim() || busy"
             :title="t('ai.send')"
             @click="send"
           >
-            <ArrowUp :size="15" />
+            <ArrowUp :size="16" />
           </button>
         </div>
 
