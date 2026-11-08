@@ -19,6 +19,14 @@ VERSION="${VERSION:-0.1.0}"
 BIN="bin/deskkit"
 OUT="dist/${APP_NAME}.app"
 
+# ★ 前端也要在这里构建，否则 dist 还是上一次的。
+# 前后端两条命令分开跑，最容易出现「改了前端、忘了 npm run build，然后
+# 只跑打包」—— 界面纹丝不动，人却以为代码没生效。一条命令做完最稳。
+if [[ "${SKIP_FRONTEND:-0}" != "1" ]]; then
+  echo "构建前端..."
+  ( cd frontend && npm run build ) || { echo "前端构建失败" >&2; exit 1; }
+fi
+
 # ★ 一定要在这里重新编译二进制，不能复用 bin/deskkit。
 # 前端 dist 是用 go:embed 打进二进制的：只重跑 npm run build、再拿旧二进制打包，
 # .app 里跑的还是上一版界面 —— 现象就是「代码改了、界面没变」，

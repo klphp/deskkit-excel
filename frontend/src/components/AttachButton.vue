@@ -44,26 +44,30 @@ async function chooseDirs() {
       <Plus v-else :size="17" />
     </button>
 
-    <!-- 点空白关闭：用透明遮罩比监听 document 点击更省事，也不会漏 -->
-    <div v-if="open" class="fixed inset-0 z-[70]" @click.self="open = false">
-      <div class="absolute left-0 bottom-full mb-2 w-[188px] rounded-xl border border-border bg-background p-1.5 shadow-xl">
-        <button
-          type="button"
-          class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-accent"
-          @click="chooseFiles"
-        >
-          <FileText :size="15" class="text-muted-foreground" />
-          {{ t("ai.pickFiles") }}
-        </button>
+    <!-- 遮罩和菜单是**兄弟**，不是父子。
+         把菜单塞进 fixed 遮罩里，菜单的 bottom-full 就会相对整个视口算，
+         于是跑到屏幕上方外面 —— 表现就是「点了加号什么也没弹出来」。 -->
+    <div v-if="open" class="fixed inset-0 z-[60]" @click="open = false" />
+    <div
+      v-if="open"
+      class="absolute bottom-full left-0 z-[70] mb-2 w-[188px] rounded-xl border border-border bg-background p-1.5 shadow-xl"
+    >
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-accent"
+        @click="chooseFiles"
+      >
+        <FileText :size="15" class="text-muted-foreground" />
+        {{ t("ai.pickFiles") }}
+      </button>
         <button
           type="button"
           class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-accent"
           @click="chooseDirs"
         >
           <FolderOpen :size="15" class="text-muted-foreground" />
-          {{ t("ai.pickFolder") }}
-        </button>
-      </div>
+        {{ t("ai.pickFolder") }}
+      </button>
     </div>
   </div>
 </template>

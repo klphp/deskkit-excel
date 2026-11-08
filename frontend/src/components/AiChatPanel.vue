@@ -1082,8 +1082,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 满屏编辑挂到 body：它要盖住整个窗口，不能被父级的 overflow 裁掉 -->
-    <Teleport to="body">
     <!-- ── 满屏编辑：只覆盖会话区 ──
          定位基准是外层 relative 容器（= 标题栏以下、侧栏以右的那块），
          所以顶栏和左侧会话记录都不会被盖住。 -->
@@ -1128,7 +1126,6 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-    </Teleport>
 
     <!-- ── 模型设置 ── -->
     <div
