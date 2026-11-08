@@ -130,7 +130,7 @@ onUnmounted(() => window.removeEventListener("keydown", onEsc));
       >
         <div
           class="flex max-h-[82vh] w-full flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
-          :class="overlay === 'about' ? 'max-w-[420px]' : 'max-w-[560px]'"
+          :class="overlay === 'about' ? 'max-w-[420px]' : 'max-w-[440px]'"
         >
           <div class="flex shrink-0 items-center justify-between border-b border-border px-5 py-2.5">
             <h2 class="text-[14px] font-semibold">

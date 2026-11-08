@@ -23,7 +23,7 @@ func TestRetentionSetAndReject(t *testing.T) {
 	}
 	defer s.Close()
 
-	for _, days := range []int{3, 7, 15, 30} {
+	for _, days := range []int{30, 90, 180, 365, 0} {
 		if err := s.SetRetentionDays(days); err != nil {
 			t.Fatalf("设置 %d 天失败: %v", days, err)
 		}
@@ -33,13 +33,13 @@ func TestRetentionSetAndReject(t *testing.T) {
 	}
 
 	// 非法值必须被拒 —— 存进 0 会变成「每次启动清空历史」
-	for _, bad := range []int{0, -1, 1000} {
+	for _, bad := range []int{-1, 3, 7, 15, 1000} {
 		if err := s.SetRetentionDays(bad); err == nil {
 			t.Fatalf("%d 应该被拒绝", bad)
 		}
 	}
-	// 拒绝之后原值不变
-	if got := s.RetentionDays(); got != 30 {
+	// 拒绝之后原值不变（循环最后设的是 0 = 永久）
+	if got := s.RetentionDays(); got != 0 {
 		t.Fatalf("非法设置不应覆盖原值，实际 %d", got)
 	}
 }
@@ -158,5 +158,34 @@ func TestClearAll(t *testing.T) {
 	}
 	if msgs != 0 {
 		t.Fatalf("消息没清干净，剩 %d 条", msgs)
+	}
+}
+
+// 永久保留时一条都不能删。
+func TestPruneForeverKeepsEverything(t *testing.T) {
+	s, err := Open(tempDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	ancient := time.Now().Add(-3000 * 24 * time.Hour).Unix()
+	if _, err := s.db.Exec(
+		`INSERT INTO sessions(id, title, created_at, updated_at) VALUES('ancient','很久以前',?,?)`,
+		ancient, ancient,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := s.Prune(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("永久保留不该删任何东西，实际删了 %d", n)
+	}
+	list, _ := s.List()
+	if len(list) != 1 {
+		t.Fatalf("应保留 1 条，实际 %d", len(list))
 	}
 }

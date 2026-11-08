@@ -16,12 +16,15 @@ import (
 // 它是这条数据的属性（保留多久），存在一处就不会出现「配置说 7 天、库里
 // 却按 30 天清」这种不一致；也少一个要跟用户目录同步的文件。
 
-// 允许的保留天数。界面只给这四档，不接受任意值 ——
-// 用户手滑存进 0 或负数会变成「每次都清空历史」。
-var allowedRetention = []int{3, 7, 15, 30}
+// 允许的保留天数。0 表示永久保留（不清理）。
+//
+// 界面只给这几档，不接受任意值：手滑存进负数会变成「每次启动清空历史」。
+// 原来的 3/7/15 天太短了 —— 半年前的一次排查记录往往还有用，
+// 而会话库本身不大，没有必要为了省几 MB 让用户丢上下文。
+var allowedRetention = []int{30, 90, 180, 365, 0}
 
-// DefaultRetentionDays 默认保留 30 天。
-const DefaultRetentionDays = 30
+// DefaultRetentionDays 默认保留 90 天（三个月）。
+const DefaultRetentionDays = 90
 
 // RetentionDays 读当前保留天数。没设置过或值不合法时返回默认值。
 func (s *Store) RetentionDays() int {
@@ -36,13 +39,13 @@ func (s *Store) RetentionDays() int {
 	}
 	for _, ok := range allowedRetention {
 		if days == ok {
-			return days
+			return days // 含 0：永久保留
 		}
 	}
 	return DefaultRetentionDays
 }
 
-// SetRetentionDays 设置保留天数。只接受 3 / 7 / 15 / 30。
+// SetRetentionDays 设置保留天数。只接受 30 / 90 / 180 / 365 / 0（永久）。
 func (s *Store) SetRetentionDays(days int) error {
 	valid := false
 	for _, ok := range allowedRetention {
@@ -52,7 +55,7 @@ func (s *Store) SetRetentionDays(days int) error {
 		}
 	}
 	if !valid {
-		return fmt.Errorf("保留天数只支持 3 / 7 / 15 / 30，收到 %d", days)
+		return fmt.Errorf("保留天数只支持 30 / 90 / 180 / 365 / 0（永久），收到 %d", days)
 	}
 	_, err := s.db.Exec(
 		`INSERT INTO meta(key, value) VALUES('retention_days', ?)
@@ -70,7 +73,10 @@ func (s *Store) SetRetentionDays(days int) error {
 // 判定依据是 updated_at（最后一次使用），不是 created_at：
 // 一个三个月前建、但昨天还在聊的会话属于「正在用」，不该清掉。
 func (s *Store) Prune(days int) (int, error) {
-	if days <= 0 {
+	if days == 0 {
+		return 0, nil // 永久保留：用户明确不想清
+	}
+	if days < 0 {
 		days = DefaultRetentionDays
 	}
 	cutoff := time.Now().Add(-time.Duration(days) * 24 * time.Hour).Unix()

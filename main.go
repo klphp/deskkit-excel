@@ -61,6 +61,9 @@ func main() {
 				// 而这件事用户根本不等着看结果。
 				go func() {
 					days := sessStore.RetentionDays()
+					if days == 0 {
+						return // 永久保留，什么都不用做
+					}
 					n, err := sessStore.Prune(days)
 					if err != nil {
 						slog.Warn("清理过期会话失败", "err", err)

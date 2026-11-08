@@ -40,8 +40,18 @@ const { t, locale, enabled: i18nEnabled, available, setLocale } = useI18n();
 
 // ── 会话历史保留 ──
 // 只在 Go 侧存一份（会话库的 meta 表），启动时后台按它清理。
-const retentionOptions = [3, 7, 15, 30];
-const retention = ref(30);
+// 0 = 永久。3/7/15 天太短了 —— 半年前的一次排查记录常常还有用，
+// 而会话库本身不大，没必要为省几 MB 让用户丢上下文。
+const retentionOptions = [30, 90, 180, 365, 0];
+const retention = ref(90);
+
+/** 天数 → 界面文字。不显示「天」以外的单位换算解释。 */
+function retentionLabel(days: number): string {
+  if (days === 0) return t("settings.history.forever");
+  if (days < 90) return `${days} ${t("settings.history.days")}`;
+  if (days < 365) return `${days / 30} ${t("settings.history.months")}`;
+  return `1 ${t("settings.history.year")}`;
+}
 
 onMounted(async () => {
   try {
@@ -101,16 +111,16 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
 </script>
 
 <template>
-  <div class="mx-auto max-w-md space-y-4 p-6">
+  <div class="space-y-2 p-3">
     <!-- ── 外观 ── -->
-    <div class="rounded-lg border border-border bg-card p-6">
-      <h2 class="mb-3 text-sm font-semibold">{{ t("settings.appearance") }}</h2>
+    <div class="rounded-lg border border-border bg-card px-3 py-2.5">
+      <h2 class="mb-1.5 text-[12.5px] font-semibold">{{ t("settings.appearance") }}</h2>
       <div class="flex gap-2">
         <button
           v-for="opt in themeOptions"
           :key="opt.value"
           type="button"
-          class="flex-1 rounded-md border px-3 py-2 text-xs transition-colors"
+          class="h-7 flex-1 rounded-md border text-[12px] transition-colors"
           :class="
             mode === opt.value
               ? 'border-primary bg-primary text-primary-foreground'
@@ -126,14 +136,14 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
     <!-- ── 会话区字号 ──
          只影响对话正文，界面其它部分（按钮、标签）不跟着放大：
          那些放大只会挤占空间，真正需要放大的是要读的内容。 -->
-    <div class="rounded-lg border border-border bg-card p-6">
-      <h2 class="mb-3 text-sm font-semibold">{{ t("settings.font.title") }}</h2>
+    <div class="rounded-lg border border-border bg-card px-3 py-2.5">
+      <h2 class="mb-1.5 text-[12.5px] font-semibold">{{ t("settings.font.title") }}</h2>
       <div class="flex items-center gap-2">
         <button
           v-for="s in fontSizes"
           :key="s"
           type="button"
-          class="h-9 min-w-[64px] rounded-md border text-[13px] transition-colors"
+          class="h-7 min-w-[46px] rounded-md border text-[12px] transition-colors"
           :class="
             chatFont === s
               ? 'border-primary bg-primary text-primary-foreground'
@@ -148,14 +158,14 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
 
     <!-- ── 会话历史 ──
          按「最后一次使用时间」清理，启动时在后台做，不挡窗口。 -->
-    <div class="rounded-lg border border-border bg-card p-6">
-      <h2 class="mb-3 text-sm font-semibold">{{ t("settings.history.title") }}</h2>
-      <div class="flex flex-wrap items-center gap-2">
+    <div class="rounded-lg border border-border bg-card px-3 py-2.5">
+      <h2 class="mb-1.5 text-[12.5px] font-semibold">{{ t("settings.history.title") }}</h2>
+      <div class="flex flex-wrap items-center gap-1">
         <button
           v-for="d in retentionOptions"
           :key="d"
           type="button"
-          class="h-9 min-w-[64px] rounded-md border text-[13px] transition-colors"
+          class="h-7 min-w-[46px] rounded-md border text-[12px] transition-colors"
           :class="
             retention === d
               ? 'border-primary bg-primary text-primary-foreground'
@@ -163,24 +173,28 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
           "
           @click="setRetention(d)"
         >
-          {{ d }} {{ t("settings.history.days") }}
+          {{ retentionLabel(d) }}
         </button>
 
-        <!-- 清空：点一次问一次，第二次才真删 -->
+      </div>
+
+      <!-- 清空单独一行：五档按钮已经占满一行，挤进去只会换行显得乱。
+           点一次问一次，第二次才真删。 -->
+      <div class="mt-1.5 flex items-center justify-end gap-1.5 border-t border-border pt-1.5">
         <template v-if="!confirmingClear">
           <button
             type="button"
-            class="ml-auto h-9 rounded-md border border-border px-3 text-[13px] text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+            class="text-[12px] text-muted-foreground transition-colors hover:text-destructive"
             @click="confirmingClear = true"
           >
             {{ t("settings.history.clear") }}
           </button>
         </template>
         <template v-else>
-          <span class="ml-auto text-[13px] text-destructive">{{ t("settings.history.clearConfirm") }}</span>
+          <span class="text-[12px] text-destructive">{{ t("settings.history.clearConfirm") }}</span>
           <button
             type="button"
-            class="h-9 rounded-md bg-destructive px-3 text-[13px] font-medium text-destructive-foreground disabled:opacity-50"
+            class="h-6 rounded-md bg-destructive px-2 text-[12px] font-medium text-destructive-foreground disabled:opacity-50"
             :disabled="clearing"
             @click="doClearAll"
           >
@@ -188,7 +202,7 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
           </button>
           <button
             type="button"
-            class="h-9 rounded-md border border-border px-3 text-[13px] text-muted-foreground hover:bg-accent"
+            class="h-6 rounded-md border border-border px-2 text-[12px] text-muted-foreground hover:bg-accent"
             @click="confirmingClear = false"
           >
             {{ t("settings.history.clearNo") }}
@@ -200,14 +214,14 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
     <!-- ── 语言 ──
          只有 i18n 启用、且配了两种以上语言时才出现。默认配置下这一块
          完全不存在，界面和没有多语言时一样。 -->
-    <div v-if="showLanguage" class="rounded-lg border border-border bg-card p-6">
-      <h2 class="mb-3 text-sm font-semibold">{{ t("settings.language") }}</h2>
-      <div class="flex flex-wrap gap-2">
+    <div v-if="showLanguage" class="rounded-lg border border-border bg-card px-3 py-2.5">
+      <h2 class="mb-1.5 text-[12.5px] font-semibold">{{ t("settings.language") }}</h2>
+      <div class="flex flex-wrap gap-1">
         <button
           v-for="l in available"
           :key="l"
           type="button"
-          class="flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs transition-colors"
+          class="flex h-7 items-center gap-1 rounded-md border px-2 text-[12px] transition-colors"
           :class="
             locale === l
               ? 'border-primary bg-primary text-primary-foreground'
