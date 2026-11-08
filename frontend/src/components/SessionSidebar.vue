@@ -30,12 +30,6 @@ const editInput = ref<HTMLInputElement | null>(null);
 /** 正在确认删除的会话 id。 */
 const confirmId = ref("");
 
-function timeOf(ts: number): string {
-  // 后端存的是秒
-  const d = new Date(ts * 1000);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
 function onNew() {
   void sess.create();
 }
@@ -166,7 +160,6 @@ async function doDelete(id: string, ev: MouseEvent) {
               aria-hidden="true"
             />
             <span class="min-w-0 flex-1 truncate">{{ s.title || t("session.untitled") }}</span>
-            <span class="shrink-0 text-[12px] text-muted-foreground group-hover:hidden">{{ timeOf(s.updatedAt) }}</span>
             <button
               type="button"
               class="hidden shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground group-hover:block"
