@@ -43,10 +43,6 @@ export function toMessages(turns: ChatTurn[]): Message[] {
 export type Workspace = {
   /** 用户选中的东西：可能是单个文件、多个文件、或一个文件夹。 */
   paths?: string[];
-  /** 后端算好的输出路径：同目录、同名、带时间戳。 */
-  outputHint?: string;
-  summary?: string;
-  columns?: string[];
   /** 选中的功能包（空 = 普通对话）。 */
   feature?: string;
   /** 该功能包的用法说明（由工具定义自动生成）。 */
@@ -64,12 +60,7 @@ export function withWorkspace(turns: ChatTurn[], ws: Workspace): ChatTurn[] {
 
   if (ws.paths && ws.paths.length > 0) {
     lines.push(`用户选中的路径：${ws.paths.join("、")}`);
-    if (ws.summary) lines.push(`文件情况：${ws.summary}`);
-    if (ws.columns?.length) lines.push(`这些表的列名（并集）：${ws.columns.join("、")}`);
-    if (ws.outputHint) {
-      lines.push(`输出路径：${ws.outputHint}`);
-      lines.push("这是后端已经算好的路径（原目录、原文件名加时间戳）。原文件永远不要修改。");
-    }
+    lines.push("选中的可能是文件，也可能是文件夹，甚至混合；不要假设文件类型。");
     lines.push("");
     lines.push("路径已经给了，不要再问用户要。选中文件夹时用 scan_excel_folder 看有哪些表；");
     lines.push("选中单个文件时用 inspect_file。改数据一律输出新文件，原文件不动；");

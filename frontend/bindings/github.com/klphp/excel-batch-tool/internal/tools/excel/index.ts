@@ -7,9 +7,5 @@ export {
     MergeOptions,
     MergeResult,
     SampleInfo,
-    ScanResult,
-    SheetInfo,
-    SingleInfo,
-    SkipInfo,
-    TableInfo
+    SkipInfo
 } from "./models.js";

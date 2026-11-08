@@ -59,6 +59,15 @@ const providers = ref<ProviderInfo[]>([]);
 const provider = ref("");
 const model = ref("");
 const apiKey = ref("");
+/**
+ * 已生效的服务商与模型 —— 和弹窗里的草稿分开。
+ *
+ * 之前只有一个 model ref，下拉一改就参加发送，于是「没点保存直接关闭，
+ * 模型已经换了」。草稿归草稿，生效归生效：只有点「保存」（或「保存并测试」）
+ * 才把草稿写进这里，也才写进设置文件。
+ */
+const activeProvider = ref("");
+const activeModel = ref("");
 const baseURL = ref("");
 const busy = ref(false);
 const testing = ref(false);
@@ -139,6 +148,14 @@ let offDelta: (() => void) | null = null;
 let offTool: (() => void) | null = null;
 
 const current = computed(() => providers.value.find((p) => p.name === provider.value));
+
+/** 底部状态栏显示的「正在用的服务商名」，跟生效值走，不跟弹窗草稿走。 */
+const activeLabel = computed(
+  () =>
+    providers.value.find((p) => p.name === activeProvider.value)?.label ||
+    activeProvider.value ||
+    provider.value,
+);
 const isCustom = computed(() => provider.value === "custom");
 const ready = computed(() => providers.value.some((p) => p.ready));
 
@@ -175,6 +192,12 @@ const intro = computed(() => [
   },
 ]);
 
+/** 生效的模型名：设置里存过就用存的，否则用服务商的默认模型。 */
+function ActiveModelOrDefault(st: { model?: string }): string {
+  const preferred = providers.value.find((p) => p.name === (st as any).provider);
+  return st.model || preferred?.model || "";
+}
+
 async function refresh() {
   enabled.value = await AIService.Enabled();
   if (!enabled.value) return;
@@ -187,7 +210,9 @@ async function refresh() {
     providers.value[0];
   if (preferred) {
     provider.value = preferred.name;
-    model.value = st.model || preferred.model;
+    model.value = ActiveModelOrDefault(st);
+    activeProvider.value = preferred.name;
+    activeModel.value = ActiveModelOrDefault(st);
     baseURL.value = st.baseURL || "";
     connected.value = preferred.ready;
     // ★ 候选清单必须在这里就填上：下拉没有 options，当前值匹配不到任何一项，
@@ -229,6 +254,9 @@ async function connect() {
       disableLocalProbe: false,
     });
     apiKey.value = "";
+    // 接入这一步本身就是一次显式保存：服务商和密钥定下来了，模型也一起定
+    activeProvider.value = provider.value;
+    activeModel.value = model.value;
     testResult.value = await AIService.Test(provider.value);
     if (testResult.value?.ok) {
       connected.value = true;
@@ -352,6 +380,15 @@ function openSettings() {
   testResult.value = null;
   failure.value = "";
   modelsError.value = "";
+  // 草稿重置为「已生效」的那一对：上次没保存就关掉的话，这次打开不该
+  // 还显示那个被丢弃的选择。
+  if (activeProvider.value) {
+    provider.value = activeProvider.value;
+    model.value = activeModel.value;
+    models.value = providers.value.find((p) => p.name === activeProvider.value)?.models ?? [];
+    customModel.value = !!model.value && models.value.length > 0 && !models.value.includes(model.value);
+    connected.value = Boolean(providers.value.find((p) => p.name === activeProvider.value)?.ready);
+  }
   showSettings.value = true;
 }
 
@@ -404,12 +441,12 @@ async function send() {
   try {
     const history = withWorkspace(turns.value, {
       paths: ws.paths.value,
-      outputHint: ws.outputHint.value,
-      summary: ws.summary.value,
-      columns: ws.columns.value,
       feature: ws.feature.value,
     });
-    const result = await AIService.ChatAgent(chatInput(provider.value, model.value, history));
+    // ★ 用 active*，不是弹窗里的草稿：改了模型没点保存就不该生效
+    const sendProvider = activeProvider.value || provider.value;
+    const sendModel = activeModel.value || model.value;
+    const result = await AIService.ChatAgent(chatInput(sendProvider, sendModel, history));
     if (streaming.value.trim()) {
       await sess.appendTurn("assistant", streaming.value);
     } else if (result.content && !result.content.trim().startsWith("{")) {
@@ -624,7 +661,6 @@ onUnmounted(() => {
             <button type="button" class="truncate font-medium hover:underline" :title="ws.paths.value.join('\n')" @click="ws.pickPaths(t('ai.pickInput'))">
               {{ ws.selectionLabel.value }}
             </button>
-            <span class="shrink-0 text-muted-foreground">{{ ws.summary.value }}</span>
             <button type="button" class="shrink-0 text-muted-foreground hover:text-foreground" @click="ws.clearPaths()">
               <X :size="12" />
             </button>
@@ -637,9 +673,6 @@ onUnmounted(() => {
           >
             <Layers :size="12" />{{ featureName }}
           </button>
-          <span v-if="ws.outputHint.value" class="truncate text-[12.5px] text-muted-foreground" :title="ws.outputHint.value">
-            {{ t("ai.willWriteTo") }} {{ ws.outputHint.value.split("/").pop() }}
-          </span>
         </div>
 
         <!-- 输入框按 Gemini 的分层：
@@ -716,7 +749,7 @@ onUnmounted(() => {
         </div>
 
         <div class="mt-1.5 flex items-center justify-between px-1 text-[11.5px] text-muted-foreground">
-          <span v-if="ready" class="truncate">{{ current?.label || provider }} · {{ model }}</span>
+          <span v-if="ready" class="truncate">{{ activeLabel }} · {{ activeModel }}</span>
           <button v-else type="button" class="text-primary hover:underline" @click="openSettings">
             {{ t("ai.configureFirst") }}
           </button>

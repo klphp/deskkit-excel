@@ -12,13 +12,11 @@
 import { computed, ref } from "vue";
 import * as Tools from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/toolservice";
 import type { PackInfo } from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/models";
-import type { SingleInfo } from "../../bindings/github.com/klphp/excel-batch-tool/internal/tools/excel/models";
 
 /** 当前功能。空字符串 = 普通对话。 */
 const feature = ref("");
 /** 用户选的东西：可能是 1 个文件，也可能是多个文件 / 一个文件夹。 */
 const paths = ref<string[]>([]);
-const info = ref<SingleInfo | null>(null);
 const packs = ref<PackInfo[]>([]);
 const busy = ref(false);
 /** 当前功能的用法说明（markdown），给模型当提示词。 */
@@ -33,23 +31,9 @@ const selectionLabel = computed(() => {
   return `${list.length} 项`;
 });
 
-/** 表结构摘要：几张表、多少列多少行。 */
-const summary = computed(() => {
-  const tables = info.value?.tables ?? [];
-  if (tables.length === 0) return "";
-  const rows = tables.reduce((n, t) => n + t.rows, 0);
-  return `${tables.length} 张表 · ${rows} 行`;
-});
-
-/** 列名并集，给模型和界面做参考。 */
-const columns = computed(() => {
-  const seen = new Set<string>();
-  for (const t of info.value?.tables ?? []) for (const c of t.columns ?? []) if (c) seen.add(c);
-  return [...seen].slice(0, 30);
-});
-
-/** 输出会写到哪（后端算好的，界面照抄，不自己拼路径）。 */
-const outputHint = computed(() => info.value?.outputHint ?? "");
+// 不做类型探查：用户可能选表格，也可能选视频、PDF、一整个目录。
+// 替他判断「这是什么文件、有几张表」纯属多余，判断错了反而误导，
+// 而且我们根本不知道他接下来要说哪件事。选了什么交给 AI 去看。
 
 async function loadPacks() {
   try {
@@ -66,19 +50,9 @@ async function pickPaths(title: string) {
     const picked = (await Tools.PickPaths(title)) ?? [];
     if (picked.length === 0) return;
     paths.value = picked;
-    // 只选了一个文件时顺手读它、显示「几张表几行」，让用户心里有数。
-    // 选了文件夹或多个文件就不猜了 —— 结构由 AI 用工具自己去看。
-    if (picked.length === 1 && /\.xlsx?$/i.test(picked[0]) === false && /\.xlsm$/i.test(picked[0])) {
-      info.value = await Tools.InspectFile(picked[0]);
-    } else if (picked.length === 1 && /\.(xlsx|xlsm)$/i.test(picked[0])) {
-      info.value = await Tools.InspectFile(picked[0]);
-    } else {
-      info.value = null;
-    }
   } catch (err) {
     failure.value = String(err);
     paths.value = [];
-    info.value = null;
   } finally {
     busy.value = false;
   }
@@ -86,7 +60,6 @@ async function pickPaths(title: string) {
 
 function clearPaths() {
   paths.value = [];
-  info.value = null;
   failure.value = "";
 }
 
@@ -114,10 +87,6 @@ export function useWorkspace() {
     packs,
     paths,
     selectionLabel,
-    info,
-    summary,
-    columns,
-    outputHint,
     busy,
     failure,
     usage,
