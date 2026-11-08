@@ -408,11 +408,33 @@ async function onContentClick(e: MouseEvent) {
   }
 }
 
+/**
+ * 滚到底部。
+ *
+ * 不能只 nextTick 一次：消息是异步从库里读出来的，nextTick 时 DOM 可能还没
+ * 长出来，这时 scrollHeight 等于视口高度，scrollTop 设成它等于停在顶部 ——
+ * 表现就是「打开长会话看到中间某一段」。
+ * 所以要等两帧 + 内容高度稳定后再滚。
+ */
 async function scrollToBottom() {
   await nextTick();
   const el = scroller.value;
-  if (el) el.scrollTop = el.scrollHeight;
+  if (!el) return;
+  el.scrollTop = el.scrollHeight;
+  await new Promise((r) => requestAnimationFrame(() => r(null)));
+  el.scrollTop = el.scrollHeight;
+  await new Promise((r) => requestAnimationFrame(() => r(null)));
+  el.scrollTop = el.scrollHeight;
+  atBottom = true;
 }
+
+/**
+ * 只有在「已经站到底部过」之后才响应「滚到顶部加载更早」。
+ *
+ * 否则会出现连锁：内容还没渲染 → scrollTop=0 → 自动加载更早 → 位置补偿 →
+ * 又接近顶部 → 再加载…… 一下子把所有历史都拉出来，正好抵消了分页的意义。
+ */
+let atBottom = false;
 
 /**
  * 滚到顶部附近时加载更早的消息。
@@ -424,6 +446,8 @@ let loadingOlder = false;
 async function onScroll() {
   const el = scroller.value;
   if (!el || loadingOlder) return;
+  if (!atBottom) return;                       // 首屏还没落到底，先别翻历史
+  if (el.scrollHeight <= el.clientHeight + 40) return; // 本来就没得滚
   if (el.scrollTop > 120) return;
   if (!sess.hasMoreTurns.value) return;
 
@@ -672,7 +696,19 @@ onMounted(() => {
 // 切换会话：内容换了，位置也要跟着回到最新
 watch(
   () => sess.currentId.value,
-  () => void scrollToBottom(),
+  () => {
+    atBottom = false;
+    void scrollToBottom();
+  },
+);
+
+// 消息是异步读出来的：条数变化后（首屏加载完 / 往上翻完）重新贴底。
+// 往上翻的情况不该贴底，所以只在 turns 变长且还没到底时补一次。
+watch(
+  () => sess.turns.value.length,
+  () => {
+    if (!atBottom) void scrollToBottom();
+  },
 );
 onUnmounted(() => {
   offDelta?.();
@@ -687,6 +723,18 @@ onUnmounted(() => {
     <!-- ── 对话 ── -->
     <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto" @click="onContentClick" @scroll.passive="onScroll">
       <div class="mx-auto max-w-[800px] px-6 py-8">
+        <!-- 更早的消息：吸在顶部一直可见，点一下或往上滚都能加载。
+             不显示这个的话，用户会以为会话只有这么长。 -->
+        <div v-if="sess.hasMoreTurns.value" class="sticky top-0 z-10 -mt-6 mb-4 flex justify-center pt-2">
+          <button
+            type="button"
+            class="rounded-full border border-border bg-card px-3 py-1 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+            @click="onScroll"
+          >
+            ↑ 还有更早的消息，点这里加载
+          </button>
+        </div>
+
         <!-- 首屏 = 产品介绍。用户第一次打开不知道它能干什么，
              与其放一句「你想做什么」，不如把能力和边界直接摊开：
              现在能用的、还要等组件的，都写清楚。 -->
