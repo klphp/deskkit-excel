@@ -1,21 +1,19 @@
 <script setup lang="ts">
 /**
- * 主区对话 + 模型设置弹窗。
+ * 对话即界面。
  *
- * 模型接入的流程参照 opencode / Hermes 那类工具，就两步：
- *   ① 接入：选服务商（或「自定义」自己填地址）+ 填 API Key → 保存并测试
- *   ② 刷新模型：接上之后再向对方 /v1/models 要一次列表，从中选一个
+ * 这一版把上一版的「顶部输入/输出栏」也去掉了：那一栏让整个应用看起来
+ * 像一张设置表，而用户要做的事情其实就是说话。现在整窗只有一列对话，
+ * 文件选择降级成输入框旁边的附件按钮 —— 选了会显示成一个小标签，
+ * 不选也能先聊天（这时候模型会问你）。
  *
- * 为什么不在配置里写死模型清单：各家模型更新很快，写死的清单很快就旧了，
- * 而且清单里总有些用户根本不会选的条目。先接入拿真实列表，用户看到的就是
- * 「这个 key 到底能用哪些」。
- *
- * 也不再把「未就绪」当主界面的状态 —— 平时你看到的就是对话，
- * 只有点齿轮才进设置。
+ * 能力的组合在 Go 侧的工具循环里，这里只负责：把当前上下文交给模型、
+ * 把流式文字和工具步骤显示出来、没接入模型时把设置打开。
  */
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
-import { ArrowUp, Check, Loader2, RefreshCw, Settings2, Wrench, X } from "@lucide/vue";
+import { ArrowUp, Check, FolderOpen, Loader2, Settings2, Sparkles, Wrench, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
+import { useWorkspace } from "../composables/workspace";
 import {
   AIService,
   chatInput,
@@ -29,14 +27,8 @@ import {
   type ToolEvent,
 } from "../lib/ai";
 
-const props = defineProps<{
-  dir?: string;
-  outDir?: string;
-  summary?: string;
-  columns?: string[];
-}>();
-
 const { t } = useI18n();
+const ws = useWorkspace();
 
 type Step = { tool: string; detail: string; done: boolean; ok: boolean };
 const steps = ref<Step[]>([]);
@@ -53,7 +45,7 @@ const testResult = ref<TestResult | null>(null);
 const failure = ref("");
 const showSettings = ref(false);
 
-/** 已接入（能拿到客户端）与模型清单分开对待 —— 这是两步流程的核心。 */
+/** 接入与选模型是两步 —— 和 opencode / Hermes 的顺序一致。 */
 const connected = ref(false);
 const models = ref<string[]>([]);
 const loadingModels = ref(false);
@@ -69,14 +61,13 @@ let offDelta: (() => void) | null = null;
 let offTool: (() => void) | null = null;
 
 const current = computed(() => providers.value.find((p) => p.name === provider.value));
-/** 自定义接入才需要用户填地址；预设服务商的地址是已知的。 */
 const isCustom = computed(() => provider.value === "custom");
 const ready = computed(() => providers.value.some((p) => p.ready));
 
 const suggestions = computed(() =>
-  props.dir
+  ws.dir.value
     ? [t("ai.askMerge"), t("ai.askClean"), t("ai.askSummary"), t("ai.askLook")]
-    : [t("ai.askNoDir")],
+    : [t("ai.askBrowse"), t("ai.askWhat")],
 );
 
 async function refresh() {
@@ -109,7 +100,6 @@ function pickProvider(name: string) {
   connected.value = Boolean(p?.ready);
 }
 
-/** 接入：保存 + 测试。成功后就能拉模型了。 */
 async function connect() {
   failure.value = "";
   testResult.value = null;
@@ -138,7 +128,6 @@ async function connect() {
   }
 }
 
-/** 刷新模型：真正向服务商要一次 /v1/models。 */
 async function loadModels() {
   loadingModels.value = true;
   modelsError.value = "";
@@ -157,7 +146,6 @@ async function loadModels() {
   }
 }
 
-/** 选完模型要落盘，否则下次启动还是旧的（或空的）。 */
 async function saveModel() {
   failure.value = "";
   try {
@@ -183,6 +171,15 @@ async function scrollToBottom() {
 }
 
 function useSuggestion(text: string) {
+  if (text === t("ai.askBrowse")) {
+    ws.pickInput(t("ai.pickInput"));
+    return;
+  }
+  if (text === t("ai.askWhat")) {
+    draft.value = t("ai.askWhatThen");
+    inputEl.value?.focus();
+    return;
+  }
   draft.value = text;
   inputEl.value?.focus();
 }
@@ -197,8 +194,6 @@ function openSettings() {
 async function send() {
   const text = draft.value.trim();
   if (!text || busy.value) return;
-
-  // 没接入就先接入 —— 与其报一句「未配置」，不如直接把设置打开
   if (!enabled.value || !ready.value) {
     openSettings();
     return;
@@ -237,10 +232,10 @@ async function send() {
 
   try {
     const history = withWorkspace(turns.value, {
-      dir: props.dir,
-      outDir: props.outDir,
-      summary: props.summary,
-      columns: props.columns,
+      dir: ws.dir.value,
+      outDir: ws.effectiveOutDir.value,
+      summary: ws.summary.value,
+      columns: ws.columns.value,
     });
     const result = await AIService.ChatAgent(chatInput(provider.value, model.value, history));
     if (streaming.value.trim()) {
@@ -284,16 +279,18 @@ onUnmounted(() => {
   <div class="flex h-full min-h-0 flex-col">
     <!-- ── 对话 ── -->
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
-      <div class="mx-auto max-w-[820px] px-6 py-6">
-        <div v-if="turns.length === 0 && !streaming" class="pt-16 text-center">
-          <h2 class="text-[19px] font-semibold tracking-tight">{{ t("ai.emptyTitle") }}</h2>
-          <p class="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">{{ t("ai.emptyHint") }}</p>
-          <div class="mt-6 flex flex-wrap justify-center gap-2">
+      <div class="mx-auto max-w-[760px] px-6 py-8">
+        <div v-if="turns.length === 0 && !streaming" class="pt-20 text-center">
+          <h2 class="text-[22px] font-semibold tracking-tight">{{ t("ai.emptyTitle") }}</h2>
+          <p class="mx-auto mt-2.5 max-w-[480px] text-[13.5px] leading-relaxed text-muted-foreground">
+            {{ t("ai.emptyHint") }}
+          </p>
+          <div class="mt-7 flex flex-wrap justify-center gap-2">
             <button
               v-for="s in suggestions"
               :key="s"
               type="button"
-              class="rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] transition-colors hover:bg-accent"
+              class="rounded-full border border-border bg-card px-4 py-1.5 text-[13px] transition-colors hover:bg-accent"
               @click="useSuggestion(s)"
             >
               {{ s }}
@@ -301,13 +298,13 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-for="(turn, i) in turns" :key="i" class="mb-4">
+        <div v-for="(turn, i) in turns" :key="i" class="mb-5">
           <div v-if="turn.role === 'user'" class="flex justify-end">
             <div class="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-[13.5px] leading-relaxed text-primary-foreground">
               {{ turn.content }}
             </div>
           </div>
-          <div v-else-if="turn.role === 'assistant'" class="whitespace-pre-wrap text-[13.5px] leading-[1.75]">
+          <div v-else-if="turn.role === 'assistant'" class="whitespace-pre-wrap text-[13.5px] leading-[1.8]">
             {{ turn.content }}
           </div>
         </div>
@@ -327,26 +324,72 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="streaming" class="whitespace-pre-wrap text-[13.5px] leading-[1.75]">{{ streaming }}</div>
+        <div v-if="streaming" class="whitespace-pre-wrap text-[13.5px] leading-[1.8]">{{ streaming }}</div>
         <div v-if="busy && !streaming" class="flex items-center gap-2 text-[13px] text-muted-foreground">
           <Loader2 :size="13" class="animate-spin" />{{ t("ai.thinking") }}
         </div>
-        <p v-if="failure" class="mt-3 text-[13px] text-destructive">{{ failure }}</p>
+        <p v-if="failure || ws.failure.value" class="mt-3 text-[13px] text-destructive">
+          {{ failure || ws.failure.value }}
+        </p>
       </div>
     </div>
 
-    <!-- ── 输入 ── -->
-    <div class="shrink-0 border-t border-border px-6 py-3">
-      <div class="mx-auto max-w-[820px]">
-        <div class="flex items-end gap-2 rounded-xl border border-input bg-background px-3 py-2 focus-within:ring-1 focus-within:ring-ring">
+    <!-- ── 输入区：对话的一部分，不是工具栏 ── -->
+    <div class="shrink-0 px-6 pb-5">
+      <div class="mx-auto max-w-[760px]">
+        <!-- 已选文件：显示成一个小标签，点 × 取消 -->
+        <div v-if="ws.dir.value" class="mb-2 flex flex-wrap items-center gap-2">
+          <span class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12.5px]">
+            <FolderOpen :size="12" class="shrink-0 text-muted-foreground" />
+            <button type="button" class="truncate font-medium hover:underline" :title="ws.dir.value" @click="ws.pickInput(t('ai.pickInput'))">
+              {{ ws.dirName.value }}
+            </button>
+            <span class="shrink-0 text-muted-foreground">{{ ws.summary.value }}</span>
+            <button type="button" class="shrink-0 text-muted-foreground hover:text-foreground" @click="ws.clearInput()">
+              <X :size="12" />
+            </button>
+          </span>
+          <button
+            type="button"
+            class="text-[12.5px] text-muted-foreground hover:text-foreground"
+            :title="ws.effectiveOutDir.value"
+            @click="ws.pickOutput(t('ai.pickOutput'))"
+          >
+            {{ t("ai.outputTo") }} {{ ws.outDir.value ? ws.outDir.value.split("/").pop() : "deskkit-out" }}
+          </button>
+        </div>
+
+        <div class="flex items-end gap-1.5 rounded-xl border border-input bg-background px-2 py-2 focus-within:ring-1 focus-within:ring-ring">
+          <!-- 附件：选文件夹。没有它，对话就不知道该处理哪些表。 -->
+          <button
+            type="button"
+            class="mb-0.5 grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+            :title="t('ai.pickInput')"
+            :disabled="ws.busyScan.value"
+            @click="ws.pickInput(t('ai.pickInput'))"
+          >
+            <Loader2 v-if="ws.busyScan.value" :size="15" class="animate-spin" />
+            <FolderOpen v-else :size="15" />
+          </button>
+          <button
+            v-if="!ws.dir.value"
+            type="button"
+            class="mb-0.5 grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            :title="t('ai.useSample')"
+            @click="ws.useSample()"
+          >
+            <Sparkles :size="15" />
+          </button>
+
           <textarea
             ref="inputEl"
             v-model="draft"
             rows="1"
-            :placeholder="dir ? t('ai.placeholder') : t('ai.placeholderNoDir')"
-            class="max-h-32 min-h-[24px] flex-1 resize-none bg-transparent text-[13.5px] leading-relaxed outline-none placeholder:text-muted-foreground"
+            :placeholder="t('ai.placeholder')"
+            class="max-h-40 min-h-[26px] flex-1 resize-none bg-transparent px-1 py-1 text-[13.5px] leading-relaxed outline-none placeholder:text-muted-foreground"
             @keydown="onKeydown"
           />
+
           <button
             type="button"
             class="mb-0.5 grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
@@ -365,13 +408,13 @@ onUnmounted(() => {
             <ArrowUp :size="15" />
           </button>
         </div>
-        <div class="mt-1.5 flex items-center justify-between px-1 text-[12px] text-muted-foreground">
+
+        <div class="mt-1.5 flex items-center justify-between px-1 text-[11.5px] text-muted-foreground">
           <span v-if="ready">{{ current?.label || provider }} · {{ model }}</span>
           <button v-else type="button" class="text-primary hover:underline" @click="openSettings">
             {{ t("ai.configureFirst") }}
           </button>
-          <span v-if="!enabled">{{ t("ai.disabled") }}</span>
-          <span v-else></span>
+          <span class="font-mono">{{ ws.columns.value.length ? ws.columns.value.slice(0, 6).join(" · ") : "" }}</span>
         </div>
       </div>
     </div>
@@ -385,11 +428,7 @@ onUnmounted(() => {
       <div class="w-full max-w-[600px] rounded-xl border border-border bg-background shadow-xl">
         <div class="flex items-center justify-between border-b border-border px-5 py-3">
           <h3 class="text-[14.5px] font-semibold">{{ t("ai.modelSettings") }}</h3>
-          <button
-            type="button"
-            class="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
-            @click="showSettings = false"
-          >
+          <button type="button" class="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent" @click="showSettings = false">
             <X :size="15" />
           </button>
         </div>
@@ -399,7 +438,6 @@ onUnmounted(() => {
             {{ t("ai.disabledHint") }}
           </p>
 
-          <!-- ① 接入 -->
           <section>
             <p class="mb-2 flex items-center gap-2 text-[13px] font-medium">
               <span class="grid size-5 place-items-center rounded-full bg-primary text-[11px] text-primary-foreground">1</span>
@@ -414,7 +452,7 @@ onUnmounted(() => {
                 :class="provider === p.name ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'"
                 @click="pickProvider(p.name)"
               >
-                <span class="text-[13px] font-medium">{{ p.label || p.name }}</span>
+                <span class="truncate text-[13px] font-medium">{{ p.label || p.name }}</span>
                 <span class="flex items-center gap-1 text-[11.5px] text-muted-foreground">
                   <Check v-if="p.ready" :size="11" class="text-emerald-600" />
                   {{ p.ready ? t("ai.ready") : p.local ? t("ai.notRunning") : t("ai.needsKey") }}
@@ -422,7 +460,6 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <!-- 自定义才需要地址 -->
             <label v-if="isCustom" class="mt-3 block">
               <span class="text-[13px] text-muted-foreground">{{ t("ai.baseURL") }}</span>
               <input
@@ -454,11 +491,7 @@ onUnmounted(() => {
                 <Loader2 v-if="testing" :size="14" class="animate-spin" />
                 {{ t("ai.connect") }}
               </button>
-              <span
-                v-if="testResult"
-                class="flex items-center gap-1 text-[13px]"
-                :class="testResult.ok ? 'text-emerald-600' : 'text-destructive'"
-              >
+              <span v-if="testResult" class="flex items-center gap-1 text-[13px]" :class="testResult.ok ? 'text-emerald-600' : 'text-destructive'">
                 <Check v-if="testResult.ok" :size="13" />
                 <X v-else :size="13" />
                 {{ testResult.ok ? t("ai.connected") : testResult.error || testResult.hint || t("ai.testFailed") }}
@@ -467,7 +500,6 @@ onUnmounted(() => {
             </div>
           </section>
 
-          <!-- ② 刷新模型：接上之后才点得动 -->
           <section :class="connected || ready ? '' : 'opacity-50'">
             <p class="mb-2 flex items-center gap-2 text-[13px] font-medium">
               <span class="grid size-5 place-items-center rounded-full bg-primary text-[11px] text-primary-foreground">2</span>
@@ -478,7 +510,7 @@ onUnmounted(() => {
                 :disabled="loadingModels || !(connected || ready)"
                 @click="loadModels"
               >
-                <RefreshCw :size="11" :class="loadingModels ? 'animate-spin' : ''" />
+                <Loader2 v-if="loadingModels" :size="11" class="animate-spin" />
                 {{ t("ai.refreshModels") }}
               </button>
             </p>
@@ -506,11 +538,7 @@ onUnmounted(() => {
         </div>
 
         <div class="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
-          <button
-            type="button"
-            class="h-9 rounded-md border border-input px-3.5 text-[13.5px] hover:bg-accent"
-            @click="showSettings = false"
-          >
+          <button type="button" class="h-9 rounded-md border border-input px-3.5 text-[13.5px] hover:bg-accent" @click="showSettings = false">
             {{ t("ai.cancel") }}
           </button>
           <button

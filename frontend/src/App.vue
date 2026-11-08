@@ -28,7 +28,7 @@ import TitleBar from "./components/TitleBar.vue";
 import { openWindow } from "./lib/windows";
 import SettingsView from "./components/SettingsView.vue";
 import AboutView from "./components/AboutView.vue";
-import Workbench from "./components/Workbench.vue";
+import AiChatPanel from "./components/AiChatPanel.vue";
 
 type AppInfo = {
   name: string;
@@ -269,7 +269,7 @@ watch(
         <!-- 不要再加一条工具栏：标题栏上已经有应用名和设置入口，
              再加一条就是把同样的东西写两遍。工作台自己就是内容区。 -->
         <div class="min-h-0 flex-1 overflow-hidden">
-          <Workbench />
+          <AiChatPanel />
         </div>
       </main>
     </div>

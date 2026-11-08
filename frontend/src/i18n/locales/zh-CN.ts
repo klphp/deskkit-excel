@@ -19,20 +19,6 @@ export const zhCN = {
   "titlebar.close": "关闭",
 
   // ── 选择区 ──
-  "workbench.input": "输入",
-  "workbench.noInput": "还没有选择文件夹",
-  "workbench.pickInput": "选择文件夹",
-  "workbench.changeInput": "换一个",
-  "workbench.pickOutput": "选择输出位置",
-  "workbench.output": "输出",
-  "workbench.outputDefault": "默认放在输入目录下的 deskkit-out",
-  "workbench.changeOutput": "更改",
-  "workbench.columns": "这些表的列",
-  "workbench.broken": "读不了的文件",
-  "workbench.noFiles": "这个目录里没有表格",
-  "workbench.filesUnit": "个文件",
-  "workbench.rowsUnit": "行",
-  "workbench.useSample": "示例数据",
 
   // ── 对话 ──
   "ai.emptyTitle": "你想对这些表格做什么？",
@@ -63,6 +49,13 @@ export const zhCN = {
   "ai.useThisModel": "用这个模型",
   "ai.baseURL": "接口地址",
   "ai.configureFirst": "还没接入模型 —— 点这里接入",
+  "ai.askBrowse": "先选一个文件夹",
+  "ai.askWhat": "这工具能干什么？",
+  "ai.askWhatThen": "把 Excel 表放进文件夹后，我可以帮你合并、清洗、汇总，或者按你的要求做别的处理。你先选个文件夹试试？",
+  "ai.pickInput": "选择要处理的文件夹",
+  "ai.pickOutput": "选择输出位置",
+  "ai.useSample": "用示例数据试用一下",
+  "ai.outputTo": "输出到",
   "ai.thinking": "正在处理…",
 
   // ── 模型配置 ──
