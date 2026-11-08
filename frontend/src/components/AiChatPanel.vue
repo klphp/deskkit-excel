@@ -442,16 +442,14 @@ let atBottom = false;
  * 关键是要「保住用户正在看的位置」：新内容插在上面会把整体往下推，
  * 所以补一个 scrollTop 偏移，否则内容会突然乱跳。
  */
-let loadingOlder = false;
 async function onScroll() {
   const el = scroller.value;
-  if (!el || loadingOlder) return;
+  if (!el || sess.loadingOlder.value) return;
   if (!atBottom) return;                       // 首屏还没落到底，先别翻历史
   if (el.scrollHeight <= el.clientHeight + 40) return; // 本来就没得滚
   if (el.scrollTop > 120) return;
   if (!sess.hasMoreTurns.value) return;
 
-  loadingOlder = true;
   const prevHeight = el.scrollHeight;
   const prevTop = el.scrollTop;
   try {
@@ -460,8 +458,8 @@ async function onScroll() {
       await nextTick();
       el.scrollTop = prevTop + (el.scrollHeight - prevHeight);
     }
-  } finally {
-    loadingOlder = false;
+  } catch {
+    /* 失败时 hasMoreTurns 会被置位，用户再点一次即可 */
   }
 }
 
@@ -725,13 +723,21 @@ onUnmounted(() => {
       <div class="mx-auto max-w-[800px] px-6 py-8">
         <!-- 更早的消息：吸在顶部一直可见，点一下或往上滚都能加载。
              不显示这个的话，用户会以为会话只有这么长。 -->
-        <div v-if="sess.hasMoreTurns.value" class="sticky top-0 z-10 -mt-6 mb-4 flex justify-center pt-2">
+        <div v-if="sess.hasMoreTurns.value || sess.loadingOlder.value" class="sticky top-0 z-10 -mt-6 mb-4 flex justify-center pt-2">
+          <div
+            v-if="sess.loadingOlder.value"
+            class="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[12px] text-muted-foreground"
+          >
+            <Loader2 :size="12" class="animate-spin" />
+            {{ t("chat.loadingOlder") }}
+          </div>
           <button
+            v-else
             type="button"
             class="rounded-full border border-border bg-card px-3 py-1 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
             @click="onScroll"
           >
-            ↑ 还有更早的消息，点这里加载
+            {{ t("chat.loadOlder") }}
           </button>
         </div>
 

@@ -35,7 +35,21 @@ export type Summary = {
  * 消息同理：聊了几百轮的会话，打开时只需要最后一屏。
  */
 const SESS_PAGE = 30;
-const MSG_PAGE = 40;
+/**
+ * 聊天区每页消息条数。
+ *
+ * 20 条大约是一屏半：首屏打开就是最新的一屏，往上翻一格就能再取一页 ——
+ * 分页是能被用户看见的。设成 40 时反而「一次翻太多」，用户分不清自己在哪。
+ */
+const MSG_PAGE = 20;
+/**
+ * 加载更早消息时，「加载中」至少有这么多毫秒可见。
+ *
+ * 本地读库是毫秒级的，不设下限的话提示会一闪而过，用户根本不知道
+ * 发生了什么，只觉得内容突然跳了一下。这里不是造假延迟，而是让
+ * 反馈「看得见」——低于人眼可感知时间（约 300ms）的状态变化等于没做。
+ */
+const LOADING_MIN_MS = 450;
 
 const summaries = ref<Summary[]>([]);
 const currentId = ref("");
@@ -47,7 +61,8 @@ const hasMoreSessions = ref(false);
 const hasMoreTurns = ref(false);
 /** 已加载的最早一条消息 id，作为「加载更早」的游标。 */
 let oldestMsgID = 0;
-let loadingOlder = false;
+/** 正在加载更早的消息（界面上要显示出来）。 */
+const loadingOlder = ref(false);
 const ready = ref(false);
 const error = ref("");
 
@@ -102,8 +117,9 @@ async function select(id: string) {
  * 不补的话内容会突然整体下移，用户正在看的那条就跳走了。
  */
 async function loadOlderTurns(): Promise<number> {
-  if (!hasMoreTurns.value || loadingOlder || !currentId.value || oldestMsgID === 0) return 0;
-  loadingOlder = true;
+  if (!hasMoreTurns.value || loadingOlder.value || !currentId.value || oldestMsgID === 0) return 0;
+  loadingOlder.value = true;
+  const startedAt = Date.now();
   try {
     const page = await Sessions.MessagesPage(currentId.value, MSG_PAGE, oldestMsgID);
     const msgs = page?.messages ?? [];
@@ -119,7 +135,12 @@ async function loadOlderTurns(): Promise<number> {
     error.value = String(err);
     return 0;
   } finally {
-    loadingOlder = false;
+    // 补足最小可见时长
+    const spent = Date.now() - startedAt;
+    if (spent < LOADING_MIN_MS) {
+      await new Promise((r) => setTimeout(r, LOADING_MIN_MS - spent));
+    }
+    loadingOlder.value = false;
   }
 }
 
@@ -327,6 +348,7 @@ export function useSessions() {
     turns,
     hasMoreSessions,
     hasMoreTurns,
+    loadingOlder,
     loadOlderTurns,
     loadMoreSessions,
     ready,
