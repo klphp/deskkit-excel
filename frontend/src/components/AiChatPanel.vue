@@ -280,12 +280,11 @@ async function send() {
     return;
   }
 
-  // 发送后自动收起：内容的去处是对话区，输入框该回到安静的等待状态
-  if (expanded.value) {
-    expanded.value = false;
-    await nextTick();
-    autogrow();
-  }
+  // 发送后自动收起：内容的去处是对话区，输入框该回到安静的等待状态。
+  // autogrow 无条件调一次 —— 不只是展开态需要，折叠态清空后也要缩回单行。
+  if (expanded.value) expanded.value = false;
+  await nextTick();
+  autogrow();
   turns.value.push({ role: "user", content: text });
   sess.autoTitle(sess.currentId.value);
   draft.value = "";
@@ -363,6 +362,13 @@ function autogrow() {
   const el = inputEl.value;
   if (!el) return;
   if (expanded.value) return; // 覆盖层里的编辑区由 CSS 撑满，不参与计算
+
+  // 清空后不写死像素高度，直接交回 CSS（min-h 24px = 单行）——
+  // 否则会留着一个「上次撑开的高度」，看着像没还原
+  if (!draft.value) {
+    el.style.height = "";
+    return;
+  }
   el.style.height = "auto";
   el.style.height = `${Math.min(el.scrollHeight, SINGLE_LINE_MAX)}px`;
 }
@@ -509,100 +515,106 @@ onUnmounted(() => {
           </span>
         </div>
 
+        <!-- 输入框按 Gemini 的分层：
+             上方只有内容 + 右上角的缩放角标；
+             文件、功能、模型、发送全部压在框底那一行。 -->
         <div
-          class="relative flex items-end gap-2 rounded-[26px] border border-input bg-card px-3 py-2.5 transition-shadow focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
+          class="relative rounded-[26px] border border-input bg-card px-3 pb-2 pt-3 transition-shadow focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
         >
-          <!-- ① 选文件 -->
+          <!-- 右上角：只有放大 -->
           <button
             type="button"
-            class="mb-0.5 grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-            :title="t('ai.pickInput')"
-            :disabled="ws.busy.value"
-            @click="ws.pickPaths(t('ai.pickInput'))"
+            class="absolute right-3 top-2.5 grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            :title="t('ai.expand')"
+            @click="toggleExpand"
           >
-            <Loader2 v-if="ws.busy.value" :size="15" class="animate-spin" />
-            <FolderOpen v-else :size="17" />
+            <Maximize2 :size="13" />
           </button>
-
-          <!-- ② 功能选择。不选就是普通对话。 -->
-          <div class="relative mb-0.5 shrink-0">
-            <button
-              type="button"
-              class="grid size-8 place-items-center rounded-lg transition-colors hover:bg-accent"
-              :class="ws.feature.value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'"
-              :title="t('ai.pickFeature')"
-              @click="showFeatures = !showFeatures"
-            >
-              <Layers :size="17" />
-            </button>
-
-            <div
-              v-if="showFeatures"
-              class="absolute bottom-10 left-0 z-40 w-[300px] rounded-xl border border-border bg-background p-1.5 shadow-xl"
-            >
-              <button
-                type="button"
-                class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
-                :class="!ws.feature.value ? 'bg-accent/60' : ''"
-                @click="chooseFeature('')"
-              >
-                <span class="text-[13px] font-medium">{{ t("ai.featureNone") }}</span>
-                <span class="text-[11.5px] text-muted-foreground">{{ t("ai.featureNoneHint") }}</span>
-              </button>
-              <button
-                v-for="p in ws.packs.value"
-                :key="p.id"
-                type="button"
-                class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
-                :class="ws.feature.value === p.id ? 'bg-accent/60' : ''"
-                @click="chooseFeature(p.id)"
-              >
-                <span class="text-[13px] font-medium">{{ p.name }}</span>
-                <span class="text-[11.5px] leading-relaxed text-muted-foreground">{{ p.description }}</span>
-              </button>
-              <p class="px-2.5 pb-1 pt-2 text-[11px] text-muted-foreground">{{ t("ai.featureMore") }}</p>
-            </div>
-          </div>
 
           <textarea
             ref="inputEl"
             v-model="draft"
             rows="1"
             :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
-            class="max-h-[200px] min-h-[24px] flex-1 resize-none bg-transparent px-1 py-[6px] pr-8 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground"
+            class="max-h-[200px] min-h-[24px] w-full resize-none bg-transparent py-1 pr-8 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground"
             @input="autogrow"
             @keydown="onKeydown"
             @keydown.esc="onEscape"
           />
 
-          <!-- 右上角：展开 / 收起。写长指令时把框放大，不用在小框里打转。 -->
-          <button
-            type="button"
-            class="absolute right-2 top-2 grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            :title="expanded ? t('ai.collapse') : t('ai.expand')"
-            @click="toggleExpand"
-          >
-            <Minimize2 v-if="expanded" :size="13" />
-            <Maximize2 v-else :size="13" />
-          </button>
+          <!-- 框底那一行：左边附件与功能，右边模型与发送 -->
+          <div class="mt-1 flex items-center gap-1">
+            <button
+              type="button"
+              class="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+              :title="t('ai.pickInput')"
+              :disabled="ws.busy.value"
+              @click="ws.pickPaths(t('ai.pickInput'))"
+            >
+              <Loader2 v-if="ws.busy.value" :size="17" class="animate-spin" />
+              <FolderOpen v-else :size="17" />
+            </button>
 
-          <button
-            type="button"
-            class="mb-0.5 grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            :title="t('ai.modelSettings')"
-            @click="openSettings"
-          >
-            <Settings2 :size="17" />
-          </button>
-          <button
-            type="button"
-            class="mb-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
-            :disabled="!draft.trim() || busy"
-            :title="t('ai.send')"
-            @click="send"
-          >
-            <ArrowUp :size="16" />
-          </button>
+            <div class="relative shrink-0">
+              <button
+                type="button"
+                class="grid size-9 place-items-center rounded-full transition-colors hover:bg-accent"
+                :class="ws.feature.value ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-accent-foreground'"
+                :title="t('ai.pickFeature')"
+                @click="showFeatures = !showFeatures"
+              >
+                <Layers :size="17" />
+              </button>
+
+              <!-- 功能选择下拉：从按钮上方弹出，避免被窗口底边裁掉 -->
+              <div
+                v-if="showFeatures"
+                class="absolute bottom-11 left-0 z-40 w-[300px] rounded-xl border border-border bg-background p-1.5 shadow-xl"
+              >
+                <button
+                  type="button"
+                  class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
+                  :class="!ws.feature.value ? 'bg-accent/60' : ''"
+                  @click="chooseFeature('')"
+                >
+                  <span class="text-[13px] font-medium">{{ t("ai.featureNone") }}</span>
+                  <span class="text-[11.5px] text-muted-foreground">{{ t("ai.featureNoneHint") }}</span>
+                </button>
+                <button
+                  v-for="pk in ws.packs.value"
+                  :key="pk.id"
+                  type="button"
+                  class="flex w-full flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left hover:bg-accent"
+                  :class="ws.feature.value === pk.id ? 'bg-accent/60' : ''"
+                  @click="chooseFeature(pk.id)"
+                >
+                  <span class="text-[13px] font-medium">{{ pk.name }}</span>
+                  <span class="text-[11.5px] leading-relaxed text-muted-foreground">{{ pk.description }}</span>
+                </button>
+                <p class="px-2.5 pb-1 pt-2 text-[11px] text-muted-foreground">{{ t("ai.featureMore") }}</p>
+              </div>
+            </div>
+
+            <div class="flex-1" />
+
+            <button
+              type="button"
+              class="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              :title="t('ai.modelSettings')"
+              @click="openSettings"
+            >
+              <Settings2 :size="17" />
+            </button>
+            <button
+              type="button"
+              class="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-35"
+              :disabled="!draft.trim() || busy"
+              :title="t('ai.send')"
+              @click="send"
+            >
+              <ArrowUp :size="16" />
+            </button>
+          </div>
         </div>
 
         <div class="mt-1.5 flex items-center justify-between px-1 text-[11.5px] text-muted-foreground">
