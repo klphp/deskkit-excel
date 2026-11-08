@@ -6,6 +6,9 @@
  * 需要解释的东西也少了大半。
  */
 export const zhCN = {
+  "ai.attach": "添加文件或文件夹",
+  "ai.pickFiles": "选择文件",
+  "ai.pickFolder": "选择文件夹",
   "chat.jumpToBottom": "回到最新",
   "chat.loadingOlder": "正在加载更早的消息…",
   "app.name": "DeskKit Excel",

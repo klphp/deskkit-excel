@@ -18,7 +18,7 @@ export {
     WindowService
 };
 
-export type {
+export {
     AISettings,
     ChatInput,
     ChatResult,

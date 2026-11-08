@@ -11,7 +11,7 @@
  * 把流式文字和工具步骤显示出来、没接入模型时把设置打开。
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import { ArrowDown, ArrowUp, Check, ChevronDown, Copy, FileSpreadsheet, FileText, Film, FolderOpen, Layers, Loader2, Maximize2, Minimize2, Settings2, ThumbsDown, ThumbsUp, Wrench, X } from "@lucide/vue";
+import { ArrowDown, ArrowUp, Check, ChevronDown, Copy, FileSpreadsheet, FileText, Film, FolderOpen, Layers, Loader2, Maximize2, Minimize2, Plus, Settings2, ThumbsDown, ThumbsUp, Wrench, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import { renderMarkdown } from "../lib/markdown";
 import { useWorkspace } from "../composables/workspace";
@@ -88,6 +88,17 @@ const failure = ref("");
 const showSettings = ref(false);
 /** 功能选择下拉。 */
 const showFeatures = ref(false);
+/** 附件菜单是否展开。 */
+const showAttach = ref(false);
+
+async function chooseFiles() {
+  showAttach.value = false;
+  await ws.pickFiles(t("ai.pickFiles"));
+}
+async function chooseDirs() {
+  showAttach.value = false;
+  await ws.pickDirs(t("ai.pickFolder"));
+}
 /** 首次选某个功能时的组件提示。 */
 const pendingPack = ref<{ id: string; name: string; bundled: boolean; missing: string[] } | null>(null);
 
@@ -1031,15 +1042,18 @@ onUnmounted(() => {
 
           <!-- 框底那一行：左边附件与功能，右边模型与发送 -->
           <div class="mt-1 flex items-center gap-1">
+            <!-- 加号：点开给两个明确选项（选文件 / 选目录）。
+                 原来是文件夹图标直接弹混合选择框，用户还得在弹窗里先想「我要选什么」。 -->
             <button
               type="button"
               class="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-              :title="t('ai.pickInput')"
+              :class="showAttach ? 'bg-accent text-accent-foreground' : ''"
+              :title="t('ai.attach')"
               :disabled="ws.busy.value"
-              @click="ws.pickPaths(t('ai.pickInput'))"
+              @click="showAttach = !showAttach"
             >
               <Loader2 v-if="ws.busy.value" :size="17" class="animate-spin" />
-              <FolderOpen v-else :size="17" />
+              <Plus v-else :size="17" />
             </button>
 
             <button
@@ -1178,6 +1192,28 @@ onUnmounted(() => {
         </div>
       </div>
 
+
+    <!-- ── 附件菜单：选文件 / 选目录 ── -->
+    <div v-if="showAttach" class="fixed inset-0 z-[70]" @click.self="showAttach = false">
+      <div class="absolute bottom-32 left-1/2 w-[220px] -translate-x-1/2 rounded-xl border border-border bg-background p-1.5 shadow-xl">
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-accent"
+          @click="chooseFiles"
+        >
+          <FileText :size="15" class="text-muted-foreground" />
+          {{ t("ai.pickFiles") }}
+        </button>
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-accent"
+          @click="chooseDirs"
+        >
+          <FolderOpen :size="15" class="text-muted-foreground" />
+          {{ t("ai.pickFolder") }}
+        </button>
+      </div>
+    </div>
 
     <!-- ── 功能选择浮层（共享）──
          折叠态和满屏编辑态都有这个按钮，菜单因此只做一份、挂到 body 上：

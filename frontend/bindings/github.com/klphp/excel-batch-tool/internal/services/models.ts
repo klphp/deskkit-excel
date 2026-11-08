@@ -3,6 +3,10 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import { Create as $Create } from "@wailsio/runtime";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as ai$0 from "../ai/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -11,18 +15,47 @@ import * as session$0 from "../session/models.js";
 /**
  * AISettings 给前端的设置视图。**不回传密钥原文**，只说有没有。
  */
-export interface AISettings {
+export class AISettings {
     "provider": string;
     "baseURL": string;
     "model": string;
     "hasKey": boolean;
     "disableLocalProbe": boolean;
+
+    /** Creates a new AISettings instance. */
+    constructor($$source: Partial<AISettings> = {}) {
+        if (!("provider" in $$source)) {
+            this["provider"] = "";
+        }
+        if (!("baseURL" in $$source)) {
+            this["baseURL"] = "";
+        }
+        if (!("model" in $$source)) {
+            this["model"] = "";
+        }
+        if (!("hasKey" in $$source)) {
+            this["hasKey"] = false;
+        }
+        if (!("disableLocalProbe" in $$source)) {
+            this["disableLocalProbe"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AISettings instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AISettings {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AISettings($$parsedSource as Partial<AISettings>);
+    }
 }
 
 /**
  * ChatInput 对话入参。
  */
-export interface ChatInput {
+export class ChatInput {
     /**
      * SessionID 当前会话 id。工具层要靠它把「用户说的偏好」写到这个会话上，
      * 而不是全局设置里（每个会话可能是完全不同的任务）。
@@ -30,28 +63,92 @@ export interface ChatInput {
     "sessionId"?: string;
     "provider": string;
     "model": string;
-    "messages": ai$0.Message[] | null;
-    "tools"?: ai$0.Tool[] | null;
+    "messages": ai$0.Message[];
+    "tools"?: ai$0.Tool[];
     "temperature"?: number | null;
     "maxTokens"?: number;
+
+    /** Creates a new ChatInput instance. */
+    constructor($$source: Partial<ChatInput> = {}) {
+        if (!("provider" in $$source)) {
+            this["provider"] = "";
+        }
+        if (!("model" in $$source)) {
+            this["model"] = "";
+        }
+        if (!("messages" in $$source)) {
+            this["messages"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ChatInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ChatInput {
+        const $$createField3_0 = $$createType1;
+        const $$createField4_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("messages" in $$parsedSource) {
+            $$parsedSource["messages"] = $$createField3_0($$parsedSource["messages"]);
+        }
+        if ("tools" in $$parsedSource) {
+            $$parsedSource["tools"] = $$createField4_0($$parsedSource["tools"]);
+        }
+        return new ChatInput($$parsedSource as Partial<ChatInput>);
+    }
 }
 
 /**
  * ChatResult 对话结果（前端可直接渲染）。
  */
-export interface ChatResult {
+export class ChatResult {
     "content": string;
-    "toolCalls"?: ai$0.ToolCall[] | null;
+    "toolCalls"?: ai$0.ToolCall[];
     "model": string;
     "finishReason": string;
     "promptTokens": number;
     "outputTokens": number;
+
+    /** Creates a new ChatResult instance. */
+    constructor($$source: Partial<ChatResult> = {}) {
+        if (!("content" in $$source)) {
+            this["content"] = "";
+        }
+        if (!("model" in $$source)) {
+            this["model"] = "";
+        }
+        if (!("finishReason" in $$source)) {
+            this["finishReason"] = "";
+        }
+        if (!("promptTokens" in $$source)) {
+            this["promptTokens"] = 0;
+        }
+        if (!("outputTokens" in $$source)) {
+            this["outputTokens"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ChatResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ChatResult {
+        const $$createField1_0 = $$createType5;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("toolCalls" in $$parsedSource) {
+            $$parsedSource["toolCalls"] = $$createField1_0($$parsedSource["toolCalls"]);
+        }
+        return new ChatResult($$parsedSource as Partial<ChatResult>);
+    }
 }
 
 /**
  * I18nInfo 前端初始化翻译用的配置快照。
  */
-export interface I18nInfo {
+export class I18nInfo {
     "enabled": boolean;
 
     /**
@@ -59,13 +156,43 @@ export interface I18nInfo {
      */
     "locale": string;
     "fallback": string;
-    "locales": string[] | null;
+    "locales": string[];
+
+    /** Creates a new I18nInfo instance. */
+    constructor($$source: Partial<I18nInfo> = {}) {
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
+        }
+        if (!("locale" in $$source)) {
+            this["locale"] = "";
+        }
+        if (!("fallback" in $$source)) {
+            this["fallback"] = "";
+        }
+        if (!("locales" in $$source)) {
+            this["locales"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new I18nInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): I18nInfo {
+        const $$createField3_0 = $$createType6;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("locales" in $$parsedSource) {
+            $$parsedSource["locales"] = $$createField3_0($$parsedSource["locales"]);
+        }
+        return new I18nInfo($$parsedSource as Partial<I18nInfo>);
+    }
 }
 
 /**
  * Info 应用信息，前端显示在标题栏/关于页。
  */
-export interface Info {
+export class Info {
     "name": string;
     "version": string;
     "platform": string;
@@ -87,6 +214,48 @@ export interface Info {
      */
     "showTitle": boolean;
     "showSettingsButton": boolean;
+
+    /** Creates a new Info instance. */
+    constructor($$source: Partial<Info> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("version" in $$source)) {
+            this["version"] = "";
+        }
+        if (!("platform" in $$source)) {
+            this["platform"] = "";
+        }
+        if (!("arch" in $$source)) {
+            this["arch"] = "";
+        }
+        if (!("serverURL" in $$source)) {
+            this["serverURL"] = "";
+        }
+        if (!("i18n" in $$source)) {
+            this["i18n"] = (new I18nInfo());
+        }
+        if (!("showTitle" in $$source)) {
+            this["showTitle"] = false;
+        }
+        if (!("showSettingsButton" in $$source)) {
+            this["showSettingsButton"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Info instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Info {
+        const $$createField5_0 = $$createType7;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("i18n" in $$parsedSource) {
+            $$parsedSource["i18n"] = $$createField5_0($$parsedSource["i18n"]);
+        }
+        return new Info($$parsedSource as Partial<Info>);
+    }
 }
 
 /**
@@ -95,25 +264,83 @@ export interface Info {
  * 用结构体而不是 (slice, bool, error) 三返回值：Wails 生成 TS 绑定时
  * 多返回值要拆成元组，调用处难读也难改。
  */
-export interface MessagePage {
-    "messages": session$0.Message[] | null;
+export class MessagePage {
+    "messages": session$0.Message[];
     "hasMore": boolean;
+
+    /** Creates a new MessagePage instance. */
+    constructor($$source: Partial<MessagePage> = {}) {
+        if (!("messages" in $$source)) {
+            this["messages"] = [];
+        }
+        if (!("hasMore" in $$source)) {
+            this["hasMore"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MessagePage instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MessagePage {
+        const $$createField0_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("messages" in $$parsedSource) {
+            $$parsedSource["messages"] = $$createField0_0($$parsedSource["messages"]);
+        }
+        return new MessagePage($$parsedSource as Partial<MessagePage>);
+    }
 }
 
 /**
  * PackInfo 给界面用的能力包描述。
  */
-export interface PackInfo {
+export class PackInfo {
     "id": string;
     "name": string;
     "description": string;
-    "requires"?: string[] | null;
-    "missing"?: string[] | null;
+    "requires"?: string[];
+    "missing"?: string[];
 
     /**
      * Bundled 为 true 表示功能组件已随应用内置，首次使用不需要下载。
      */
     "bundled": boolean;
+
+    /** Creates a new PackInfo instance. */
+    constructor($$source: Partial<PackInfo> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("description" in $$source)) {
+            this["description"] = "";
+        }
+        if (!("bundled" in $$source)) {
+            this["bundled"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PackInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PackInfo {
+        const $$createField3_0 = $$createType6;
+        const $$createField4_0 = $$createType6;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("requires" in $$parsedSource) {
+            $$parsedSource["requires"] = $$createField3_0($$parsedSource["requires"]);
+        }
+        if ("missing" in $$parsedSource) {
+            $$parsedSource["missing"] = $$createField4_0($$parsedSource["missing"]);
+        }
+        return new PackInfo($$parsedSource as Partial<PackInfo>);
+    }
 }
 
 /**
@@ -123,27 +350,83 @@ export interface PackInfo {
  * 每次保存都回传空字符串是常态，若把它当清空就会悄悄删掉用户的密钥。
  * 真要清空用 ClearKey。
  */
-export interface SaveSettingsInput {
+export class SaveSettingsInput {
     "provider": string;
     "baseURL": string;
     "model": string;
     "apiKey": string;
     "clearKey": boolean;
     "disableLocalProbe": boolean;
+
+    /** Creates a new SaveSettingsInput instance. */
+    constructor($$source: Partial<SaveSettingsInput> = {}) {
+        if (!("provider" in $$source)) {
+            this["provider"] = "";
+        }
+        if (!("baseURL" in $$source)) {
+            this["baseURL"] = "";
+        }
+        if (!("model" in $$source)) {
+            this["model"] = "";
+        }
+        if (!("apiKey" in $$source)) {
+            this["apiKey"] = "";
+        }
+        if (!("clearKey" in $$source)) {
+            this["clearKey"] = false;
+        }
+        if (!("disableLocalProbe" in $$source)) {
+            this["disableLocalProbe"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SaveSettingsInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SaveSettingsInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SaveSettingsInput($$parsedSource as Partial<SaveSettingsInput>);
+    }
 }
 
 /**
  * SessionPage 会话列表的一页。
  */
-export interface SessionPage {
-    "items": session$0.Summary[] | null;
+export class SessionPage {
+    "items": session$0.Summary[];
     "hasMore": boolean;
+
+    /** Creates a new SessionPage instance. */
+    constructor($$source: Partial<SessionPage> = {}) {
+        if (!("items" in $$source)) {
+            this["items"] = [];
+        }
+        if (!("hasMore" in $$source)) {
+            this["hasMore"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SessionPage instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SessionPage {
+        const $$createField0_0 = $$createType11;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("items" in $$parsedSource) {
+            $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
+        }
+        return new SessionPage($$parsedSource as Partial<SessionPage>);
+    }
 }
 
 /**
  * TestResult 连通性测试结果。
  */
-export interface TestResult {
+export class TestResult {
     "ok": boolean;
     "model": string;
     "latencyMs": number;
@@ -151,4 +434,41 @@ export interface TestResult {
     "kind"?: string;
     "error"?: string;
     "hint"?: string;
+
+    /** Creates a new TestResult instance. */
+    constructor($$source: Partial<TestResult> = {}) {
+        if (!("ok" in $$source)) {
+            this["ok"] = false;
+        }
+        if (!("model" in $$source)) {
+            this["model"] = "";
+        }
+        if (!("latencyMs" in $$source)) {
+            this["latencyMs"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TestResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TestResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TestResult($$parsedSource as Partial<TestResult>);
+    }
 }
+
+// Private type creation functions
+const $$createType0 = ai$0.Message.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = ai$0.Tool.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = ai$0.ToolCall.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = $Create.Array($Create.Any);
+const $$createType7 = I18nInfo.createFrom;
+const $$createType8 = session$0.Message.createFrom;
+const $$createType9 = $Create.Array($$createType8);
+const $$createType10 = session$0.Summary.createFrom;
+const $$createType11 = $Create.Array($$createType10);

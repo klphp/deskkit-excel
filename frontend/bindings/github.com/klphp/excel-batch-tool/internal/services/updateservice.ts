@@ -13,7 +13,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -30,7 +30,9 @@ export function BindManager(m: update$0.Manager | null): $CancellablePromise<voi
  * Check 手动检查一次更新。只查不装 —— 装不装由用户点按钮决定。
  */
 export function Check(): $CancellablePromise<update$0.Result | null> {
-    return $Call.ByID(718659918);
+    return $Call.ByID(718659918).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
 /**
@@ -46,3 +48,7 @@ export function Enabled(): $CancellablePromise<boolean> {
 export function Install(): $CancellablePromise<void> {
     return $Call.ByID(2007063845);
 }
+
+// Private type creation functions
+const $$createType0 = update$0.Result.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);

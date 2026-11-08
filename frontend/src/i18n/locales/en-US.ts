@@ -3,6 +3,9 @@
  * for GitHub distribution, with Chinese as a first-class secondary.
  */
 export const enUS = {
+  "ai.attach": "Add files or folders",
+  "ai.pickFiles": "Choose files",
+  "ai.pickFolder": "Choose folder",
   "chat.jumpToBottom": "Jump to latest",
   "chat.loadingOlder": "Loading earlier messages…",
   "app.name": "DeskKit Excel",

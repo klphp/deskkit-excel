@@ -43,6 +43,34 @@ async function loadPacks() {
   }
 }
 
+/** 只选文件。 */
+async function pickFiles(title: string) {
+  busy.value = true;
+  try {
+    const picked = (await Tools.PickFiles(title)) ?? [];
+    if (picked.length === 0) return;
+    paths.value = picked;
+  } catch (err) {
+    failure.value = String(err);
+  } finally {
+    busy.value = false;
+  }
+}
+
+/** 只选文件夹。 */
+async function pickDirs(title: string) {
+  busy.value = true;
+  try {
+    const picked = (await Tools.PickDirs(title)) ?? [];
+    if (picked.length === 0) return;
+    paths.value = picked;
+  } catch (err) {
+    failure.value = String(err);
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function pickPaths(title: string) {
   failure.value = "";
   busy.value = true;
@@ -92,6 +120,8 @@ export function useWorkspace() {
     usage,
     loadPacks,
     pickPaths,
+    pickFiles,
+    pickDirs,
     clearPaths,
     setFeature,
   };

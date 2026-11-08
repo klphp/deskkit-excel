@@ -8,7 +8,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -49,36 +49,44 @@ export function Delete(id: string): $CancellablePromise<void> {
 /**
  * Import 把旧版 localStorage 的历史导进来，返回导入条数。
  */
-export function Import(items: session$0.Session[] | null): $CancellablePromise<number> {
+export function Import(items: session$0.Session[]): $CancellablePromise<number> {
     return $Call.ByID(271634246, items);
 }
 
 /**
  * List 会话列表，最近更新的排前面。
  */
-export function List(): $CancellablePromise<session$0.Summary[] | null> {
-    return $Call.ByID(916677039);
+export function List(): $CancellablePromise<session$0.Summary[]> {
+    return $Call.ByID(916677039).then(($result: any) => {
+        return $$createType1($result);
+    });
 }
 
 /**
  * ListPage 分页读会话列表（limit<=0 不限）。
  */
 export function ListPage(limit: number, offset: number): $CancellablePromise<$models.SessionPage> {
-    return $Call.ByID(1148266708, limit, offset);
+    return $Call.ByID(1148266708, limit, offset).then(($result: any) => {
+        return $$createType2($result);
+    });
 }
 
 /**
  * Load 读一个会话的完整消息。
  */
 export function Load(id: string): $CancellablePromise<session$0.Session> {
-    return $Call.ByID(3028045023, id);
+    return $Call.ByID(3028045023, id).then(($result: any) => {
+        return $$createType3($result);
+    });
 }
 
 /**
  * MessagesPage 游标分页读消息。beforeID=0 表示最新一页。
  */
 export function MessagesPage(id: string, limit: number, beforeID: number): $CancellablePromise<$models.MessagePage> {
-    return $Call.ByID(2821245780, id, limit, beforeID);
+    return $Call.ByID(2821245780, id, limit, beforeID).then(($result: any) => {
+        return $$createType4($result);
+    });
 }
 
 /**
@@ -139,3 +147,10 @@ export function StoragePath(): $CancellablePromise<string> {
 export function Upsert(id: string, title: string): $CancellablePromise<void> {
     return $Call.ByID(1802332556, id, title);
 }
+
+// Private type creation functions
+const $$createType0 = session$0.Summary.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $models.SessionPage.createFrom;
+const $$createType3 = session$0.Session.createFrom;
+const $$createType4 = $models.MessagePage.createFrom;

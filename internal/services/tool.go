@@ -127,6 +127,45 @@ func (s *ToolService) PickPaths(title string) ([]string, error) {
 	return paths, nil
 }
 
+// PickFiles 只选文件（可多选，不限类型）。
+//
+// 为什么和「选目录」分开：界面上给了两个入口，用户点哪个心里就已经有答案了。
+// 一个框里既能选文件又能选目录，反而要他在弹窗里先想一下「我现在要选的是什么」。
+func (s *ToolService) PickFiles(title string) ([]string, error) {
+	app := s.application()
+	if app == nil || app.Dialog == nil {
+		return nil, errors.New("对话框不可用")
+	}
+	if title == "" {
+		title = "选择文件"
+	}
+	dialog := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Title:                   title,
+		CanChooseFiles:          true,
+		CanChooseDirectories:    false,
+		AllowsMultipleSelection: true,
+	})
+	return dialog.PromptForMultipleSelection()
+}
+
+// PickDirs 只选文件夹（可多选）。
+func (s *ToolService) PickDirs(title string) ([]string, error) {
+	app := s.application()
+	if app == nil || app.Dialog == nil {
+		return nil, errors.New("对话框不可用")
+	}
+	if title == "" {
+		title = "选择文件夹"
+	}
+	dialog := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Title:                   title,
+		CanChooseFiles:          false,
+		CanChooseDirectories:    true,
+		AllowsMultipleSelection: true,
+	})
+	return dialog.PromptForMultipleSelection()
+}
+
 // PackInfo 给界面用的能力包描述。
 type PackInfo struct {
 	ID          string   `json:"id"`
