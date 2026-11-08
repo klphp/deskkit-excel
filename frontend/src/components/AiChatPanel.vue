@@ -278,6 +278,12 @@ async function send() {
     return;
   }
 
+  // 发送后自动收起：内容的去处是对话区，输入框该回到安静的等待状态
+  if (expanded.value) {
+    expanded.value = false;
+    await nextTick();
+    autogrow();
+  }
   turns.value.push({ role: "user", content: text });
   sess.autoTitle(sess.currentId.value);
   draft.value = "";
@@ -346,16 +352,21 @@ async function send() {
  * 默认给三行高度（像 Gemini 那样一眼看出能写多行），内容多了往上长，
  * 到 200px 封顶后内部滚动 —— 否则一条长指令会把对话区挤没。
  */
-const COLLAPSED_MAX = 200;
-/** 展开后最多占屏幕高度的 42%，再高就把对话遮没了。 */
+/** 收起态最多长到这么高，再高就内部滚动 —— 不然把对话区挤没了。 */
+const SINGLE_LINE_MAX = 200;
+/** 展开态：铺满窗口的编辑视图。 */
 const expanded = ref(false);
-const maxHeight = () => (expanded.value ? Math.round(window.innerHeight * 0.42) : COLLAPSED_MAX);
 
 function autogrow() {
   const el = inputEl.value;
   if (!el) return;
+  if (expanded.value) {
+    // 展开态由 CSS 撑满，不参与计算
+    el.style.height = "100%";
+    return;
+  }
   el.style.height = "auto";
-  el.style.height = `${Math.min(el.scrollHeight, maxHeight())}px`;
+  el.style.height = `${Math.min(el.scrollHeight, SINGLE_LINE_MAX)}px`;
 }
 
 /** 展开 / 收起。像 Gemini 输入框右上角那个角标的作用：写长指令时用大框。 */
@@ -498,8 +509,8 @@ onUnmounted(() => {
         </div>
 
         <div
-          class="relative flex items-end gap-2 rounded-[26px] border border-input bg-card px-3 py-2.5 transition-shadow focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
-          :class="expanded ? 'shadow-lg' : ''"
+          class="relative flex items-end gap-2 border border-input bg-card px-3 py-2.5 transition-shadow focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
+          :class="expanded ? 'min-h-0 flex-1 items-start rounded-2xl shadow-lg' : 'rounded-[26px]'"
         >
           <!-- ① 选文件 -->
           <button
@@ -556,10 +567,10 @@ onUnmounted(() => {
           <textarea
             ref="inputEl"
             v-model="draft"
-            rows="3"
+            :rows="expanded ? 20 : 1"
             :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
-            class="flex-1 resize-none bg-transparent px-1 py-2 pr-8 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground"
-            :class="expanded ? 'min-h-[38vh]' : 'min-h-[76px] max-h-[200px]'"
+            class="flex-1 resize-none bg-transparent px-1 pr-8 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground"
+            :class="expanded ? 'h-full min-h-0 overflow-y-auto py-2' : 'max-h-[200px] min-h-[24px] py-[6px]'"
             @input="autogrow"
             @keydown="onKeydown"
             @keydown.esc="onEscape"
