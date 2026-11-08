@@ -239,3 +239,39 @@ func TestKeyFileFallback(t *testing.T) {
 		t.Fatalf("读回失败: %q %v", k, err)
 	}
 }
+
+// 毫秒时间戳导入后必须归一成秒，否则那条会话会永远钉在列表最前面。
+func TestImportNormalizesMilliseconds(t *testing.T) {
+	dir := tempDir(t)
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatalf("打开失败: %v", err)
+	}
+	defer s.Close()
+
+	// 毫秒值（老前端用 Date.now()）
+	n, err := s.Import([]Session{
+		{ID: "legacy", CreatedAt: 1700000000000, UpdatedAt: 1700000000000,
+			Messages: []Message{{Role: RoleUser, Content: "老会话"}}},
+	})
+	if err != nil || n != 1 {
+		t.Fatalf("导入失败: %v n=%d", err, n)
+	}
+	// 再建一条新的（秒）
+	if err := s.Append("fresh", RoleUser, "新会话"); err != nil {
+		t.Fatal(err)
+	}
+
+	list, _ := s.List()
+	if len(list) != 2 {
+		t.Fatalf("应有 2 条: %+v", list)
+	}
+	if list[0].ID != "fresh" {
+		t.Fatalf("最新会话应排第一，实际 %q（时间戳没归一？%d）", list[0].ID, list[0].UpdatedAt)
+	}
+	for _, it := range list {
+		if it.UpdatedAt > 1e11 {
+			t.Fatalf("%s 的时间戳还是毫秒: %d", it.ID, it.UpdatedAt)
+		}
+	}
+}

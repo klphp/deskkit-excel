@@ -27,6 +27,7 @@ import {
   X,
 } from "@lucide/vue";
 import { useI18n } from "../i18n";
+import { renderMarkdown } from "../lib/markdown";
 import { useWorkspace } from "../composables/workspace";
 import { initSessions, useSessions } from "../composables/sessions";
 import {
@@ -458,9 +459,12 @@ onUnmounted(() => {
               {{ turn.content }}
             </div>
           </div>
-          <div v-else-if="turn.role === 'assistant'" class="whitespace-pre-wrap text-[15px] leading-[1.75]">
-            {{ turn.content }}
-          </div>
+          <!-- 模型回答按 markdown 渲染：表格、代码块、列表都是常态 -->
+          <div
+            v-else-if="turn.role === 'assistant'"
+            class="md selectable text-[15px] leading-[1.75]"
+            v-html="renderMarkdown(turn.content)"
+          />
         </div>
 
         <div v-if="steps.length" class="mb-3 space-y-1">
@@ -478,7 +482,8 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="streaming" class="whitespace-pre-wrap text-[15px] leading-[1.75]">{{ streaming }}</div>
+        <!-- 流式过程中也渲染：边出边成形，不会先看到一堆 *** -->
+        <div v-if="streaming" class="md selectable text-[15px] leading-[1.75]" v-html="renderMarkdown(streaming)" />
         <div v-if="busy && !streaming" class="flex items-center gap-2 text-[13px] text-muted-foreground">
           <Loader2 :size="13" class="animate-spin" />{{ t("ai.thinking") }}
         </div>

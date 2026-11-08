@@ -123,6 +123,17 @@ func (s *Store) migrate() error {
 			return fmt.Errorf("建表失败: %w", err)
 		}
 	}
+
+	// 单位归一（幂等）：早期版本导入过毫秒时间戳，把它们改回秒。
+	for _, q := range []string{
+		`UPDATE sessions SET created_at = created_at/1000 WHERE created_at > 100000000000`,
+		`UPDATE sessions SET updated_at = updated_at/1000 WHERE updated_at > 100000000000`,
+		`UPDATE messages SET created_at = created_at/1000 WHERE created_at > 100000000000`,
+	} {
+		if _, err := s.db.Exec(q); err != nil {
+			return fmt.Errorf("时间戳归一失败: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -275,11 +286,11 @@ func (s *Store) Import(items []Session) (int, error) {
 		if exists > 0 {
 			continue
 		}
-		created := it.CreatedAt
+		created := normalizeTS(it.CreatedAt)
 		if created == 0 {
 			created = time.Now().Unix()
 		}
-		updated := it.UpdatedAt
+		updated := normalizeTS(it.UpdatedAt)
 		if updated == 0 {
 			updated = created
 		}
@@ -298,7 +309,7 @@ func (s *Store) Import(items []Session) (int, error) {
 			return n, err
 		}
 		for _, m := range it.Messages {
-			ts := m.CreatedAt
+			ts := normalizeTS(m.CreatedAt)
 			if ts == 0 {
 				ts = created
 			}
@@ -311,6 +322,18 @@ func (s *Store) Import(items []Session) (int, error) {
 		n++
 	}
 	return n, nil
+}
+
+// normalizeTS 把时间戳统一到秒。
+//
+// 前端历史版本存的是毫秒（Date.now()），本包写的是秒。两种混在一起时
+// 按 updated_at DESC 排序，毫秒值（约 1.79e12）永远压过秒值（约 1.79e9），
+// 那条老会话会永远钉在列表第一 —— 实测踩到过。
+func normalizeTS(ts int64) int64 {
+	if ts > 1e11 { // 毫秒（约公元 5138 年之前都成立）
+		return ts / 1000
+	}
+	return ts
 }
 
 func truncate(s string, n int) string {

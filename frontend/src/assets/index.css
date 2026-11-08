@@ -308,6 +308,112 @@
     -webkit-user-select: text;
   }
 
+
+  /* ============================================================
+     Markdown 内容（模型回答）
+     ------------------------------------------------------------
+     没有引入 typography 插件：需要的元素就这些，手写更可控，
+     也不会让表格被默认样式搞成不可读的细线。
+     表格是这个工具最常见的输出，所以单独照顾它：横线分隔、
+     表头加底色、数字列右对齐（tabular-nums）。
+     ============================================================ */
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+
+  .md p { margin: 0.6em 0; }
+  .md h1, .md h2, .md h3, .md h4 {
+    margin: 1.1em 0 0.5em;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .md h1 { font-size: 1.35em; }
+  .md h2 { font-size: 1.2em; }
+  .md h3 { font-size: 1.08em; }
+  .md h4 { font-size: 1em; }
+
+  .md ul, .md ol { margin: 0.5em 0; padding-left: 1.35em; }
+  .md ul { list-style: disc outside; }
+  .md ol { list-style: decimal outside; }
+  .md li { margin: 0.25em 0; }
+  .md li > p { margin: 0.25em 0; }
+
+  .md strong { font-weight: 600; }
+  .md em { font-style: italic; }
+  .md del { opacity: 0.7; }
+
+  .md a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .md blockquote {
+    margin: 0.7em 0;
+    padding: 0.1em 0 0.1em 0.9em;
+    border-left: 3px solid var(--border);
+    color: var(--muted-foreground);
+  }
+
+  /* 行内代码 */
+  .md code {
+    font-family: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+    font-size: 0.9em;
+    padding: 0.12em 0.35em;
+    border-radius: 4px;
+    background: var(--muted);
+    word-break: break-word;
+  }
+
+  /* 代码块 */
+  .md pre {
+    margin: 0.75em 0;
+    padding: 0.8em 0.9em;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--muted);
+    overflow-x: auto;
+  }
+  .md pre code {
+    padding: 0;
+    background: none;
+    font-size: 0.86em;
+    line-height: 1.6;
+    white-space: pre;
+    word-break: normal;
+  }
+
+  /* 表格：这个工具最常见的内容，值得单独调 */
+  .md table {
+    margin: 0.8em 0;
+    border-collapse: collapse;
+    font-size: 0.94em;
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  .md thead th {
+    background: var(--muted);
+    font-weight: 600;
+    text-align: left;
+  }
+  .md th, .md td {
+    border: 1px solid var(--border);
+    padding: 0.4em 0.65em;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  /* 数字列：等宽数字、右对齐，一列金额才对得齐 */
+  .md td:has(> span) { white-space: normal; }
+  .md td em { white-space: normal; }
+
+  .md hr {
+    margin: 1.1em 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .md img { max-width: 100%; border-radius: 6px; }
+
   /* 滚动条：默认那条太粗太网页，桌面应用要细一点 */
   ::-webkit-scrollbar {
     width: 10px;
