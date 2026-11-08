@@ -81,6 +81,8 @@ const draft = ref("");
 const streaming = ref("");
 const scroller = ref<HTMLElement | null>(null);
 const inputEl = ref<HTMLTextAreaElement | null>(null);
+/** 覆盖层的输入框（和折叠态是两个元素，各自有 ref）。 */
+const expandedInput = ref<HTMLTextAreaElement | null>(null);
 
 let offDelta: (() => void) | null = null;
 let offTool: (() => void) | null = null;
@@ -360,11 +362,7 @@ const expanded = ref(false);
 function autogrow() {
   const el = inputEl.value;
   if (!el) return;
-  if (expanded.value) {
-    // 展开态由 CSS 撑满，不参与计算
-    el.style.height = "100%";
-    return;
-  }
+  if (expanded.value) return; // 覆盖层里的编辑区由 CSS 撑满，不参与计算
   el.style.height = "auto";
   el.style.height = `${Math.min(el.scrollHeight, SINGLE_LINE_MAX)}px`;
 }
@@ -372,8 +370,11 @@ function autogrow() {
 /** 展开 / 收起。像 Gemini 输入框右上角那个角标的作用：写长指令时用大框。 */
 function toggleExpand() {
   expanded.value = !expanded.value;
-  nextTick(autogrow);
-  if (!expanded.value) inputEl.value?.focus();
+  nextTick(() => {
+    autogrow();
+    // 展开进大框、收起回小框，焦点都跟着走
+    (expanded.value ? expandedInput.value : inputEl.value)?.focus();
+  });
 }
 
 /** Esc 收起，符合「放大视图按 Esc 退出」的惯例。 */
@@ -509,8 +510,7 @@ onUnmounted(() => {
         </div>
 
         <div
-          class="relative flex items-end gap-2 border border-input bg-card px-3 py-2.5 transition-shadow focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
-          :class="expanded ? 'min-h-0 flex-1 items-start rounded-2xl shadow-lg' : 'rounded-[26px]'"
+          class="relative flex items-end gap-2 rounded-[26px] border border-input bg-card px-3 py-2.5 transition-shadow focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
         >
           <!-- ① 选文件 -->
           <button
@@ -567,10 +567,9 @@ onUnmounted(() => {
           <textarea
             ref="inputEl"
             v-model="draft"
-            :rows="expanded ? 20 : 1"
+            rows="1"
             :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
-            class="flex-1 resize-none bg-transparent px-1 pr-8 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground"
-            :class="expanded ? 'h-full min-h-0 overflow-y-auto py-2' : 'max-h-[200px] min-h-[24px] py-[6px]'"
+            class="max-h-[200px] min-h-[24px] flex-1 resize-none bg-transparent px-1 py-[6px] pr-8 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground"
             @input="autogrow"
             @keydown="onKeydown"
             @keydown.esc="onEscape"
@@ -645,6 +644,50 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- ── 满屏编辑 ──
+         Teleport 到 body：就地放大时会被父容器的 overflow/transform 夹住，
+         表现就是「只有半屏、按钮还被挤没」。独立挂到 body 上，位置和尺寸
+         只由视口决定，也不会有祖先把它裁掉。 -->
+    <Teleport to="body">
+      <div v-if="expanded" class="fixed inset-0 z-[60] flex flex-col bg-background">
+        <div class="flex shrink-0 items-center justify-between border-b border-border px-5 py-2.5">
+          <span class="text-[13px] text-muted-foreground">{{ t("ai.expandTitle") }}</span>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[13px] transition-colors hover:bg-accent"
+            @click="toggleExpand"
+          >
+            <Minimize2 :size="13" />
+            {{ t("ai.collapse") }}
+            <span class="ml-0.5 text-[11.5px] text-muted-foreground">Esc</span>
+          </button>
+        </div>
+
+        <div class="mx-auto flex min-h-0 w-full max-w-[880px] flex-1 flex-col px-6 py-4">
+          <textarea
+            ref="expandedInput"
+            v-model="draft"
+            class="min-h-0 flex-1 resize-none bg-transparent text-[15px] leading-[1.75] outline-none placeholder:text-muted-foreground"
+            :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
+            @keydown="onKeydown"
+            @keydown.esc="onEscape"
+          />
+          <div class="flex shrink-0 items-center justify-between pt-3">
+            <span class="text-[12.5px] text-muted-foreground">{{ t("ai.expandHint") }}</span>
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[13.5px] font-medium text-primary-foreground disabled:opacity-40"
+              :disabled="!draft.trim() || busy"
+              @click="send"
+            >
+              <ArrowUp :size="15" />
+              {{ t("ai.send") }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- ── 模型设置 ── -->
     <div

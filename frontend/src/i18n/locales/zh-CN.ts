@@ -97,6 +97,8 @@ export const zhCN = {
   "intro.docs.i3": "扫描件与图片的 OCR（认字后参与上面这些处理）",
   "ai.expand": "放大编辑",
   "ai.collapse": "收起",
+  "ai.expandTitle": "编辑指令",
+  "ai.expandHint": "Enter 发送 · Shift+Enter 换行",
   "ai.thinking": "正在处理…",
 
   // ── 模型配置 ──
