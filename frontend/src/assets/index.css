@@ -110,69 +110,74 @@
 :root {
   --radius: 0.625rem;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* ── 配色来自 ui-kit-themes 的「石墨」亮色方案 ──
+     刻意不用纯黑纯白：纯黑字配纯白底对比度接近 21:1，长时间看表格眼睛很累。
+     这里文字是 oklch(19%)、底色是 oklch(98.6%)，对比度落在舒服的区间，
+     而且带一点点冷色偏移（色相 250），比中性灰耐看。
+     主色用暖琥珀 oklch(52% 0.15 80)：整个界面只有主操作是彩色，
+     视线自然落在「发送」和「接入」上。 */
+  --background: oklch(98.6% 0.008 250);
+  --foreground: oklch(19% 0.0048 250);
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card: oklch(99.6% 0.008 250);
+  --card-foreground: oklch(19% 0.0048 250);
 
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --popover: oklch(99.6% 0.008 250);
+  --popover-foreground: oklch(19% 0.0048 250);
 
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: oklch(52% 0.15 80);
+  --primary-foreground: oklch(98% 0.037 80);
 
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(96% 0.008 250);
+  --secondary-foreground: oklch(19% 0.0048 250);
 
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted: oklch(93% 0.008 250);
+  --muted-foreground: oklch(52% 0.008 250);
 
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: oklch(95.6% 0.0112 250);
+  --accent-foreground: oklch(19% 0.0048 250);
 
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive: oklch(48% 0.16 25);
+  --destructive-foreground: oklch(98% 0.02 25);
 
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(88% 0.008 250);
+  --input: oklch(92% 0.008 250);
+  --ring: oklch(76% 0.075 80);
 
   /* 桌面应用专用的额外 token（Web 项目通常不需要） */
   --titlebar-height: 38px;
-  --sidebar-width: 220px;
+  --sidebar-width: 232px;
 }
 
 .dark {
-  /* 刻意不用「纯黑底 + 近白字」：那个组合在暗环境里刺眼。
-     底色抬到 0.19，前景压到 0.88，长文阅读明显舒服。 */
-  --background: oklch(0.19 0.008 265);
-  --foreground: oklch(0.88 0.006 265);
+  /* 同一套色板的暗色版：底色 oklch(21%) 而不是纯黑，文字 oklch(95%) 而不是纯白。 */
+  --background: oklch(21% 0.008 250);
+  --foreground: oklch(95% 0.0048 250);
 
-  --card: oklch(0.235 0.008 265);
-  --card-foreground: oklch(0.985 0 0);
+  --card: oklch(24% 0.008 250);
+  --card-foreground: oklch(95% 0.0048 250);
 
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  --popover: oklch(24% 0.008 250);
+  --popover-foreground: oklch(95% 0.0048 250);
 
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(82% 0.15 80);
+  --primary-foreground: oklch(18% 0.037 80);
 
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(25% 0.0112 250);
+  --secondary-foreground: oklch(95% 0.0048 250);
 
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.72 0.012 265);
+  --muted: oklch(17% 0.008 250);
+  --muted-foreground: oklch(71% 0.008 250);
 
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: oklch(25% 0.0112 250);
+  --accent-foreground: oklch(95% 0.0048 250);
 
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive: oklch(70% 0.16 25);
+  --destructive-foreground: oklch(18% 0.02 25);
 
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.556 0 0);
+  --border: oklch(31% 0.008 250);
+  --input: oklch(24% 0.008 250);
+  --ring: oklch(50% 0.075 80);
 }
 
 /* 把 CSS 变量映射成 Tailwind 的颜色类，这样能写 bg-background / text-muted-foreground */
@@ -253,7 +258,7 @@
 
   /* 正文字号：13px 在 1:1 屏上偏小且发虚，14px 是桌面应用的可读下限 */
   body {
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.5;
   }
 

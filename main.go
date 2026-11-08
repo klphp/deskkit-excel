@@ -48,7 +48,7 @@ func main() {
 			// 能力包：今天只有表格，之后视频 / PDF 各自是一个包，
 			// 在这里加一行就能进同一个对话框。
 			reg := ai.NewRegistry()
-			loaded, err := packs.Register(reg, nil)
+			loaded, err := packs.Register(reg, rt.Config.Tools.Packs)
 			if err != nil {
 				return err
 			}

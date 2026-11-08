@@ -133,6 +133,7 @@ type AppConfig struct {
 	Update Update         `yaml:"update"`
 	I18n   I18n           `yaml:"i18n"`
 	AI     AI             `yaml:"ai"`
+	Tools  Tools          `yaml:"tools"`
 }
 
 // Window 单个窗口的定义，对应 config/windows.yaml。
@@ -218,6 +219,16 @@ type WindowsConfig struct {
 }
 
 // Config 全部配置。
+// Tools 能力开关。
+//
+// 为什么不直接编译进二进制、全部开放：能力少的时候用户一眼就能选对；
+// 能力多起来以后，多出来的选项只会让人犹豫。所以由配置决定这一版
+// 暴露哪些能力包。
+type Tools struct {
+	// Packs 启用的能力包 id。空表示全部（仅开发时用）。
+	Packs []string `yaml:"packs"`
+}
+
 type Config struct {
 	AppConfig
 	Windows WindowsConfig

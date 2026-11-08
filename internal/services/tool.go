@@ -124,7 +124,7 @@ func (s *ToolService) InspectFile(ctx context.Context, path string) (excel.Singl
 // Packs 当前可用的能力包，界面上的「功能选择」用它渲染列表。
 func (s *ToolService) Packs() []PackInfo {
 	out := make([]PackInfo, 0, 4)
-	for _, p := range packs.All() {
+	for _, p := range packs.Enabled() {
 		out = append(out, PackInfo{
 			ID:          p.ID,
 			Name:        p.Name,
@@ -154,7 +154,7 @@ type PackInfo struct {
 // 这批工具怎么调，不用先花一轮去试错。外部 agent 走
 // GET /api/v1/capabilities/:id/usage 拿同一份内容。
 func (s *ToolService) CapabilityUsage(id string) (string, error) {
-	for _, p := range packs.All() {
+	for _, p := range packs.Enabled() {
 		if p.ID != id {
 			continue
 		}

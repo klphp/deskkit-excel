@@ -86,19 +86,46 @@ func registerMetaTools(r *ai.Registry, packs []capability.Pack) error {
 	})
 }
 
+// enabledIDs 本次运行启用的能力包（由 config/app.yaml 的 tools.packs 决定）。
+//
+// 放在包级变量里，是为了让「界面上的功能选择」和「实际注册的工具」
+// 永远一致 —— 两边都读这一份，不会出现「界面上有、实际调不到」。
+var enabledIDs []string
+
+// SetEnabled 设置启用清单。启动时调一次。
+func SetEnabled(ids []string) {
+	enabledIDs = append([]string(nil), ids...)
+}
+
+// Enabled 当前启用的能力包（按 All() 的顺序）。
+func Enabled() []capability.Pack {
+	return filter(All(), enabledIDs)
+}
+
+func filter(all []capability.Pack, want []string) []capability.Pack {
+	if len(want) == 0 {
+		return all
+	}
+	keep := map[string]bool{}
+	for _, id := range want {
+		keep[id] = true
+	}
+	out := make([]capability.Pack, 0, len(all))
+	for _, p := range all {
+		if keep[p.ID] {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // Register 把选中的能力包挂进工具表。enabled 为空表示全部。
 //
 // 配置里写错一个包名只会让它不生效，不会让应用起不来 ——
 // 桌面应用起不来比少一个功能糟糕得多。
 func Register(r *ai.Registry, enabled []string) (loaded []capability.Pack, err error) {
-	want := map[string]bool{}
-	for _, id := range enabled {
-		want[id] = true
-	}
-	for _, p := range All() {
-		if len(want) > 0 && !want[p.ID] {
-			continue
-		}
+	SetEnabled(enabled)
+	for _, p := range Enabled() {
 		if p.Register == nil {
 			continue
 		}

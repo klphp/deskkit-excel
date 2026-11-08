@@ -143,7 +143,7 @@ func (s *Server) registerRoutes(r *gin.Engine) {
 		// 「本机有哪些能力、每个工具收什么参数」。用法说明由工具定义自动
 		// 生成，所以永远不会和实现脱节。
 		api.GET("/capabilities", func(c *gin.Context) {
-			docs, err := capability.BuildAllUsage(packs.All(), nil)
+			docs, err := capability.BuildAllUsage(packs.Enabled(), nil)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -177,7 +177,7 @@ func (s *Server) registerRoutes(r *gin.Engine) {
 		// 全部工具的机器可读清单：外部 agent 拿这一份就够写调用了。
 		// 结构和 OpenAI 的 tools 定义一致，直接能塞进请求体。
 		api.GET("/tools.json", func(c *gin.Context) {
-			docs, err := capability.BuildAllUsage(packs.All(), nil)
+			docs, err := capability.BuildAllUsage(packs.Enabled(), nil)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -205,7 +205,7 @@ func (s *Server) registerRoutes(r *gin.Engine) {
 
 		// 全部用法合并成一份 markdown：一次请求就能把整本说明书塞进提示词
 		api.GET("/usage", func(c *gin.Context) {
-			docs, err := capability.BuildAllUsage(packs.All(), nil)
+			docs, err := capability.BuildAllUsage(packs.Enabled(), nil)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -223,7 +223,7 @@ func (s *Server) registerRoutes(r *gin.Engine) {
 		// 用法说明：给模型当提示词，也给开发者当文档
 		api.GET("/capabilities/:id/usage", func(c *gin.Context) {
 			id := c.Param("id")
-			for _, p := range packs.All() {
+			for _, p := range packs.Enabled() {
 				if p.ID != id {
 					continue
 				}

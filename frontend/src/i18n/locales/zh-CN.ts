@@ -66,6 +66,12 @@ export const zhCN = {
   "ai.packDownload": "首次使用需要下载功能组件。这台机器上还没装：",
   "ai.useFeature": "开始使用",
   "ai.downloadFeature": "下载组件",
+  "session.new": "新会话",
+  "session.empty": "还没有会话",
+  "session.untitled": "未命名对话",
+  "session.today": "今天",
+  "session.earlier": "更早",
+  "session.delete": "删除会话",
   "ai.thinking": "正在处理…",
 
   // ── 模型配置 ──

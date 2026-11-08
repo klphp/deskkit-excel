@@ -14,6 +14,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { ArrowUp, Check, FolderOpen, Layers, Loader2, Settings2, Wrench, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import { useWorkspace } from "../composables/workspace";
+import { initSessions, useSessions } from "../composables/sessions";
 import {
   AIService,
   chatInput,
@@ -29,6 +30,7 @@ import {
 
 const { t } = useI18n();
 const ws = useWorkspace();
+const sess = useSessions();
 
 type Step = { tool: string; detail: string; done: boolean; ok: boolean };
 const steps = ref<Step[]>([]);
@@ -55,7 +57,12 @@ const models = ref<string[]>([]);
 const loadingModels = ref(false);
 const modelsError = ref("");
 
-const turns = ref<ChatTurn[]>([]);
+/**
+ * 消息挂在「当前会话」上，而不是组件自己的 ref ——
+ * 左边栏切换会话时，这里自然就换成那一轮的历史。
+ * 用 computed 取而不是复制：切回来还是同一份数据，不会丢。
+ */
+const turns = computed<ChatTurn[]>(() => sess.current.value?.turns ?? []);
 const draft = ref("");
 const streaming = ref("");
 const scroller = ref<HTMLElement | null>(null);
@@ -245,6 +252,7 @@ async function send() {
   }
 
   turns.value.push({ role: "user", content: text });
+  sess.autoTitle(sess.currentId.value);
   draft.value = "";
   failure.value = "";
   busy.value = true;
@@ -313,6 +321,7 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => {
+  initSessions();
   refresh().catch((err) => (failure.value = errorText(err)));
   ws.loadPacks().catch(() => {});
 });
@@ -329,7 +338,7 @@ onUnmounted(() => {
       <div class="mx-auto max-w-[760px] px-6 py-8">
         <div v-if="turns.length === 0 && !streaming" class="pt-20 text-center">
           <h2 class="text-[22px] font-semibold tracking-tight">{{ t("ai.emptyTitle") }}</h2>
-          <p class="mx-auto mt-2.5 max-w-[480px] text-[13.5px] leading-relaxed text-muted-foreground">
+          <p class="mx-auto mt-2.5 max-w-[480px] text-[14px] leading-relaxed text-muted-foreground">
             {{ t("ai.emptyHint") }}
           </p>
           <div class="mt-7 flex flex-wrap justify-center gap-2">
@@ -347,11 +356,11 @@ onUnmounted(() => {
 
         <div v-for="(turn, i) in turns" :key="i" class="mb-5">
           <div v-if="turn.role === 'user'" class="flex justify-end">
-            <div class="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-[13.5px] leading-relaxed text-primary-foreground">
+            <div class="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-[14px] leading-relaxed text-primary-foreground">
               {{ turn.content }}
             </div>
           </div>
-          <div v-else-if="turn.role === 'assistant'" class="whitespace-pre-wrap text-[13.5px] leading-[1.8]">
+          <div v-else-if="turn.role === 'assistant'" class="whitespace-pre-wrap text-[14px] leading-[1.8]">
             {{ turn.content }}
           </div>
         </div>
@@ -360,7 +369,7 @@ onUnmounted(() => {
           <div
             v-for="(s, i) in steps"
             :key="i"
-            class="flex items-start gap-2 text-[12.5px] text-muted-foreground"
+            class="flex items-start gap-2 text-[13px] text-muted-foreground"
           >
             <Wrench :size="12" class="mt-0.5 shrink-0" />
             <span class="font-mono">{{ s.tool }}</span>
@@ -371,7 +380,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="streaming" class="whitespace-pre-wrap text-[13.5px] leading-[1.8]">{{ streaming }}</div>
+        <div v-if="streaming" class="whitespace-pre-wrap text-[14px] leading-[1.8]">{{ streaming }}</div>
         <div v-if="busy && !streaming" class="flex items-center gap-2 text-[13px] text-muted-foreground">
           <Loader2 :size="13" class="animate-spin" />{{ t("ai.thinking") }}
         </div>
@@ -386,7 +395,7 @@ onUnmounted(() => {
       <div class="mx-auto max-w-[760px]">
         <!-- 已选文件：一个小标签。第二行小字说明结果会写到哪 -->
         <div v-if="ws.paths.value.length > 0" class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12.5px]">
+          <span class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[13px]">
             <FolderOpen :size="12" class="shrink-0 text-muted-foreground" />
             <button type="button" class="truncate font-medium hover:underline" :title="ws.paths.value.join('\n')" @click="ws.pickPaths(t('ai.pickInput'))">
               {{ ws.selectionLabel.value }}
@@ -399,12 +408,12 @@ onUnmounted(() => {
           <button
             v-if="ws.feature.value"
             type="button"
-            class="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[12.5px] text-muted-foreground hover:bg-accent"
+            class="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[13px] text-muted-foreground hover:bg-accent"
             @click="showFeatures = true"
           >
             <Layers :size="12" />{{ featureName }}
           </button>
-          <span v-if="ws.outputHint.value" class="truncate text-[12px] text-muted-foreground" :title="ws.outputHint.value">
+          <span v-if="ws.outputHint.value" class="truncate text-[12.5px] text-muted-foreground" :title="ws.outputHint.value">
             {{ t("ai.willWriteTo") }} {{ ws.outputHint.value.split("/").pop() }}
           </span>
         </div>
@@ -467,7 +476,7 @@ onUnmounted(() => {
             v-model="draft"
             rows="1"
             :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
-            class="max-h-40 min-h-[26px] flex-1 resize-none bg-transparent px-1 py-1 text-[13.5px] leading-relaxed outline-none placeholder:text-muted-foreground"
+            class="max-h-40 min-h-[26px] flex-1 resize-none bg-transparent px-1 py-1 text-[14px] leading-relaxed outline-none placeholder:text-muted-foreground"
             @keydown="onKeydown"
           />
 
@@ -514,16 +523,16 @@ onUnmounted(() => {
             <p class="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
               {{ pendingPack.bundled ? t("ai.packBundled") : t("ai.packDownload") }}
             </p>
-            <ul v-if="pendingPack.missing.length" class="mt-2 list-inside list-disc text-[12.5px] text-amber-600">
+            <ul v-if="pendingPack.missing.length" class="mt-2 list-inside list-disc text-[13px] text-amber-600">
               <li v-for="m in pendingPack.missing" :key="m">{{ m }}</li>
             </ul>
           </div>
         </div>
         <div class="mt-4 flex justify-end gap-2">
-          <button type="button" class="h-9 rounded-md border border-input px-3.5 text-[13.5px] hover:bg-accent" @click="pendingPack = null">
+          <button type="button" class="h-9 rounded-md border border-input px-3.5 text-[14px] hover:bg-accent" @click="pendingPack = null">
             {{ t("ai.cancel") }}
           </button>
-          <button type="button" class="h-9 rounded-md bg-primary px-4 text-[13.5px] font-medium text-primary-foreground" @click="confirmFeature">
+          <button type="button" class="h-9 rounded-md bg-primary px-4 text-[14px] font-medium text-primary-foreground" @click="confirmFeature">
             {{ pendingPack.bundled ? t("ai.useFeature") : t("ai.downloadFeature") }}
           </button>
         </div>
@@ -595,7 +604,7 @@ onUnmounted(() => {
             <div class="mt-3 flex items-center gap-2">
               <button
                 type="button"
-                class="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-[13.5px] font-medium text-primary-foreground disabled:opacity-50"
+                class="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-[14px] font-medium text-primary-foreground disabled:opacity-50"
                 :disabled="testing || !provider"
                 @click="connect"
               >
@@ -639,8 +648,8 @@ onUnmounted(() => {
               class="w-full rounded-md border border-input bg-background px-2.5 py-1.5 font-mono text-[13px]"
               :placeholder="t('ai.modelPlaceholder')"
             />
-            <p v-if="modelsError" class="mt-1.5 text-[12.5px] text-destructive">{{ modelsError }}</p>
-            <p v-else class="mt-1.5 text-[12.5px] text-muted-foreground">
+            <p v-if="modelsError" class="mt-1.5 text-[13px] text-destructive">{{ modelsError }}</p>
+            <p v-else class="mt-1.5 text-[13px] text-muted-foreground">
               {{ models.length ? t("ai.modelsCount").replace("{n}", String(models.length)) : t("ai.refreshHint") }}
             </p>
           </section>
@@ -649,12 +658,12 @@ onUnmounted(() => {
         </div>
 
         <div class="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
-          <button type="button" class="h-9 rounded-md border border-input px-3.5 text-[13.5px] hover:bg-accent" @click="showSettings = false">
+          <button type="button" class="h-9 rounded-md border border-input px-3.5 text-[14px] hover:bg-accent" @click="showSettings = false">
             {{ t("ai.cancel") }}
           </button>
           <button
             type="button"
-            class="h-9 rounded-md bg-primary px-4 text-[13.5px] font-medium text-primary-foreground disabled:opacity-50"
+            class="h-9 rounded-md bg-primary px-4 text-[14px] font-medium text-primary-foreground disabled:opacity-50"
             :disabled="!model || !(connected || ready)"
             @click="saveModel"
           >

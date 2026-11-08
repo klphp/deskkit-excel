@@ -61,6 +61,12 @@ export const enUS = {
   "ai.packDownload": "First use needs a component download. Missing on this machine:",
   "ai.useFeature": "Start using it",
   "ai.downloadFeature": "Download",
+  "session.new": "New chat",
+  "session.empty": "No conversations yet",
+  "session.untitled": "Untitled",
+  "session.today": "Today",
+  "session.earlier": "Earlier",
+  "session.delete": "Delete",
   "ai.thinking": "Working…",
 
   "ai.disabledHint": "AI is turned off in the config file. Batch processing works without it, but you need it to drive the tool by sentence.",

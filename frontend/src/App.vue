@@ -29,6 +29,7 @@ import { openWindow } from "./lib/windows";
 import SettingsView from "./components/SettingsView.vue";
 import AboutView from "./components/AboutView.vue";
 import AiChatPanel from "./components/AiChatPanel.vue";
+import SessionSidebar from "./components/SessionSidebar.vue";
 
 type AppInfo = {
   name: string;
@@ -268,8 +269,12 @@ watch(
       <main class="flex min-w-0 flex-1 flex-col">
         <!-- 不要再加一条工具栏：标题栏上已经有应用名和设置入口，
              再加一条就是把同样的东西写两遍。工作台自己就是内容区。 -->
-        <div class="min-h-0 flex-1 overflow-hidden">
-          <AiChatPanel />
+        <div class="flex min-h-0 flex-1">
+          <!-- 左边会话历史：对话是有历史的，用户要能新开一轮、回看上一轮 -->
+          <SessionSidebar />
+          <div class="min-h-0 min-w-0 flex-1 overflow-hidden">
+            <AiChatPanel />
+          </div>
         </div>
       </main>
     </div>
