@@ -130,6 +130,11 @@ func (s *Store) migrate() error {
 		}
 	}
 
+	// 老库补列（幂等）：instructions 是后加的，老库的 sessions 表没有这一列。
+	if err := s.ensureColumn("sessions", "instructions", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+
 	// 单位归一（幂等）：早期版本导入过毫秒时间戳，把它们改回秒。
 	for _, q := range []string{
 		`UPDATE sessions SET created_at = created_at/1000 WHERE created_at > 100000000000`,
@@ -328,6 +333,29 @@ func (s *Store) Import(items []Session) (int, error) {
 		n++
 	}
 	return n, nil
+}
+
+// ensureColumn 补列（幂等）。SQLite 没有 ADD COLUMN IF NOT EXISTS，
+// 靠 pragma_table_info 先看一眼。
+func (s *Store) ensureColumn(table, column, decl string) error {
+	rows, err := s.db.Query(`SELECT name FROM pragma_table_info(?)`, table)
+	if err != nil {
+		return fmt.Errorf("读取表结构失败: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		if name == column {
+			return nil // 已经有了
+		}
+	}
+	if _, err := s.db.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s`, table, column, decl)); err != nil {
+		return fmt.Errorf("补列 %s.%s 失败: %w", table, column, err)
+	}
+	return nil
 }
 
 // normalizeTS 把时间戳统一到秒。

@@ -105,6 +105,8 @@ export const zhCN = {
   "session.confirmDelete": "删除这个会话？",
   "session.cancel": "取消",
   "session.more": "更多",
+  "chat.confirmYes": "确认执行",
+  "chat.confirmNo": "取消",
   "chat.like": "有帮助",
   "chat.dislike": "没帮助",
   "chat.copy": "复制回答",
@@ -122,6 +124,10 @@ export const zhCN = {
   "ai.testOk": "连接正常",
 
   // ── 设置 / 关于 ──
+  "settings.instructions.title": "自定义指令",
+  "settings.instructions.save": "保存",
+  "settings.instructions.saved": "已保存",
+  "settings.instructions.ph": "例如：处理结果统一存到 D:\\处理结果\\，文件名保持原样并加日期；下载的文件存到 D:\\待整理\\；不要问我存哪，按这个来。",
   "settings.appearance": "外观",
   "settings.theme.system": "跟随系统",
   "settings.theme.light": "浅色",

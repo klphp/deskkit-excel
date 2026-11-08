@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/klphp/excel-batch-tool/internal/ai"
 )
@@ -13,7 +14,12 @@ import (
 // 删除类工具刻意做成「默认进废纸篓」：模型误判时用户还能捞回来。
 // 永久删除要显式传 permanent=true，且提示里写明不可恢复。
 func Register(r *ai.Registry) error {
-	g := DefaultGuard()
+	return registerWithGuard(r, DefaultGuard())
+}
+
+// registerWithGuard 用指定的边界注册工具。
+// 单独抽出来是为了测试能用临时目录当根，不去碰用户主目录。
+func registerWithGuard(r *ai.Registry, g Guard) error {
 
 	// ── 遍历 ──
 	listDef, err := ai.FunctionTool("fs_list",
@@ -195,12 +201,31 @@ func Register(r *ai.Registry) error {
 	}
 	return r.Add(deleteDef, func(ctx context.Context, args json.RawMessage) (string, error) {
 		var in struct {
-			Paths     []string `json:"paths"`
-			Permanent bool     `json:"permanent"`
+			Paths        []string `json:"paths"`
+			Permanent    bool     `json:"permanent"`
+			ConfirmToken string   `json:"confirmToken"`
 		}
 		if err := json.Unmarshal(args, &in); err != nil {
 			return "", err
 		}
+
+		// ★ 硬门：没有用户点过的令牌，一步都不执行。
+		if !ai.DefaultConfirms().Consume(in.ConfirmToken, "fs_delete", string(args)) {
+			items, note := deleteConfirmInfo(g, in.Paths, in.Permanent)
+			token := ai.DefaultConfirms().Issue("fs_delete", string(args), ai.ConfirmRequest{
+				Title: "即将删除以下内容",
+				Items: items,
+				Note:  note,
+			})
+			payload, _ := json.Marshal(map[string]any{
+				"token": token,
+				"title": "即将删除以下内容",
+				"items": items,
+				"note":  note,
+			})
+			return ai.ConfirmPrefix + string(payload), nil
+		}
+
 		done, failed, err := g.Delete(in.Paths, in.Permanent)
 		if err != nil {
 			return "", err
@@ -213,6 +238,35 @@ func Register(r *ai.Registry) error {
 		})
 		return string(raw), nil
 	})
+}
+
+// deleteConfirmInfo 生成给用户看的清单：一行一个完整路径。
+//
+// 只给「3 个文件」是不够的 —— 用户是靠路径判断「是不是这几个」的。
+// 不存在的路径也列出来并标注，避免用户以为漏掉了。
+func deleteConfirmInfo(g Guard, paths []string, permanent bool) ([]string, string) {
+	items := make([]string, 0, len(paths))
+	for _, raw := range paths {
+		abs, err := g.Check(raw)
+		if err != nil {
+			items = append(items, fmt.Sprintf("%s（无法访问：%v）", raw, err))
+			continue
+		}
+		info, err := os.Stat(abs)
+		switch {
+		case err != nil:
+			items = append(items, fmt.Sprintf("%s（不存在或读不到）", abs))
+		case info.IsDir():
+			items = append(items, abs+"（目录，含其中全部内容）")
+		default:
+			items = append(items, fmt.Sprintf("%s（%d 字节）", abs, info.Size()))
+		}
+	}
+	note := "为避免误操作，建议先备份。"
+	if permanent {
+		note = "这是永久删除，无法恢复。为避免误操作，建议先备份。"
+	}
+	return items, note
 }
 
 func trashHint(permanent bool) string {

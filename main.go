@@ -9,6 +9,7 @@ import (
 	"github.com/klphp/excel-batch-tool/internal/ai"
 	"github.com/klphp/excel-batch-tool/internal/boot"
 	"github.com/klphp/excel-batch-tool/internal/packs"
+	"github.com/klphp/excel-batch-tool/internal/prefs"
 	"github.com/klphp/excel-batch-tool/internal/services"
 	"github.com/klphp/excel-batch-tool/internal/session"
 )
@@ -35,6 +36,7 @@ func main() {
 	// 工具服务：界面按钮走它；AI 走同一批函数（见下面的 excel.Register）
 	toolSvc := &services.ToolService{}
 	sessSvc := &services.SessionService{}
+	prefsSvc := &services.PrefsService{}
 
 	if err := boot.Run(boot.Options{
 		AppName:  appName,
@@ -43,10 +45,14 @@ func main() {
 		Services: []application.Service{
 			application.NewService(toolSvc),
 			application.NewService(sessSvc),
+			application.NewService(prefsSvc),
 		},
 		// After 在 app 建好、窗口出来之前执行：把「需要 app 实例的东西」接上
 		After: func(rt *boot.Runtime) error {
 			toolSvc.BindApp(rt.App)
+
+			// 用户偏好（自定义指令）：普通 JSON，0600
+			prefsSvc.BindStore(prefs.NewStore(rt.DataDir()))
 
 			// 会话库：加密存储，密钥存系统钥匙串（用户无感）
 			sessStore, err := session.Open(rt.DataDir())
@@ -55,6 +61,10 @@ func main() {
 				slog.Warn("会话存储不可用，历史功能关闭", "err", err)
 			} else {
 				sessSvc.BindStore(sessStore)
+				// 模型调 remember_instructions 时，把内容落到当前会话上
+				ai.SetInstructionSaver(func(sessionID, text string) error {
+					return sessStore.SetInstructions(sessionID, text)
+				})
 
 				// 清理过期会话：丢到协程里做，不挡启动。
 				// 库可能很大（几千条消息），同步跑会让窗口晚几百毫秒才出来，

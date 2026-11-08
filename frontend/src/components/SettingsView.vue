@@ -12,6 +12,7 @@ import { useChatFont } from "../composables/useChatFont";
 import { onMounted, ref } from "vue";
 import * as Sessions from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/sessionservice";
 import { refreshSessions } from "../composables/sessions";
+import * as Prefs from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/prefsservice";
 import { useI18n } from "../i18n";
 
 type AppInfo = {
@@ -59,7 +60,27 @@ onMounted(async () => {
   } catch {
     /* 会话库不可用时保持默认 */
   }
+  try {
+    instructions.value = (await Prefs.GetInstructions()) ?? "";
+  } catch {
+    /* 偏好文件不可用时留空 */
+  }
 });
+
+// ── 自定义指令 ──
+// 我们不知道用户的东西该存哪、文件该怎么命名，所以留一句话给他自己写。
+const instructions = ref("");
+const saved = ref(false);
+
+async function saveInstructions() {
+  try {
+    await Prefs.SetInstructions(instructions.value);
+    saved.value = true;
+    setTimeout(() => (saved.value = false), 1500);
+  } catch {
+    /* 保存失败就不亮"已保存" */
+  }
+}
 
 /** 清空确认：不可恢复，所以要点第二次才真删。 */
 const confirmingClear = ref(false);
@@ -112,6 +133,30 @@ const themeOptions: { value: ThemeMode; labelKey: string }[] = [
 
 <template>
   <div class="space-y-2 p-3">
+    <!-- ── 自定义指令 ──
+         放最上面：这是最"属于用户"的一项，别让他往下翻。
+         目录选择器我们给不出他真正想要的，一句话可以。 -->
+    <div class="rounded-lg border border-border bg-card px-3 py-2.5">
+      <div class="mb-1.5 flex items-center justify-between">
+        <h2 class="text-[12.5px] font-semibold">{{ t("settings.instructions.title") }}</h2>
+        <button
+          type="button"
+          class="text-[12px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          @click="saveInstructions"
+        >
+          {{ saved ? t("settings.instructions.saved") : t("settings.instructions.save") }}
+        </button>
+      </div>
+      <textarea
+        v-model="instructions"
+        rows="3"
+        class="w-full resize-y rounded-md border border-input bg-background px-2.5 py-1.5 text-[12.5px] leading-relaxed outline-none focus:border-ring"
+        :placeholder="t('settings.instructions.ph')"
+        maxlength="2000"
+        @blur="saveInstructions"
+      />
+    </div>
+
     <!-- ── 外观 ── -->
     <div class="rounded-lg border border-border bg-card px-3 py-2.5">
       <h2 class="mb-1.5 text-[12.5px] font-semibold">{{ t("settings.appearance") }}</h2>

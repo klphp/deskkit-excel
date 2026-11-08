@@ -53,6 +53,11 @@ export class AISettings {
  * ChatInput 对话入参。
  */
 export class ChatInput {
+    /**
+     * SessionID 当前会话 id。工具层要靠它把「用户说的偏好」写到这个会话上，
+     * 而不是全局设置里（每个会话可能是完全不同的任务）。
+     */
+    "sessionId"?: string;
     "provider": string;
     "model": string;
     "messages": ai$0.Message[];
@@ -79,14 +84,14 @@ export class ChatInput {
      * Creates a new ChatInput instance from a string or object.
      */
     static createFrom($$source: any = {}): ChatInput {
-        const $$createField2_0 = $$createType1;
-        const $$createField3_0 = $$createType3;
+        const $$createField3_0 = $$createType1;
+        const $$createField4_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("messages" in $$parsedSource) {
-            $$parsedSource["messages"] = $$createField2_0($$parsedSource["messages"]);
+            $$parsedSource["messages"] = $$createField3_0($$parsedSource["messages"]);
         }
         if ("tools" in $$parsedSource) {
-            $$parsedSource["tools"] = $$createField3_0($$parsedSource["tools"]);
+            $$parsedSource["tools"] = $$createField4_0($$parsedSource["tools"]);
         }
         return new ChatInput($$parsedSource as Partial<ChatInput>);
     }

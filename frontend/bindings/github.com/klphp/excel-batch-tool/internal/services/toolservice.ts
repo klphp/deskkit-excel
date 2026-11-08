@@ -96,6 +96,19 @@ export function PickPaths(title: string): $CancellablePromise<string[]> {
     });
 }
 
+/**
+ * RevealPath 在系统的文件管理器里定位到这个文件（选中它、打开所在目录）。
+ * 
+ * 为什么需要：AI 把结果写成新文件后，用户最想做的就是「让我看看它在哪」。
+ * 让他自己去 Finder/资源管理器里翻目录，是最容易劝退的一步。
+ * 
+ * 这是纯查看动作，不修改任何东西，所以不需要走 Guard 的写入边界；
+ * 但只接受已存在的绝对路径，避免把奇怪的字符串当成命令执行。
+ */
+export function RevealPath(path: string): $CancellablePromise<void> {
+    return $Call.ByID(2438062971, path);
+}
+
 // Private type creation functions
 const $$createType0 = excel$0.CleanResult.createFrom;
 const $$createType1 = excel$0.SampleInfo.createFrom;

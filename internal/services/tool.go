@@ -3,8 +3,11 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -70,6 +73,32 @@ func (s *ToolService) Packs() []PackInfo {
 		})
 	}
 	return out
+}
+
+// RevealPath 在系统的文件管理器里定位到这个文件（选中它、打开所在目录）。
+//
+// 为什么需要：AI 把结果写成新文件后，用户最想做的就是「让我看看它在哪」。
+// 让他自己去 Finder/资源管理器里翻目录，是最容易劝退的一步。
+//
+// 这是纯查看动作，不修改任何东西，所以不需要走 Guard 的写入边界；
+// 但只接受已存在的绝对路径，避免把奇怪的字符串当成命令执行。
+func (s *ToolService) RevealPath(path string) error {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(abs); err != nil {
+		return fmt.Errorf("这个路径不存在: %w", err)
+	}
+	switch runtime.GOOS {
+	case "windows":
+		// /select 要高亮文件本身；路径含空格也能正确处理
+		return exec.Command("explorer", "/select,"+abs).Start()
+	case "darwin":
+		return exec.Command("open", "-R", abs).Start()
+	default:
+		return exec.Command("xdg-open", filepath.Dir(abs)).Start()
+	}
 }
 
 // PickPaths 弹系统选择框：文件和文件夹都能选，可以多选，**不限类型**。

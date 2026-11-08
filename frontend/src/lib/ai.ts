@@ -41,6 +41,8 @@ export function toMessages(turns: ChatTurn[]): Message[] {
  * 界面上已经选好了，不该让用户每次在话里重复一遍。
  */
 export type Workspace = {
+  /** 用户自己写的指令（设置 → 自定义指令），优先级高于我们的默认规则。 */
+  instructions?: string;
   /** 用户选中的东西：可能是单个文件、多个文件、或一个文件夹。 */
   paths?: string[];
   /** 选中的功能包（空 = 普通对话）。 */
@@ -112,6 +114,26 @@ export function withWorkspace(turns: ChatTurn[], ws: Workspace): ChatTurn[] {
   lines.push("3. 问一句确认：确定继续吗？然后停下来等用户回答，不要自己替用户答。");
   lines.push("4. 用户明确同意之后才调用工具；他改口、犹豫或没回答就都不要动。");
 
+  // ── 用户自定义指令 ──
+  // 放在前面：这是用户的真实习惯（保存到哪、命名怎么起、要不要问），
+  // 我们给十个目录选择器也猜不到。冲突时以用户的为准 —— 唯一例外是
+  // 「绝不修改原文件」这条底线，那是产品承诺，不能被指令覆盖。
+  if (ws.instructions && ws.instructions.trim()) {
+    lines.push("");
+    lines.push("用户自定义要求（优先遵守，与下面的默认规则冲突时以它为准）：");
+    lines.push(ws.instructions.trim());
+  }
+
+  // ── 工作目录 ──
+  // 用户的东西该存哪我们猜不到。别自己编一个目录，也别每次处理都问一遍：
+  // 第一次问清、记到这个会话上，之后照做。
+  if (!ws.instructions || !ws.instructions.trim()) {
+    lines.push("");
+    lines.push("如果这个会话里还不知道用户的工作目录，开始处理前先用 ask_user 问一次：" +
+      "下载/来源文件放在哪、处理结果输出到哪。给出「用原目录」这类常见选项，让用户点或自己写。" +
+      "拿到答案后调用 remember_instructions 记到这个会话，之后不要再重复问。");
+  }
+
   // ── 出问题怎么办 ──
   // 这一段是给模型的「故障处理顺序」。没有它，模型遇到错误最常见的三种反应是：
   // 原样重试、猜一个路径、编一个结果 —— 三种都比报错更糟。
@@ -126,8 +148,9 @@ export function withWorkspace(turns: ChatTurn[], ws: Workspace): ChatTurn[] {
 }
 
 /** 组一次请求。provider 为空时后端会用默认值。 */
-export function chatInput(provider: string, model: string, turns: ChatTurn[]): ChatInput {
+export function chatInput(provider: string, model: string, turns: ChatTurn[], sessionId = ""): ChatInput {
   return {
+    sessionId,
     provider,
     model,
     messages: toMessages(turns),
@@ -170,6 +193,22 @@ export function onAsk(handler: (ask: AskPayload) => void): () => void {
   return Events.On("ai:ask", (ev) => {
     const p = ev.data as AskPayload | undefined;
     if (p?.question) handler({ question: p.question, options: p.options ?? [], detail: p.detail });
+  });
+}
+
+/** 危险操作的确认请求：{token, title, items[], note}。 */
+export type ConfirmPayload = {
+  token: string;
+  title: string;
+  items: string[];
+  note?: string;
+};
+
+/** 订阅「危险操作待确认」事件。返回退订函数。 */
+export function onConfirm(handler: (c: ConfirmPayload) => void): () => void {
+  return Events.On("ai:confirm", (ev) => {
+    const p = ev.data as ConfirmPayload | undefined;
+    if (p?.token) handler({ token: p.token, title: p.title ?? "", items: p.items ?? [], note: p.note });
   });
 }
 

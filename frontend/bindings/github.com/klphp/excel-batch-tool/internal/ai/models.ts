@@ -203,6 +203,7 @@ export class ProviderInfo {
  * 
  * 这是整个「AI 操作应用」的核心：UI 按钮和 AI 调的是同一批函数，
  * 所以行为一致、可测试、可批量。AI 不应该去模拟点界面。
+ * Registry 工具表。destructive 记录需要用户确认才能执行的工具。
  */
 export class Registry {
 

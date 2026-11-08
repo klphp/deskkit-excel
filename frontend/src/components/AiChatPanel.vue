@@ -33,6 +33,9 @@ import {
 import { useI18n } from "../i18n";
 import { renderMarkdown } from "../lib/markdown";
 import { useWorkspace } from "../composables/workspace";
+import * as Tools from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/toolservice";
+import * as Prefs from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/prefsservice";
+import * as Sessions from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/sessionservice";
 import { initSessions, useSessions } from "../composables/sessions";
 import {
   AIService,
@@ -41,7 +44,9 @@ import {
   onDelta,
   onTool,
   onAsk,
+  onConfirm,
   type AskPayload,
+  type ConfirmPayload,
   withWorkspace,
   type ChatTurn,
   type ProviderInfo,
@@ -136,6 +141,36 @@ const copiedAt = ref(-1);
  * （用户以后回看能知道自己当时选了什么）。弹窗会把它从上下文里摘出去。
  */
 const pendingAsk = ref<AskPayload | null>(null);
+
+/** 待用户确认的危险操作。 */
+const pendingConfirm = ref<ConfirmPayload | null>(null);
+
+/**
+ * 用户自定义指令。发消息前读一次（读一个本地 JSON，成本可忽略），
+ * 这样用户改了设置不用重启应用就生效。
+ */
+let instructions = "";
+async function loadInstructions() {
+  // 会话级优先：这个会话可能在做完全不同的任务（报表 vs 视频）
+  try {
+    const id = sess.currentId.value;
+    if (id) {
+      const own = (await Sessions.SessionInstructions(id)) ?? "";
+      if (own.trim()) {
+        instructions = own;
+        return;
+      }
+    }
+  } catch {
+    /* 会话库不可用就退到全局 */
+  }
+  try {
+    instructions = (await Prefs.GetInstructions()) ?? "";
+  } catch {
+    instructions = "";
+  }
+}
+let offConfirm: (() => void) | null = null;
 
 function react(idx: number, kind: 1 | -1) {
   // 再点一次取消，像真的按钮
@@ -329,6 +364,38 @@ async function answerAsk(choice: string) {
   await send();
 }
 
+/**
+ * 用户点了确认或取消。
+ *
+ * 确认时把令牌原样发回去 —— 令牌绑定「工具 + 参数」且一次性，
+ * 所以模型即使被别的说法带着走，也做不了用户没点过的操作。
+ */
+async function answerConfirm(ok: boolean) {
+  const c = pendingConfirm.value;
+  pendingConfirm.value = null;
+  if (!c) return;
+  draft.value = ok ? `确认执行（令牌 ${c.token}）` : "取消，不要执行";
+  await send();
+}
+
+/**
+ * 点正文里的路径 → 在文件管理器里定位到它。
+ *
+ * 用事件委托而不是给每个路径挂 onClick：正文是 v-html 渲染的，
+ * 里面挂不了 Vue 事件；而且一段回答里可能有好几个路径。
+ */
+async function onContentClick(e: MouseEvent) {
+  const el = (e.target as HTMLElement | null)?.closest?.("[data-reveal-path]") as HTMLElement | null;
+  if (!el) return;
+  const path = el.dataset.revealPath;
+  if (!path) return;
+  try {
+    await Tools.RevealPath(path);
+  } catch {
+    /* 文件可能已被移走；不弹错，用户自己会看出来 */
+  }
+}
+
 async function scrollToBottom() {
   await nextTick();
   const el = scroller.value;
@@ -425,6 +492,7 @@ async function send() {
   if (expanded.value) expanded.value = false;
   await nextTick();
   autogrow();
+  await loadInstructions();
   await sess.appendTurn("user", text);
   await sess.ensureTitle();
   draft.value = "";
@@ -436,6 +504,11 @@ async function send() {
 
   offDelta = onDelta((chunk) => {
     streaming.value += chunk;
+    scrollToBottom();
+  });
+
+  offConfirm = onConfirm((c) => {
+    pendingConfirm.value = c;
     scrollToBottom();
   });
 
@@ -467,11 +540,12 @@ async function send() {
     const history = withWorkspace(turns.value, {
       paths: ws.paths.value,
       feature: ws.feature.value,
+      instructions,
     });
     // ★ 用 active*，不是弹窗里的草稿：改了模型没点保存就不该生效
     const sendProvider = activeProvider.value || provider.value;
     const sendModel = activeModel.value || model.value;
-    const result = await AIService.ChatAgent(chatInput(sendProvider, sendModel, history));
+    const result = await AIService.ChatAgent(chatInput(sendProvider, sendModel, history, sess.currentId.value));
     if (streaming.value.trim()) {
       await sess.appendTurn("assistant", streaming.value);
     } else if (result.content && !result.content.trim().startsWith("{")) {
@@ -556,13 +630,14 @@ onUnmounted(() => {
   offDelta?.();
   offTool?.();
   offAsk?.();
+  offConfirm?.();
 });
 </script>
 
 <template>
   <div class="relative flex h-full min-h-0 flex-col">
     <!-- ── 对话 ── -->
-    <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto">
+    <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto" @click="onContentClick">
       <div class="mx-auto max-w-[800px] px-6 py-8">
         <!-- 首屏 = 产品介绍。用户第一次打开不知道它能干什么，
              与其放一句「你想做什么」，不如把能力和边界直接摊开：
@@ -663,6 +738,39 @@ onUnmounted(() => {
             <Check v-else-if="s.ok" :size="12" class="mt-0.5 text-emerald-600" />
             <X v-else :size="12" class="mt-0.5 text-destructive" />
             <span class="min-w-0 truncate">{{ s.detail }}</span>
+          </div>
+        </div>
+
+        <!-- ── 危险操作确认 ──
+             清单一行一个完整路径：用户是靠路径判断「是不是这几个」的，
+             只给「3 个文件」等于没给信息。 -->
+        <div v-if="pendingConfirm" class="mt-1 mb-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3.5">
+          <p class="text-[length:var(--chat-fs)] font-medium">{{ pendingConfirm.title }}</p>
+          <ul class="mt-2 space-y-0.5">
+            <li
+              v-for="item in pendingConfirm.items"
+              :key="item"
+              class="select-text break-all font-mono text-[12.5px] leading-[1.6] text-muted-foreground"
+            >
+              · {{ item }}
+            </li>
+          </ul>
+          <p v-if="pendingConfirm.note" class="mt-2 text-[13px] text-destructive">{{ pendingConfirm.note }}</p>
+          <div class="mt-2.5 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              class="rounded-md bg-destructive px-3 py-1.5 text-[13px] font-medium text-destructive-foreground transition-transform active:scale-[0.97]"
+              @click="answerConfirm(true)"
+            >
+              {{ t("chat.confirmYes") }}
+            </button>
+            <button
+              type="button"
+              class="rounded-md border border-border px-3 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-accent"
+              @click="answerConfirm(false)"
+            >
+              {{ t("chat.confirmNo") }}
+            </button>
           </div>
         </div>
 

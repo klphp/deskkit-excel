@@ -26,6 +26,9 @@ const (
 	// 载荷 {question, options[], detail}：前端渲染成按钮，点了就把那一条
 	// 当作新的用户消息发回去。
 	EventAIAsk = "ai:ask"
+	// EventAIConfirm 危险操作待确认。载荷 {token, title, items[], note}：
+	// 前端渲染成确认条，用户点「确认执行」后带着 token 继续。
+	EventAIConfirm = "ai:confirm"
 )
 
 // AIService AI 在前端的门面。
@@ -218,6 +221,9 @@ func (s *AIService) Test(ctx context.Context, provider string) (TestResult, erro
 
 // ChatInput 对话入参。
 type ChatInput struct {
+	// SessionID 当前会话 id。工具层要靠它把「用户说的偏好」写到这个会话上，
+	// 而不是全局设置里（每个会话可能是完全不同的任务）。
+	SessionID   string       `json:"sessionId,omitempty"`
 	Provider    string       `json:"provider"`
 	Model       string       `json:"model"`
 	Messages    []ai.Message `json:"messages"`
@@ -298,16 +304,32 @@ func (s *AIService) ChatAgent(ctx context.Context, in ChatInput) (ChatResult, er
 		return ChatResult{}, errors.New(e.Message)
 	}
 
-	loop := ai.NewLoop(client, s.tools())
+	// 把会话 id 放进 context：remember_instructions 工具要靠它定位写到哪个会话
+	if in.SessionID != "" {
+		ctx = ai.WithSessionID(ctx, in.SessionID)
+	}
+
+	loop := ai.NewLoop(client, s.tools()).Streaming(true)
 	resp, e := loop.Run(ctx, in.toRequest().Messages, func(ev ai.Event) {
 		switch ev.Type {
 		case ai.EventToolCall, ai.EventToolResult:
 			s.emit(EventAITool, ev)
+		case ai.EventDelta:
+			// 流式增量：直接转发给前端，边收边渲染
+			if ev.Text != "" {
+				s.emit(EventAIDelta, map[string]any{"content": ev.Text})
+			}
 		case ai.EventAssistant:
 			// 非流式的回合：整段文字一次推给前端
 			if ev.Text != "" {
 				s.emit(EventAIDelta, map[string]any{"content": ev.Text})
 			}
+		case ai.EventConfirm:
+			var cf map[string]any
+			if err := json.Unmarshal([]byte(ev.Text), &cf); err != nil {
+				cf = map[string]any{"title": "需要确认", "items": []string{ev.Text}}
+			}
+			s.emit(EventAIConfirm, cf)
 		case ai.EventAwaiting:
 			// 模型问了用户一个问题，等界面上的一次点击。
 			// 原样把 question/options/detail 推给前端，前端渲染成按钮。

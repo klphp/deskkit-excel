@@ -19,14 +19,41 @@ marked.setOptions({
   breaks: true,
 });
 
+/**
+ * 把正文里的绝对路径包成可点的小标签。
+ *
+ * 为什么：AI 处理完最常说的是「结果写到 /xxx/yyy.xlsx」。用户看到路径的第一反应
+ * 是「在哪」，让他自己去文件管理器翻目录，是最容易劝退的一步。
+ * 这里只做一件事：给路径挂上 data-reveal-path，点击由容器统一处理
+ * （v-html 里挂不了 Vue 事件，所以用事件委托）。
+ *
+ * 只认「看起来像路径」的串：
+ *   macOS   /Users/... /Volumes/... /private/... 等以 / 开头且有扩展名或两段以上
+ *   Windows C:\... 或 C:/...
+ * 末尾标点（句号、逗号、右括号）不算路径的一部分。
+ */
+export function linkifyPaths(html: string): string {
+  return html.replace(PATH_RE, (match) => {
+    const trimmed = match.replace(/[\s，。；：、）)】」"']+$/, "");
+    if (!/\.\w{1,8}$/.test(trimmed)) return match; // 没有扩展名，多半不是文件
+    const safe = trimmed.replace(/"/g, "&quot;");
+    return `<button type="button" class="path-chip" data-reveal-path="${safe}">${trimmed}</button>${match.slice(trimmed.length)}`;
+  });
+}
+
+// 路径模式：/开头的 POSIX 路径，或 C:\ 形式的 Windows 路径。
+const PATH_RE = /(?:\/(?:Users|Volumes|private|tmp|home)\/[^\s"'<>|]+|[A-Za-z]:[\\/][^\s"'<>|]+)/g;
+
 /** 把 markdown 渲染成可安全插入的 HTML。 */
 export function renderMarkdown(src: string): string {
   if (!src) return "";
   const html = marked.parse(src, { async: false }) as string;
-  return DOMPurify.sanitize(html, {
+  // 先消毒再加交互标签：顺序反了会让 DOMPurify 把 data-* 和 class 洗掉的风险变大
+  const cleaned = DOMPurify.sanitize(html, {
     // 允许 a 的 target 以便外链新窗口；其余走默认白名单
     ADD_ATTR: ["target", "rel"],
   });
+  return linkifyPaths(cleaned);
 }
 
 /**

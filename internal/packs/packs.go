@@ -100,6 +100,47 @@ func registerAskTool(r *ai.Registry) error {
 	})
 }
 
+// registerRememberTool 注册「记住这个会话的工作方式」。
+//
+// 为什么需要：用户会说「下载的存 D:\待整理\，处理结果存 D:\报表\」。
+// 这句话只对当前会话有效（下个会话可能是别的任务），所以要写到会话上，
+// 而不是全局设置里。写进去之后，后面每轮的系统提示都会带上它。
+func registerRememberTool(r *ai.Registry) error {
+	def, err := ai.FunctionTool("remember_instructions",
+		"把用户对工作方式的偏好记到这个会话里（比如文件保存到哪个目录、命名规则）。"+
+			"只记用户明确说过的内容，不要自己编；同一会话再记会整体覆盖。",
+		map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"text": map[string]any{
+					"type":        "string",
+					"description": "要记住的完整描述，用用户的原话整理成一句或几句，例如「处理结果存到 D:\\报表\\，文件名加日期」",
+				},
+			},
+			"required": []string{"text"},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	return r.Add(def, func(ctx context.Context, args json.RawMessage) (string, error) {
+		var in struct {
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal(args, &in); err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(in.Text) == "" {
+			return "", fmt.Errorf("text 不能为空")
+		}
+		if err := ai.SaveSessionInstructions(ctx, in.Text); err != nil {
+			return "", err
+		}
+		raw, _ := json.Marshal(map[string]any{"ok": true, "saved": in.Text})
+		return string(raw), nil
+	})
+}
+
 // registerMetaTools 注册「查用法」这个元工具。
 //
 // 为什么让 AI 自己去查，而不是把所有用法塞进系统提示：
@@ -208,5 +249,11 @@ func Register(r *ai.Registry, enabled []string) (loaded []capability.Pack, err e
 	if err := registerAskTool(r); err != nil {
 		return loaded, err
 	}
+	if err := registerRememberTool(r); err != nil {
+		return loaded, err
+	}
+	// 危险操作：必须用户点过确认才允许执行。
+	// 现在只有删除；将来覆盖式移动、批量改名也走同一条门。
+	r.MarkDestructive("fs_delete")
 	return loaded, nil
 }

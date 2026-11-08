@@ -389,6 +389,25 @@
     word-break: normal;
   }
 
+  /* 可点的路径：看起来是文字，点一下会在文件管理器里定位到它 */
+  .md .path-chip {
+    display: inline;
+    padding: 0.05em 0.3em;
+    border-radius: 4px;
+    background: var(--muted);
+    font-family: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+    font-size: 0.92em;
+    color: var(--foreground);
+    border-bottom: 1px dashed var(--border);
+    cursor: pointer;
+    transition: background-color 0.12s, border-color 0.12s;
+  }
+  .md .path-chip:hover {
+    background: var(--accent);
+    border-bottom-color: var(--primary);
+  }
+  .md .path-chip:active { transform: scale(0.985); }
+
   /* 表格：这个工具最常见的内容，值得单独调 */
   .md table {
     margin: 0.8em 0;

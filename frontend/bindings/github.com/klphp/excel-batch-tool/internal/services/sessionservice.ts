@@ -89,6 +89,13 @@ export function Retention(): $CancellablePromise<number> {
 }
 
 /**
+ * SessionInstructions 读某个会话的自定义指令。
+ */
+export function SessionInstructions(id: string): $CancellablePromise<string> {
+    return $Call.ByID(1879157792, id);
+}
+
+/**
  * SetRetention 设置会话保留天数（只接受 3 / 7 / 15 / 30）。
  * 
  * 只改设置，不立刻清库：清理在启动时后台做，用户改完设置点关闭就走，
@@ -96,6 +103,13 @@ export function Retention(): $CancellablePromise<number> {
  */
 export function SetRetention(days: number): $CancellablePromise<void> {
     return $Call.ByID(1312561977, days);
+}
+
+/**
+ * SetSessionInstructions 写某个会话的自定义指令。
+ */
+export function SetSessionInstructions(id: string, text: string): $CancellablePromise<void> {
+    return $Call.ByID(1981293082, id, text);
 }
 
 /**

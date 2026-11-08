@@ -18,21 +18,40 @@ type ToolFunc func(ctx context.Context, args json.RawMessage) (string, error)
 //
 // 这是整个「AI 操作应用」的核心：UI 按钮和 AI 调的是同一批函数，
 // 所以行为一致、可测试、可批量。AI 不应该去模拟点界面。
+// Registry 工具表。destructive 记录需要用户确认才能执行的工具。
 type Registry struct {
 	mu   sync.RWMutex
 	defs []Tool
 	fns  map[string]ToolFunc
+	// destructive 需要用户点确认才能执行的工具名。
+	destructive map[string]bool
 }
 
 // NewRegistry 空注册表。
 func NewRegistry() *Registry {
-	return &Registry{fns: make(map[string]ToolFunc)}
+	return &Registry{fns: make(map[string]ToolFunc), destructive: make(map[string]bool)}
 }
 
 // Add 注册一个工具。
 //
 // 三处校验都是提前失败，而不是等模型调用时才炸：
 // 名字为空、函数为 nil、Parameters 不是合法 JSON Schema。
+// MarkDestructive 把某个工具标成「危险操作」：调用它之前必须有用户点过的确认令牌。
+//
+// 为什么不只在提示词里交代：提示词是约束，不是闸门。用户说一句「别问了直接删」，
+// 模型很可能就真照做 —— 而那正是最不该出事的时候。这里要让它在机制上做不到。
+func (r *Registry) MarkDestructive(name string) {
+	if r.destructive == nil {
+		r.destructive = make(map[string]bool)
+	}
+	r.destructive[name] = true
+}
+
+// IsDestructive 这个工具是否危险操作。
+func (r *Registry) IsDestructive(name string) bool {
+	return r.destructive != nil && r.destructive[name]
+}
+
 func (r *Registry) Add(def Tool, fn ToolFunc) error {
 	if def.Function.Name == "" {
 		return fmt.Errorf("工具名为空")
@@ -139,6 +158,11 @@ const (
 	// EventAwaiting 表示「问了用户一个问题，正在等回答」。
 	// 循环到此为止：模型已经停下，接下来的输入来自界面上的一次点击。
 	EventAwaiting = "awaiting"
+	// EventConfirm 危险操作待用户确认。载荷是 ai.ConfirmRequest 的 JSON。
+	EventConfirm = "confirm"
+	// EventDelta 流式增量：Text 是这一小段新增的文本。
+	// 有了它用户能看着字一个个出来，而不是等整段生成完。
+	EventDelta = "delta"
 )
 
 // AwaitPrefix 是 ask_user 工具返回结果的标记前缀。
@@ -154,6 +178,10 @@ const AwaitPrefix = "\x00await_user\x00"
 // 放 Go 侧而不是前端：同一套循环既能服务内置对话面板，也能直接服务
 // MCP / HTTP 出口。放前端的话，加一个出口就要重写一遍调度。
 type Loop struct {
+	// stream 为真时用 ChatStream，边收边推 delta 事件。
+	// 默认关：单元测试里的假服务器只实现了非流式响应，
+	// 默认开会让所有现有测试都要跟着改，而收益只在真实调用时才有。
+	stream    bool
 	client    *Client
 	registry  *Registry
 	maxRounds int
@@ -166,6 +194,15 @@ func NewLoop(client *Client, registry *Registry) *Loop {
 }
 
 // MaxRounds 设置最大轮次。
+// Streaming 打开或关闭流式输出。
+//
+// 开的收益：用户看着字一个个出来，长回答不再干等十几秒。
+// 默认关是为了不惊动单元测试里的假服务器（它们只实现了非流式响应）。
+func (l *Loop) Streaming(v bool) *Loop {
+	l.stream = v
+	return l
+}
+
 func (l *Loop) MaxRounds(n int) *Loop {
 	if n > 0 {
 		l.maxRounds = n
@@ -195,15 +232,33 @@ func (l *Loop) Run(ctx context.Context, msgs []Message, emit func(Event)) (*Resp
 			return last, fromTransport(err)
 		}
 
-		resp, e := l.client.Chat(ctx, Request{Messages: history, Tools: tools})
+		var resp *Response
+		var e *Error
+		if l.stream {
+			// 流式：每来一小段就推一个 delta，用户看到字在长
+			var streamed bool
+			resp, e = l.client.ChatStream(ctx, Request{Messages: history, Tools: tools}, func(d Delta) error {
+				if d.Content == "" || emit == nil {
+					return nil
+				}
+				streamed = true
+				emit(Event{Type: EventDelta, Text: d.Content, Round: round})
+				return nil
+			})
+			if e == nil && !streamed && resp != nil && resp.Content != "" && emit != nil {
+				// 有些网关不支持流式，会一次性返回整段 —— 兜底推一次，别让界面空白
+				emit(Event{Type: EventDelta, Text: resp.Content, Round: round})
+			}
+		} else {
+			resp, e = l.client.Chat(ctx, Request{Messages: history, Tools: tools})
+			if e == nil && resp != nil && resp.Content != "" && emit != nil {
+				emit(Event{Type: EventAssistant, Text: resp.Content, Round: round})
+			}
+		}
 		if e != nil {
 			return last, e
 		}
 		last = resp
-
-		if resp.Content != "" && emit != nil {
-			emit(Event{Type: EventAssistant, Text: resp.Content, Round: round})
-		}
 		if len(resp.ToolCalls) == 0 {
 			if emit != nil {
 				emit(Event{Type: EventDone, Text: resp.Content, Round: round})
@@ -224,6 +279,13 @@ func (l *Loop) Run(ctx context.Context, msgs []Message, emit func(Event)) (*Resp
 			}
 
 			out, err := l.registry.Execute(ctx, call.Function.Name, call.Function.Arguments)
+			// 危险操作没带用户确认令牌：不执行，把影响清单交给界面。
+			if strings.HasPrefix(out, ConfirmPrefix) {
+				if emit != nil {
+					emit(Event{Type: EventConfirm, Text: strings.TrimPrefix(out, ConfirmPrefix), Tool: call.Function.Name, Round: round})
+				}
+				return last, nil
+			}
 			// ask_user 问了用户一个问题：把回合交给用户，不要自己替用户答。
 			// 这里必须停 —— 继续下一轮的话，模型会在没有答案的情况下编一个。
 			if strings.HasPrefix(out, AwaitPrefix) {

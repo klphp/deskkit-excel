@@ -133,6 +133,24 @@ func (s *SessionService) ClearAll() (int, error) {
 	return st.ClearAll()
 }
 
+// SessionInstructions 读某个会话的自定义指令。
+func (s *SessionService) SessionInstructions(id string) (string, error) {
+	st, err := s.get()
+	if err != nil {
+		return "", err
+	}
+	return st.Instructions(id)
+}
+
+// SetSessionInstructions 写某个会话的自定义指令。
+func (s *SessionService) SetSessionInstructions(id, text string) error {
+	st, err := s.get()
+	if err != nil {
+		return err
+	}
+	return st.SetInstructions(id, text)
+}
+
 // StoragePath 库文件路径（「关于」页面显示用，也方便用户备份）。
 func (s *SessionService) StoragePath() string {
 	st, err := s.get()
