@@ -98,6 +98,10 @@ export const enUS = {
   "session.confirmDelete": "Delete this chat?",
   "session.cancel": "Cancel",
   "session.more": "More",
+  "chat.like": "Helpful",
+  "chat.dislike": "Not helpful",
+  "chat.copy": "Copy reply",
+  "chat.copied": "Copied",
   "ai.thinking": "Working…",
 
   "ai.disabledHint": "AI is turned off in the config file. Batch processing works without it, but you need it to drive the tool by sentence.",

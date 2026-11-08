@@ -103,6 +103,10 @@ export const zhCN = {
   "session.confirmDelete": "删除这个会话？",
   "session.cancel": "取消",
   "session.more": "更多",
+  "chat.like": "有帮助",
+  "chat.dislike": "没帮助",
+  "chat.copy": "复制回答",
+  "chat.copied": "已复制",
   "ai.thinking": "正在处理…",
 
   // ── 模型配置 ──

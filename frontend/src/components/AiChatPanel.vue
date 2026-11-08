@@ -23,6 +23,9 @@ import {
   Maximize2,
   Minimize2,
   Settings2,
+  ThumbsUp,
+  ThumbsDown,
+  Copy,
   Wrench,
   X,
 } from "@lucide/vue";
@@ -84,6 +87,33 @@ const scroller = ref<HTMLElement | null>(null);
 const inputEl = ref<HTMLTextAreaElement | null>(null);
 /** 覆盖层的输入框（和折叠态是两个元素，各自有 ref）。 */
 const expandedInput = ref<HTMLTextAreaElement | null>(null);
+
+/**
+ * 赞/踩：纯手感，不做任何事。
+ *
+ * 不落库、不上传、不统计、不显示数量 —— 就三个图标，点了有反应。
+ * 存内存即可：切走会话回来归零无所谓，本来也不代表什么。
+ */
+const reactions = ref<Record<number, 1 | -1 | 0>>({});
+/** 刚复制过的那条（显示一瞬间的 ✓）。 */
+const copiedAt = ref(-1);
+
+function react(idx: number, kind: 1 | -1) {
+  // 再点一次取消，像真的按钮
+  reactions.value[idx] = reactions.value[idx] === kind ? 0 : kind;
+}
+
+async function copyTurn(idx: number, text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    return;
+  }
+  copiedAt.value = idx;
+  setTimeout(() => {
+    if (copiedAt.value === idx) copiedAt.value = -1;
+  }, 1400);
+}
 
 let offDelta: (() => void) | null = null;
 let offTool: (() => void) | null = null;
@@ -460,11 +490,50 @@ onUnmounted(() => {
             </div>
           </div>
           <!-- 模型回答按 markdown 渲染：表格、代码块、列表都是常态 -->
-          <div
-            v-else-if="turn.role === 'assistant'"
-            class="md selectable text-[15px] leading-[1.75]"
-            v-html="renderMarkdown(turn.content)"
-          />
+          <template v-else-if="turn.role === 'assistant'">
+            <div class="md selectable text-[15px] leading-[1.75]" v-html="renderMarkdown(turn.content)" />
+            <!-- 底部三个图标：赞、踩、复制。前两个只是手感，不记录 -->
+            <div class="mt-1.5 flex items-center gap-0.5">
+              <button
+                type="button"
+                class="grid h-7 w-7 place-items-center rounded-md transition-[transform,background-color,color] duration-150 active:scale-[0.82]"
+                :class="
+                  reactions[i] === 1
+                    ? 'bg-primary/12 text-primary'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                "
+                :aria-pressed="reactions[i] === 1"
+                :title="t('chat.like')"
+                @click="react(i, 1)"
+              >
+                <ThumbsUp :size="14" :class="reactions[i] === 1 ? 'fill-current' : ''" />
+              </button>
+              <button
+                type="button"
+                class="grid h-7 w-7 place-items-center rounded-md transition-[transform,background-color,color] duration-150 active:scale-[0.82]"
+                :class="
+                  reactions[i] === -1
+                    ? 'bg-destructive/12 text-destructive'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                "
+                :aria-pressed="reactions[i] === -1"
+                :title="t('chat.dislike')"
+                @click="react(i, -1)"
+              >
+                <ThumbsDown :size="14" :class="reactions[i] === -1 ? 'fill-current' : ''" />
+              </button>
+              <button
+                type="button"
+                class="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-[transform,background-color,color] duration-150 hover:bg-accent hover:text-foreground active:scale-[0.82]"
+                :class="copiedAt === i ? 'text-primary' : ''"
+                :title="copiedAt === i ? t('chat.copied') : t('chat.copy')"
+                @click="copyTurn(i, turn.content)"
+              >
+                <Check v-if="copiedAt === i" :size="14" />
+                <Copy v-else :size="14" />
+              </button>
+            </div>
+          </template>
         </div>
 
         <div v-if="steps.length" class="mb-3 space-y-1">
