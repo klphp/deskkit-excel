@@ -287,9 +287,29 @@ async function scrollToBottom() {
   if (el) el.scrollTop = el.scrollHeight;
 }
 
+/**
+ * 能力包的名字/描述。
+ *
+ * ★ 这两个字段来自 Go 侧（capability.Pack），是写死的中文 —— 切语言时
+ *   不会跟着变，用户会看到「界面英文、功能名中文」。所以这里按 id 查词条，
+ *   查不到（新加的能力包还没翻译）再退回 Go 给的值，至少不是空白。
+ */
+function packName(pk?: { id: string; name: string } | null): string {
+  if (!pk) return "";
+  const key = `pack.${pk.id}.name`;
+  const translated = t(key);
+  return translated === key ? pk.name : translated;
+}
+
+function packDesc(pk: { id: string; description: string }): string {
+  const key = `pack.${pk.id}.desc`;
+  const translated = t(key);
+  return translated === key ? pk.description : translated;
+}
+
 const featureName = computed(() => {
   const p = ws.packs.value.find((x) => x.id === ws.feature.value);
-  return p?.name ?? ws.feature.value;
+  return packName(p) || ws.feature.value;
 });
 
 /**
@@ -828,8 +848,8 @@ onUnmounted(() => {
             :class="ws.feature.value === pk.id ? 'bg-accent/60' : ''"
             @click="chooseFeature(pk.id)"
           >
-            <span class="text-[13px] font-medium">{{ pk.name }}</span>
-            <span class="text-[11.5px] leading-relaxed text-muted-foreground">{{ pk.description }}</span>
+            <span class="text-[13px] font-medium">{{ packName(pk) }}</span>
+            <span class="text-[11.5px] leading-relaxed text-muted-foreground">{{ packDesc(pk) }}</span>
           </button>
           <p class="px-2.5 pb-1 pt-2 text-[11px] text-muted-foreground">{{ t("ai.featureMore") }}</p>
         </div>
