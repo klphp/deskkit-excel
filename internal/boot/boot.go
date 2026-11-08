@@ -27,6 +27,7 @@ import (
 	"github.com/klphp/excel-batch-tool/internal/ai"
 	"github.com/klphp/excel-batch-tool/internal/api"
 	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/excel-batch-tool/internal/platform"
 	"github.com/klphp/excel-batch-tool/internal/server"
 	"github.com/klphp/excel-batch-tool/internal/services"
 	"github.com/klphp/excel-batch-tool/internal/update"
@@ -92,6 +93,16 @@ func Run(opts Options) error {
 		slog.Info("日志已启用", "path", path)
 	} else {
 		slog.Warn("日志文件不可用，仅输出到控制台（Windows GUI 下将看不到任何日志）")
+	}
+
+	// ── 系统版本门槛 ──
+	// 必须在做任何事之前：界面依赖 WebView2，Win10 以下没有运行时，
+	// 硬跑只会出现白窗口或闪退。这里直接退出并弹一个原生提示框。
+	// 非 Windows 平台恒为通过。
+	if err := platform.Check(); err != nil {
+		slog.Error("系统版本不受支持", "err", err)
+		platform.Warn(opts.AppName, err.Error())
+		return err
 	}
 
 	cfg, err := loadConfig(opts.ConfigFS)
