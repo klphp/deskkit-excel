@@ -19,8 +19,15 @@ VERSION="${VERSION:-0.1.0}"
 BIN="bin/deskkit"
 OUT="dist/${APP_NAME}.app"
 
+# ★ 一定要在这里重新编译二进制，不能复用 bin/deskkit。
+# 前端 dist 是用 go:embed 打进二进制的：只重跑 npm run build、再拿旧二进制打包，
+# .app 里跑的还是上一版界面 —— 现象就是「代码改了、界面没变」，
+# 而且极难查（会怀疑是缓存、是热更新、是 WebView 不刷新）。
+echo "编译 Go（前端 dist 会被 embed 进去）..."
+go build -tags production -trimpath -ldflags="-w -s" -o "$BIN" .
+
 if [[ ! -f "$BIN" ]]; then
-  echo "先跑 wails3 build 生成 $BIN" >&2
+  echo "编译失败：没有产出 $BIN" >&2
   exit 1
 fi
 
