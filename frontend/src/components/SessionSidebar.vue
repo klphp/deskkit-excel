@@ -159,7 +159,7 @@ async function doDelete(id: string, ev: MouseEvent) {
               class="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full bg-primary"
               aria-hidden="true"
             />
-            <span class="min-w-0 flex-1 truncate">{{ s.title || t("session.untitled") }}</span>
+            <span class="min-w-0 flex-1 truncate" :title="s.title || t('session.untitled')">{{ s.title || t("session.untitled") }}</span>
             <button
               type="button"
               class="hidden shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground group-hover:block"
