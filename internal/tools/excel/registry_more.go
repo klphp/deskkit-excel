@@ -403,13 +403,17 @@ func registerTransformTool(r *ai.Registry) error {
 			out["note"] = "只预览，没有写文件。确认后给 outputPath 再调一次。"
 			return jsonOut(out)
 		}
-		path, err := WriteTable(in.OutputPath, t, WriteOptions{
+		path, err := resolveOutputPath(filepath.Dir(in.Path), in.OutputPath, in.Path)
+		if err != nil {
+			return "", err
+		}
+		written, err := WriteTable(path, t, WriteOptions{
 			Sheet: in.SheetName, BoldHeader: true, AutoWidth: true, NumbersAsNumbers: true,
 		})
 		if err != nil {
 			return "", err
 		}
-		out["output"] = path
+		out["output"] = written
 		return jsonOut(out)
 	})
 }
@@ -518,7 +522,11 @@ func registerGroupTool(r *ai.Registry) error {
 			"rows":    OffsetPaging(res.Table, 0, 50).Rows,
 		}
 		if in.OutputPath != "" {
-			p, err := WriteTable(in.OutputPath, res.Table, WriteOptions{BoldHeader: true, AutoWidth: true, NumbersAsNumbers: true})
+			path, err := resolveOutputPath(filepath.Dir(in.Path), in.OutputPath, in.Path)
+			if err != nil {
+				return "", err
+			}
+			p, err := WriteTable(path, res.Table, WriteOptions{BoldHeader: true, AutoWidth: true, NumbersAsNumbers: true})
 			if err != nil {
 				return "", err
 			}
@@ -534,6 +542,8 @@ func registerJoinTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("join_tables",
 		"横向合并两张表：按 key 列把另一张表的列带到这张表右边（就是 VLOOKUP）。"+
 			"会明确告诉你匹配上多少行、没匹配上多少、右表 key 有没有重复。"+
+			"右表 key 重复时默认直接报错（不会静默取第一条，那会把金额算少）；"+
+			"确实需要取值时显式给 onDuplicate。"+
 			"给了 outputPath 就写文件，否则只返回统计和预览。",
 		map[string]any{
 			"type": "object",
@@ -579,7 +589,12 @@ func registerJoinTool(r *ai.Registry) error {
 			out["warning"] = res.Warning
 		}
 		if in.OutputPath != "" {
-			p, err := WriteTable(in.OutputPath, res.Table, WriteOptions{BoldHeader: true, AutoWidth: true, NumbersAsNumbers: true})
+			// 相对路径按主表所在目录解析；绝对路径放行；不许覆盖左/右表
+			path, err := resolveOutputPath(filepath.Dir(in.LeftPath), in.OutputPath, in.LeftPath, in.RightPath)
+			if err != nil {
+				return "", err
+			}
+			p, err := WriteTable(path, res.Table, WriteOptions{BoldHeader: true, AutoWidth: true, NumbersAsNumbers: true})
 			if err != nil {
 				return "", err
 			}
@@ -661,7 +676,15 @@ func registerSplitTool(r *ai.Registry) error {
 				}
 				target = filepath.Join(dir, "sheets-merged.xlsx")
 			}
-			p, err := WriteTable(target, merged, WriteOptions{BoldHeader: true, AutoWidth: true, NumbersAsNumbers: true})
+			base := in.OutputDir
+			if base == "" {
+				base = filepath.Dir(in.Path)
+			}
+			path, err := resolveOutputPath(base, target, in.Path)
+			if err != nil {
+				return "", err
+			}
+			p, err := WriteTable(path, merged, WriteOptions{BoldHeader: true, AutoWidth: true, NumbersAsNumbers: true})
 			if err != nil {
 				return "", err
 			}

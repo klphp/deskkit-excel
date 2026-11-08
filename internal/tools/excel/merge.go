@@ -189,7 +189,18 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 	if !strings.HasSuffix(strings.ToLower(name), ".xlsx") {
 		name += ".xlsx"
 	}
-	path := filepath.Join(outDir, name)
+	// outputName 是用户/模型给的，同样要过边界校验：相对名按输出目录解析，
+	// ../ 一律拒绝，绝对路径放行；且不许落到任何一个源文件上。
+	protect := make([]string, 0, len(scan.Files))
+	for _, f := range scan.Files {
+		if f.Path != "" {
+			protect = append(protect, f.Path)
+		}
+	}
+	path, err := resolveOutputPath(outDir, name, protect...)
+	if err != nil {
+		return out, err
+	}
 
 	// 统一走 WriteTable：数字写成数值（金额列自动千分位两位小数、负数红）、
 	// 表头加粗冻结、并附一页「处理说明」。
@@ -202,6 +213,9 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 		Sheet:   "merged",
 		Headers: columns,
 		Rows:    rows,
+		// ★ 带上 warnings：重名列改名（金额-2）、缺列留空这些必须写进「处理说明」页。
+		// 只留在工具 JSON 里的话，用户拿到文件看不出「金额-2」是哪来的。
+		Warnings: out.Warnings,
 	}, WriteOptions{
 		Sheet:            "merged",
 		BoldHeader:       true,

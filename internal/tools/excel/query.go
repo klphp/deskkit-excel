@@ -35,6 +35,9 @@ type TableInfo struct {
 	Sheet   string   `json:"sheet"`
 	Rows    int      `json:"rows"`
 	Columns []string `json:"columns"`
+	// Warnings 装载时自动修正过什么（补表头 / 重名列改名）。
+	// 必须转述给模型：不然查询结果里平白多出「列3」，没人知道它从哪来。
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // Catalog 目录里所有表的清单。
@@ -171,12 +174,29 @@ func LoadCatalog(ctx context.Context, dir string) (*sql.DB, Catalog, error) {
 			continue
 		}
 		cat.Tables = append(cat.Tables, tables...)
+		// 补表头 / 重名列改名的说明也要出现在 note 里：只留在每张表的
+		// JSON 内部字段里，模型基本不会读，用户就永远不知道结果里为什么
+		// 多出一列「列3」。
+		cat.Note = noteWarnings(cat.Note, tables)
 	}
 
 	if len(cat.Tables) == 0 {
 		cat.Note = strings.Join(nonEmpty(cat.Note, "目录里没有可读的表格"), "；")
 	}
 	return db, cat, nil
+}
+
+// noteWarnings 把「装载时自动修正过什么」汇总成一句给人看的 note。
+//
+// 格式「文件/工作表: 说明」，多条用「；」连起来 —— 与其它 note 一致，
+// 模型和用户都能直接从返回体里看到，不用去扒每张表的 warnings 字段。
+func noteWarnings(note string, tables []TableInfo) string {
+	for _, t := range tables {
+		for _, w := range t.Warnings {
+			note = strings.Join(nonEmpty(note, fmt.Sprintf("%s/%s: %s", t.File, t.Sheet, w)), "；")
+		}
+	}
+	return note
 }
 
 func loadWorkbook(ctx context.Context, db *sql.DB, path, file string) ([]TableInfo, error) {
@@ -196,10 +216,27 @@ func loadWorkbook(ctx context.Context, db *sql.DB, path, file string) ([]TableIn
 			continue
 		}
 
-		headers := rows[0]
+		// ★ 表头必须和 LoadTable 走同一套归一，再按**所有行**的最大宽度补齐：
+		// 这里以前直接拿 rows[0] 当表头、又按表头宽度建列，于是「表头 2 列、
+		// 数据 4 列」的 CSV 被建成 2 列的表 —— 第 3/4 列整列静默消失，
+		// 用户问「这个月支出多少」拿到的是少算的合计（R-001）。
+		headers, warns := normalizeHeadersWarn(rows[0])
 		body := rows[1:]
 		if len(headers) == 0 {
 			continue
+		}
+		width := len(headers)
+		for _, row := range body {
+			if len(row) > width {
+				width = len(row)
+			}
+		}
+		if width > len(headers) {
+			// 复用 LoadTable 的补列实现，补名规则与「处理说明」文案完全一致
+			hdr := &Table{Headers: headers}
+			hdr.extendHeaders(width)
+			headers = hdr.Headers
+			warns = append(warns, hdr.Warnings...)
 		}
 
 		used := map[string]int{}
@@ -288,7 +325,10 @@ func loadWorkbook(ctx context.Context, db *sql.DB, path, file string) ([]TableIn
 			return out, err
 		}
 
-		out = append(out, TableInfo{Table: table, File: file, Sheet: sheet, Rows: count, Columns: cols})
+		out = append(out, TableInfo{
+			Table: table, File: file, Sheet: sheet, Rows: count, Columns: cols,
+			Warnings: warns,
+		})
 	}
 	return out, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/klphp/excel-batch-tool/internal/ai"
 )
@@ -58,6 +59,7 @@ func registerFileTools(r *ai.Registry) error {
 		raw, _ := json.Marshal(map[string]any{
 			"file":   info.File,
 			"tables": samples,
+			"note":   info.Note,
 			"output": info.Output,
 			"hint":   "列名按原表头保留，写 SQL 时用双引号包住；金额列已转成数字，可直接 SUM。结果写到 output 指定的路径（原文件不会改）。",
 		})
@@ -91,7 +93,7 @@ func registerFileTools(r *ai.Registry) error {
 		if err := json.Unmarshal(args, &in); err != nil {
 			return "", err
 		}
-		db, _, err := LoadWorkbookFile(ctx, in.Path)
+		db, info, err := LoadWorkbookFile(ctx, in.Path)
 		if err != nil {
 			return "", err
 		}
@@ -100,6 +102,8 @@ func registerFileTools(r *ai.Registry) error {
 		if err != nil {
 			return "", err
 		}
+		// 装载时补过表头 / 改过重名列 → 必须在返回体里说一声
+		res.Note = strings.Join(nonEmpty(res.Note, info.Note), "；")
 		raw, _ := json.Marshal(res)
 		return string(raw), nil
 	}); err != nil {

@@ -70,6 +70,7 @@ func LoadWorkbookFile(ctx context.Context, path string) (*sql.DB, SingleInfo, er
 		return nil, info, fmt.Errorf("%s", info.Note)
 	}
 	info.Tables = tables
+	info.Note = noteWarnings(info.Note, tables)
 	info.Output = SuggestOutputPath(path, "")
 	return db, info, nil
 }

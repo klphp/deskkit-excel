@@ -27,11 +27,17 @@ func Convert(opt ConvertOptions) (string, int, error) {
 	if strings.TrimSpace(opt.OutputPath) == "" {
 		return "", 0, fmt.Errorf("要给输出文件路径")
 	}
+	// outputPath 可能是用户随手给的相对路径：相对源文件所在目录解析，
+	// 且不许用 ../ 跳出该目录（绝对路径照常放行）。
+	path, err := resolveOutputPath(filepath.Dir(opt.Path), opt.OutputPath, opt.Path)
+	if err != nil {
+		return "", 0, err
+	}
 	t, err := LoadTable(opt.Path, opt.Sheet)
 	if err != nil {
 		return "", 0, err
 	}
-	path := uniquePath(opt.OutputPath)
+	path = uniquePath(path)
 
 	if IsCSV(path) {
 		table := make([][]string, 0, len(t.Rows)+1)

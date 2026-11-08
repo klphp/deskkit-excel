@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/klphp/excel-batch-tool/internal/ai"
 )
@@ -291,7 +292,7 @@ func registerQueryTools(r *ai.Registry) error {
 		if err := json.Unmarshal(args, &in); err != nil {
 			return "", err
 		}
-		db, _, err := LoadCatalog(ctx, in.Dir)
+		db, cat, err := LoadCatalog(ctx, in.Dir)
 		if err != nil {
 			return "", err
 		}
@@ -300,6 +301,8 @@ func registerQueryTools(r *ai.Registry) error {
 		if err != nil {
 			return "", err
 		}
+		// 装载时补过表头 / 改过重名列 → 必须在返回体里说一声
+		res.Note = strings.Join(nonEmpty(res.Note, cat.Note), "；")
 		raw, _ := json.Marshal(res)
 		return string(raw), nil
 	}); err != nil {
@@ -314,7 +317,7 @@ func registerQueryTools(r *ai.Registry) error {
 				"dir":       map[string]any{"type": "string", "description": "输入目录的绝对路径"},
 				"sql":       map[string]any{"type": "string", "description": "只读 SQL（SELECT / WITH）"},
 				"outputDir": map[string]any{"type": "string", "description": "输出目录；留空用 <dir>/deskkit-out"},
-				"fileName":  map[string]any{"type": "string", "description": "输出文件名，建议描述内容，如「部门汇总.xlsx」"},
+				"fileName":  map[string]any{"type": "string", "description": "输出文件名，只给名字、不能带路径（要换目录请用 outputDir），如「部门汇总.xlsx」"},
 			},
 			"required": []string{"dir", "sql"},
 		})
