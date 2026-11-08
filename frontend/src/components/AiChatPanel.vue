@@ -59,6 +59,18 @@ const ws = useWorkspace();
 const sess = useSessions();
 
 type Step = { tool: string; detail: string; done: boolean; ok: boolean };
+
+/**
+ * 内部工具：不在界面上摆出来。
+ *
+ * describe_capability 是模型自查「这个工具怎么用」，remember_instructions 是
+ * 记用户偏好 —— 两个都不动用户的数据。用户关心的是「它动了什么文件」，
+ * 不是它内部查了什么；摆出来只会让每轮对话多一条看不懂的步骤。
+ *
+ * 真出问题时（比如查询失败）这条被隐藏也不影响排查：错误会体现在模型的
+ * 回答里，日志里也有原始事件。
+ */
+const HIDDEN_TOOLS = new Set(["describe_capability", "remember_instructions"]);
 const steps = ref<Step[]>([]);
 
 const enabled = ref(false);
@@ -518,6 +530,7 @@ async function send() {
   });
 
   offTool = onTool((ev: ToolEvent) => {
+    if (ev.tool && HIDDEN_TOOLS.has(ev.tool)) return; // 内部调用不展示
     if (ev.type === "tool_call") {
       if (streaming.value.trim()) {
         // 落一条到历史：工具调用之间的中间话术也要留痕

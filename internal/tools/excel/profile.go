@@ -15,7 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/klphp/excel-batch-tool/internal/money"
 	"github.com/montanaflynn/stats"
+	"github.com/shopspring/decimal"
 )
 
 // ColumnProfile 单列的画像。
@@ -356,8 +358,17 @@ func numericStats(nums []float64) (sum, mean, median, stdDev, p25, p75, p95 floa
 		return
 	}
 	data := stats.Float64Data(nums)
-	sum, _ = data.Sum()
-	mean, _ = data.Mean()
+	// 合计/平均走 decimal，分位数与标准差交给 stats（那两个是统计量，不是钱）
+	decimals := make([]decimal.Decimal, len(nums))
+	for i, f := range nums {
+		decimals[i] = decimal.NewFromFloat(f)
+	}
+	if len(decimals) > 0 {
+		dsum := money.Sum(decimals)
+		sum, _ = dsum.Float64()
+		dmean, _ := dsum.Div(decimal.NewFromInt(int64(len(decimals)))).Float64()
+		mean = dmean
+	}
 	median, _ = data.Median()
 	stdDev, _ = data.StandardDeviationSample()
 	p25, _ = data.Percentile(25)

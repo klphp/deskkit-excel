@@ -11,7 +11,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -46,30 +46,22 @@ export function CapabilityUsage(id: string): $CancellablePromise<string> {
  * Clean 清洗。DryRun=true 时只统计不写文件。
  */
 export function Clean(opt: excel$0.CleanOptions): $CancellablePromise<excel$0.CleanResult> {
-    return $Call.ByID(3938710218, opt).then(($result: any) => {
-        return $$createType0($result);
-    });
+    return $Call.ByID(3938710218, opt);
 }
 
 export function MakeSample(): $CancellablePromise<excel$0.SampleInfo> {
-    return $Call.ByID(910632337).then(($result: any) => {
-        return $$createType1($result);
-    });
+    return $Call.ByID(910632337);
 }
 
 /**
  * Merge 合并。DryRun=true 时只预览不写文件。
  */
 export function Merge(opt: excel$0.MergeOptions): $CancellablePromise<excel$0.MergeResult> {
-    return $Call.ByID(2648683803, opt).then(($result: any) => {
-        return $$createType2($result);
-    });
+    return $Call.ByID(2648683803, opt);
 }
 
-export function Packs(): $CancellablePromise<$models.PackInfo[]> {
-    return $Call.ByID(2223143837).then(($result: any) => {
-        return $$createType4($result);
-    });
+export function Packs(): $CancellablePromise<$models.PackInfo[] | null> {
+    return $Call.ByID(2223143837);
 }
 
 /**
@@ -90,10 +82,8 @@ export function PickFolder(title: string): $CancellablePromise<string> {
  * 替他预设「只看表格」既多余也误导 —— 他不知道我们要不要视频，我们也不知道
  * 他接下来要处理表格还是视频。真选错了，AI 看一眼内容会直接告诉他。
  */
-export function PickPaths(title: string): $CancellablePromise<string[]> {
-    return $Call.ByID(1078787040, title).then(($result: any) => {
-        return $$createType5($result);
-    });
+export function PickPaths(title: string): $CancellablePromise<string[] | null> {
+    return $Call.ByID(1078787040, title);
 }
 
 /**
@@ -108,11 +98,3 @@ export function PickPaths(title: string): $CancellablePromise<string[]> {
 export function RevealPath(path: string): $CancellablePromise<void> {
     return $Call.ByID(2438062971, path);
 }
-
-// Private type creation functions
-const $$createType0 = excel$0.CleanResult.createFrom;
-const $$createType1 = excel$0.SampleInfo.createFrom;
-const $$createType2 = excel$0.MergeResult.createFrom;
-const $$createType3 = $models.PackInfo.createFrom;
-const $$createType4 = $Create.Array($$createType3);
-const $$createType5 = $Create.Array($Create.Any);

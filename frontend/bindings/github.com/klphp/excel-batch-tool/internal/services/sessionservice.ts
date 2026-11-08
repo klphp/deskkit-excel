@@ -8,7 +8,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
+import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -45,26 +45,22 @@ export function Delete(id: string): $CancellablePromise<void> {
 /**
  * Import 把旧版 localStorage 的历史导进来，返回导入条数。
  */
-export function Import(items: session$0.Session[]): $CancellablePromise<number> {
+export function Import(items: session$0.Session[] | null): $CancellablePromise<number> {
     return $Call.ByID(271634246, items);
 }
 
 /**
  * List 会话列表，最近更新的排前面。
  */
-export function List(): $CancellablePromise<session$0.Summary[]> {
-    return $Call.ByID(916677039).then(($result: any) => {
-        return $$createType1($result);
-    });
+export function List(): $CancellablePromise<session$0.Summary[] | null> {
+    return $Call.ByID(916677039);
 }
 
 /**
  * Load 读一个会话的完整消息。
  */
 export function Load(id: string): $CancellablePromise<session$0.Session> {
-    return $Call.ByID(3028045023, id).then(($result: any) => {
-        return $$createType2($result);
-    });
+    return $Call.ByID(3028045023, id);
 }
 
 /**
@@ -125,8 +121,3 @@ export function StoragePath(): $CancellablePromise<string> {
 export function Upsert(id: string, title: string): $CancellablePromise<void> {
     return $Call.ByID(1802332556, id, title);
 }
-
-// Private type creation functions
-const $$createType0 = session$0.Summary.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = session$0.Session.createFrom;

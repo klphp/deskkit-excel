@@ -11,6 +11,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/klphp/excel-batch-tool/internal/money"
+	"github.com/shopspring/decimal"
 )
 
 // Agg 一个聚合。
@@ -183,32 +186,41 @@ func runAgg(rows [][]string, ci int, a Agg) string {
 		return got
 	}
 
-	var nums []float64
+	// 金额一律走 decimal：float64 累加几万行会差出分位，
+	// 而「就差一分钱」在财务那里等于报表作废，最难查的是它看起来是对的。
+	var vals []decimal.Decimal
 	for _, r := range rows {
-		if n, ok := asNumber(strings.TrimSpace(cellAt(r, ci))); ok {
-			nums = append(nums, n)
+		if d, ok := money.Parse(cellAt(r, ci)); ok {
+			vals = append(vals, d)
 		}
 	}
-	if len(nums) == 0 {
+	if len(vals) == 0 {
 		return ""
 	}
 	switch fn {
 	case "sum":
-		var s float64
-		for _, n := range nums {
-			s += n
-		}
-		return trimNum(round(s*100) / 100)
+		// 合计保留精确值，不强行截两位 —— 截位会掩盖数据本身的小数位，
+		// 用户要对账时更希望看到真实合计。
+		return money.Text(money.Sum(vals))
 	case "avg":
-		var s float64
-		for _, n := range nums {
-			s += n
-		}
-		return trimNum(round(s/float64(len(nums))*100) / 100)
+		sum := money.Sum(vals)
+		return money.Round(sum.Div(decimal.NewFromInt(int64(len(vals)))), 2).String()
 	case "min":
-		return trimNum(minOf(nums))
+		m := vals[0]
+		for _, d := range vals[1:] {
+			if d.LessThan(m) {
+				m = d
+			}
+		}
+		return money.Text(m)
 	case "max":
-		return trimNum(maxOf(nums))
+		m := vals[0]
+		for _, d := range vals[1:] {
+			if d.GreaterThan(m) {
+				m = d
+			}
+		}
+		return money.Text(m)
 	}
 	return ""
 }
