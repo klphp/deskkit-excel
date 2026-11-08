@@ -135,11 +135,13 @@ func TestCleanNumbersAsText(t *testing.T) {
 		t.Fatalf("清洗失败: %v", err)
 	}
 	rows := readOutput(t, filepath.Join(res.OutputDir, "a-clean.xlsx"))
-	if rows[1][0] != "1234.50" {
-		t.Fatalf("货币+千分位没处理: %q", rows[1][0])
+	// 货币符号与千分位必须去掉，且金额要写成**数值**（回读带两位小数格式）。
+	// 按数值比较：这条测试关心的是「能不能直接求和」，不是字符串长相。
+	if !sameNumber(rows[1][0], 1234.5) {
+		t.Fatalf("货币+千分位没处理成数值: %q", rows[1][0])
 	}
-	if rows[2][0] != "2000" {
-		t.Fatalf("¥ 没处理: %q", rows[2][0])
+	if !sameNumber(rows[2][0], 2000) {
+		t.Fatalf("¥ 没处理成数值: %q", rows[2][0])
 	}
 	// 前导零必须保住：工号 00123 转成 123 就毁了
 	if rows[1][1] != "00123" {

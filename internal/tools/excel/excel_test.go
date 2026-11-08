@@ -168,7 +168,9 @@ func TestMergeAlignsByColumnName(t *testing.T) {
 	// b.xlsx 的「金额」在前，必须按列名搬到第 2 列；备注也不能丢
 	var aligned, kept bool
 	for _, r := range rows[1:] {
-		if len(r) >= 3 && r[0] == "运营" && r[1] == "300" && r[2] == "特殊单" {
+		// 金额现在是数值单元格，回读会带上千分位/两位小数格式（300 → "300.00"），
+		// 所以按数值比，不按字符串比。
+		if len(r) >= 3 && r[0] == "运营" && sameNumber(r[1], 300) && r[2] == "特殊单" {
 			aligned = true
 		}
 		// excelize 读回时会把行尾空单元格裁掉，所以「留空」表现为列数不足
@@ -274,4 +276,10 @@ func TestMergeKeepsEveryColumn(t *testing.T) {
 	if got.Columns[0] != "部门" || got.Columns[1] != "金额" || got.Columns[2] != "备注" {
 		t.Fatalf("列顺序应按首次出现：%v", got.Columns)
 	}
+}
+
+// sameNumber 按数值比较单元格文本（"300" 与 "300.00" 视为相同）。
+func sameNumber(cell string, want float64) bool {
+	got, ok := asNumber(cell)
+	return ok && got == want
 }

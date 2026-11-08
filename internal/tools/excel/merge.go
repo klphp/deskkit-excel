@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/xuri/excelize/v2"
 )
 
 // MergeOptions 合并参数。
@@ -188,48 +186,25 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 	}
 	path := filepath.Join(outDir, name)
 
-	f := excelize.NewFile()
-	defer f.Close()
-	sheet := "merged"
-	defaultSheet := f.GetSheetName(0)
-	if err := f.SetSheetName(defaultSheet, sheet); err != nil {
-		return out, fmt.Errorf("设置工作表名失败: %w", err)
-	}
-
-	writeRow := func(idx int, values []string) error {
-		cell, err := excelize.CoordinatesToCellName(1, idx)
-		if err != nil {
-			return err
-		}
-		row := make([]any, len(values))
-		for i, v := range values {
-			row[i] = v
-		}
-		return f.SetSheetRow(sheet, cell, &row)
-	}
-
-	if err := writeRow(1, columns); err != nil {
-		return out, fmt.Errorf("写表头失败: %w", err)
-	}
-	for i, row := range rows {
-		if ctx.Err() != nil {
-			return out, ctx.Err()
-		}
-		if err := writeRow(i+2, row); err != nil {
-			return out, fmt.Errorf("写第 %d 行失败: %w", i+2, err)
-		}
-	}
-
-	// 表头加粗 + 冻结首行：合并表动辄几千行，没有冻结很难用
-	style, styleErr := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true}})
-	if styleErr == nil {
-		lastCell, _ := excelize.CoordinatesToCellName(len(columns), 1)
-		_ = f.SetCellStyle(sheet, "A1", lastCell, style)
-	}
-	_ = f.SetPanes(sheet, &excelize.Panes{Freeze: true, YSplit: 1, TopLeftCell: "A2", ActivePane: "bottomLeft"})
-
-	if err := f.SaveAs(path); err != nil {
-		return out, fmt.Errorf("保存失败: %w", err)
+	// 统一走 WriteTable：数字写成数值（金额列自动千分位两位小数、负数红）、
+	// 表头加粗冻结、并附一页「处理说明」。
+	// 之前这里自己拼 SetSheetRow，所有单元格都是文本 —— 用户合并完连合计都看不到。
+	if _, err := WriteTable(path, &Table{
+		Sheet:   "merged",
+		Headers: columns,
+		Rows:    rows,
+	}, WriteOptions{
+		Sheet:            "merged",
+		BoldHeader:       true,
+		AutoWidth:        true,
+		NumbersAsNumbers: true,
+		Meta: []string{
+			fmt.Sprintf("操作：纵向合并 %d 个文件", out.Files),
+			fmt.Sprintf("行数：%d → %d（去重 %d 行）", out.RowsIn, out.RowsOut, out.Duplicates),
+			"列：" + strings.Join(columns, " / "),
+		},
+	}); err != nil {
+		return out, err
 	}
 
 	out.OutputPath = path

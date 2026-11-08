@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/xuri/excelize/v2"
 )
 
 // CleanOptions 清洗参数。
@@ -274,48 +272,27 @@ func readRaw(info SheetInfo) ([]string, [][]string, error) {
 // writeCleaned 写一个清洗后的副本。
 func writeCleaned(outDir, srcName string, headers []string, rows [][]string) (string, error) {
 	base := strings.TrimSuffix(srcName, filepath.Ext(srcName))
-	name := base + "-clean.xlsx"
-	path := filepath.Join(outDir, name)
+	path := filepath.Join(outDir, base+"-clean.xlsx")
 
-	f := excelize.NewFile()
-	defer f.Close()
-	sheet := "cleaned"
-	if err := f.SetSheetName(f.GetSheetName(0), sheet); err != nil {
+	// 统一走 WriteTable：数字写成数值、表头加粗冻结、附「处理说明」。
+	// 自己拼 SetSheetRow 会把所有单元格写成文本，清洗完的金额在 Excel 里没法求和。
+	written, err := WriteTable(path, &Table{
+		Headers: headers,
+		Rows:    rows,
+	}, WriteOptions{
+		Sheet:            "cleaned",
+		BoldHeader:       true,
+		AutoWidth:        true,
+		NumbersAsNumbers: true,
+		Meta: []string{
+			"操作：清洗（去空行 / 去重 / 去空白 / 统一日期 / 文本数字转数值）",
+			"来源：" + srcName,
+		},
+	})
+	if err != nil {
 		return "", err
 	}
-
-	put := func(idx int, values []string) error {
-		cell, err := excelize.CoordinatesToCellName(1, idx)
-		if err != nil {
-			return err
-		}
-		row := make([]any, len(values))
-		for i, v := range values {
-			row[i] = v
-		}
-		return f.SetSheetRow(sheet, cell, &row)
-	}
-
-	if err := put(1, headers); err != nil {
-		return "", err
-	}
-	for i, r := range rows {
-		if err := put(i+2, r); err != nil {
-			return "", fmt.Errorf("写第 %d 行失败: %w", i+2, err)
-		}
-	}
-
-	style, err := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true}})
-	if err == nil && len(headers) > 0 {
-		last, _ := excelize.CoordinatesToCellName(len(headers), 1)
-		_ = f.SetCellStyle(sheet, "A1", last, style)
-	}
-	_ = f.SetPanes(sheet, &excelize.Panes{Freeze: true, YSplit: 1, TopLeftCell: "A2", ActivePane: "bottomLeft"})
-
-	if err := f.SaveAs(path); err != nil {
-		return "", fmt.Errorf("保存失败: %w", err)
-	}
-	return path, nil
+	return written, nil
 }
 
 // parseDateFormat 把界面上的写法转成 Go 的布局。

@@ -450,25 +450,52 @@ func versionSuffix() string {
 	return " v" + AppVersion
 }
 
-// asNumber 判断能不能当数值写。前导零、超长数字、带千分位/货币符号的一律不动 ——
-// 工号 00123 变成 123 是这类工具最常见的事故。
+// asNumber 判断能不能当数值写。
+//
+// 不只认 "1234.5"：报表里的金额常写成 ￥1,234.50、(1,234.50) 表示负数、
+// ８８００（全角）。这些如果原样当文本写回去，用户打开 Excel 连合计都看不到 ——
+// 而那正是他合并完第一件要做的事。前导零、超长编号仍然保持文本（工号 00123 不能变 123）。
 func asNumber(s string) (float64, bool) {
 	v := strings.TrimSpace(s)
-	if v == "" || len(v) > 15 {
+	if v == "" {
 		return 0, false
 	}
+
+	// 全角转半角（报表导出里非常常见）
+	v = toHalfWidth(v)
+	v = strings.TrimSpace(v)
+
+	// 会计写法的负数：(1,234.50)
+	negative := false
+	if strings.HasPrefix(v, "(") && strings.HasSuffix(v, ")") {
+		negative = true
+		v = strings.TrimSpace(v[1 : len(v)-1])
+	}
+
+	// 货币符号与千分位
+	v = strings.NewReplacer(
+		"￥", "", "¥", "", "$", "", "€", "", "£", "",
+		",", "", "，", "", " ", "",
+	).Replace(v)
+
+	if v == "" || v == "-" || v == "+" || len(v) > 20 {
+		return 0, false
+	}
+	// 前导零（00123）按文本保留
 	if len(v) > 1 && v[0] == '0' && v[1] != '.' {
 		return 0, false
 	}
-	n, err := strconv.ParseFloat(strings.ReplaceAll(v, ",", ""), 64)
+	for _, r := range v {
+		if !(r >= '0' && r <= '9') && r != '.' && r != '-' && r != '+' && r != 'e' && r != 'E' {
+			return 0, false
+		}
+	}
+	n, err := strconv.ParseFloat(v, 64)
 	if err != nil {
 		return 0, false
 	}
-	// 纯数字才转：+86-138 这种不属于「数字」
-	for _, r := range v {
-		if !(r >= '0' && r <= '9') && r != '.' && r != '-' && r != '+' && r != ',' && r != 'e' && r != 'E' {
-			return 0, false
-		}
+	if negative {
+		n = -n
 	}
 	return n, true
 }
