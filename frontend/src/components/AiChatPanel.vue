@@ -10,7 +10,7 @@
  * 能力的组合在 Go 侧的工具循环里，这里只负责：把当前上下文交给模型、
  * 把流式文字和工具步骤显示出来、没接入模型时把设置打开。
  */
-import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   ArrowUp,
   Check,
@@ -338,6 +338,24 @@ async function send() {
   }
 }
 
+/**
+ * 输入框自动长高。
+ *
+ * 默认给三行高度（像 Gemini 那样一眼看出能写多行），内容多了往上长，
+ * 到 200px 封顶后内部滚动 —— 否则一条长指令会把对话区挤没。
+ */
+const INPUT_MAX = 200;
+
+function autogrow() {
+  const el = inputEl.value;
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${Math.min(el.scrollHeight, INPUT_MAX)}px`;
+}
+
+watch(draft, () => nextTick(autogrow));
+onMounted(() => nextTick(autogrow));
+
 function onKeydown(e: KeyboardEvent) {
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
@@ -459,7 +477,7 @@ onUnmounted(() => {
           </span>
         </div>
 
-        <div class="flex items-end gap-1.5 rounded-xl border border-input bg-background px-2 py-2 focus-within:ring-1 focus-within:ring-ring">
+        <div class="flex items-end gap-1.5 rounded-2xl border border-input bg-card px-2.5 py-2 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
           <!-- ① 选文件 -->
           <button
             type="button"
@@ -515,9 +533,10 @@ onUnmounted(() => {
           <textarea
             ref="inputEl"
             v-model="draft"
-            rows="1"
+            rows="3"
             :placeholder="ws.feature.value ? t('ai.placeholderFeature') : t('ai.placeholder')"
-            class="max-h-40 min-h-[26px] flex-1 resize-none bg-transparent px-1 py-1 text-[14px] leading-relaxed outline-none placeholder:text-muted-foreground"
+            class="max-h-[200px] min-h-[76px] flex-1 resize-none bg-transparent px-1 py-1.5 text-[14px] leading-[1.65] outline-none placeholder:text-muted-foreground"
+            @input="autogrow"
             @keydown="onKeydown"
           />
 
