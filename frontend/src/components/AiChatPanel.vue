@@ -11,25 +11,7 @@
  * 把流式文字和工具步骤显示出来、没接入模型时把设置打开。
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import {
-  ArrowUp,
-  Check,
-  FileSpreadsheet,
-  Film,
-  FileText,
-  FolderOpen,
-  Layers,
-  Loader2,
-  Maximize2,
-  Minimize2,
-  Settings2,
-  ThumbsUp,
-  ThumbsDown,
-  ChevronDown,
-  Copy,
-  Wrench,
-  X,
-} from "@lucide/vue";
+import { ArrowDown, ArrowUp, Check, ChevronDown, Copy, FileSpreadsheet, FileText, Film, FolderOpen, Layers, Loader2, Maximize2, Minimize2, Settings2, ThumbsDown, ThumbsUp, Wrench, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import { renderMarkdown } from "../lib/markdown";
 import { useWorkspace } from "../composables/workspace";
@@ -437,6 +419,8 @@ async function scrollToBottom() {
   await new Promise((r) => requestAnimationFrame(() => r(null)));
   el.scrollTop = el.scrollHeight;
   atBottom = true;
+  reachedBottomOnce = true;
+  showJumpDown.value = false;
 }
 
 /**
@@ -446,6 +430,29 @@ async function scrollToBottom() {
  * 又接近顶部 → 再加载…… 一下子把所有历史都拉出来，正好抵消了分页的意义。
  */
 let atBottom = false;
+/** 首屏是否已经落到底过（决定要不要允许「往上翻加载更早」）。 */
+let reachedBottomOnce = false;
+/** 离开底部后显示「回到底部」按钮。 */
+const showJumpDown = ref(false);
+
+/**
+ * 滚动时同时做两件事：记录是否离开底部（控制按钮显隐）、
+ * 靠近顶部时加载更早的消息。
+ */
+function onScrollerScroll() {
+  const el = scroller.value;
+  if (el) {
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    showJumpDown.value = distance > 240;
+  }
+  void onScroll();
+}
+
+/** 回到底部。 */
+async function jumpToBottom() {
+  await scrollToBottom();
+  showJumpDown.value = false;
+}
 
 /**
  * 滚到顶部附近时加载更早的消息。
@@ -456,7 +463,7 @@ let atBottom = false;
 async function onScroll() {
   const el = scroller.value;
   if (!el || sess.loadingOlder.value) return;
-  if (!atBottom) return;                       // 首屏还没落到底，先别翻历史
+  if (!reachedBottomOnce) return;              // 首屏还没落到底，先别翻历史
   if (el.scrollHeight <= el.clientHeight + 40) return; // 本来就没得滚
   if (el.scrollTop > 120) return;
   if (!sess.hasMoreTurns.value) return;
@@ -740,6 +747,7 @@ watch(
   () => sess.currentId.value,
   () => {
     atBottom = false;
+    reachedBottomOnce = false;
     void scrollToBottom();
   },
 );
@@ -763,15 +771,16 @@ onUnmounted(() => {
 <template>
   <div class="relative flex h-full min-h-0 flex-col">
     <!-- ── 对话 ── -->
-    <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto" @click="onContentClick" @scroll.passive="onScroll">
+    <div ref="scroller" class="selectable min-h-0 flex-1 overflow-y-auto" @click="onContentClick" @scroll.passive="onScrollerScroll">
       <div class="mx-auto max-w-[800px] px-6 py-8">
         <!-- 更早的消息：吸在顶部一直可见，点一下或往上滚都能加载。
              不显示这个的话，用户会以为会话只有这么长。 -->
-        <div v-if="sess.hasMoreTurns.value || sess.loadingOlder.value" class="sticky top-0 z-10 -mt-6 mb-4 flex justify-center pt-2">
+        <!-- 只在真的在加载时显示一行转圈：平时的「这里还有更早的」提示没有信息量，
+             用户往上滚自然会加载，不需要被告知。 -->
+        <div v-if="sess.loadingOlder.value" class="sticky top-0 z-10 -mt-6 mb-4 flex justify-center pt-2">
           <div class="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[12px] text-muted-foreground">
-            <Loader2 v-if="sess.loadingOlder.value" :size="12" class="animate-spin" />
-            <ArrowUp v-else :size="12" />
-            {{ sess.loadingOlder.value ? t("chat.loadingOlder") : t("chat.loadOlder") }}
+            <Loader2 :size="12" class="animate-spin" />
+            {{ t("chat.loadingOlder") }}
           </div>
         </div>
 
@@ -949,6 +958,19 @@ onUnmounted(() => {
         </p>
       </div>
     </div>
+
+      <!-- 回到底部：翻了一段历史之后一路滚回去很累。
+           只在离开底部时出现，平时不占地方。 -->
+      <button
+        v-if="showJumpDown"
+        type="button"
+        class="absolute bottom-4 left-1/2 z-20 grid h-9 w-9 -translate-x-1/2 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-md transition-[opacity,transform] duration-150 hover:text-foreground active:scale-[0.92]"
+        :title="t('chat.jumpToBottom')"
+        :aria-label="t('chat.jumpToBottom')"
+        @click="jumpToBottom"
+      >
+        <ArrowDown :size="16" />
+      </button>
 
     <!-- ── 输入区：对话的一部分，不是工具栏 ── -->
     <div class="shrink-0 px-6 pb-5">
