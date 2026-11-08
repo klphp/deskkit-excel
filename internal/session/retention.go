@@ -23,8 +23,11 @@ import (
 // 而会话库本身不大，没有必要为了省几 MB 让用户丢上下文。
 var allowedRetention = []int{30, 90, 180, 365, 0}
 
-// DefaultRetentionDays 默认保留 90 天（三个月）。
-const DefaultRetentionDays = 90
+// DefaultRetentionDays 默认保留 1 年。
+//
+// 选最长档当兜底：清理是为了「别把库拖垮」，不是为了替用户决定
+// 哪条记录不值得留。真有人在意空间，界面上有更短的档可以选。
+const DefaultRetentionDays = 365
 
 // RetentionDays 读当前保留天数。没设置过或值不合法时返回默认值。
 func (s *Store) RetentionDays() int {

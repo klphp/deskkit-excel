@@ -43,7 +43,7 @@ const { t, locale, enabled: i18nEnabled, available, setLocale } = useI18n();
 // 0 = 永久。3/7/15 天太短了 —— 半年前的一次排查记录常常还有用，
 // 而会话库本身不大，没必要为省几 MB 让用户丢上下文。
 const retentionOptions = [30, 90, 180, 365, 0];
-const retention = ref(90);
+const retention = ref(365);
 
 /** 天数 → 界面文字。不显示「天」以外的单位换算解释。 */
 function retentionLabel(days: number): string {
