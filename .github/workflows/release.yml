@@ -61,26 +61,26 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # 会话库用 SQLCipher，必须 CGO。Windows runner 自带 MSYS2，但不在 PATH 里，
-      # 不挂上去 go build 会直接报 "gcc: executable file not found"。
+      # 会话库用 SQLCipher，必须 CGO。runner 上的 MSYS2 基础包里没有 gcc，
+      # 得用这个动作装上（比手写 pacman 稳）。
       - name: Setup C toolchain (Windows)
+        if: matrix.platform == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-gcc
+
+      - name: Put gcc on PATH (Windows)
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
           $mingw = "C:\msys64\ucrt64\bin"
-          if (-not (Test-Path "$mingw\gcc.exe")) { throw "MSYS2 ucrt64 不在预期位置: $mingw" }
+          if (-not (Test-Path "$mingw\gcc.exe")) { Get-ChildItem C:\msys64 -Directory | Select-Object Name }
+          if (-not (Test-Path "$mingw\gcc.exe")) { throw "找不到 gcc：$mingw" }
           "$mingw" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           "CC=gcc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           & "$mingw\gcc.exe" --version | Select-Object -First 1
-
-      - name: Install Wails CLI
-        shell: bash
-        run: |
-          version=$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)
-          echo "wails module = $version"
-          go install github.com/wailsapp/wails/v3/cmd/wails3@$version
-          echo "$HOME/go/bin" >> $GITHUB_PATH
-          if [ -d "$(go env GOPATH)/bin" ]; then echo "$(go env GOPATH)/bin" >> $GITHUB_PATH; fi
 
       - name: Build
         shell: bash
