@@ -173,8 +173,9 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
         run: |
-          $version = "$env:GITHUB_REF_NAME" -replace '^v',''
-          if (-not $version) { $version = "0.0.0-dev" }
+          # 手动触发时 GITHUB_REF_NAME 是分支名（main），不能当版本号用
+          $ref = "$env:GITHUB_REF_NAME"
+          if ($ref -match '^v\d') { $version = $ref -replace '^v','' } else { $version = "0.0.0-dev" }
           $name = "deskkit-$version-windows-$env:ARCH"
           $stage = "dist/$name"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
@@ -190,8 +191,8 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          [ -z "$VERSION" ] && VERSION="0.0.0-dev"
+          # 同上：只有 v 开头的 tag 才当版本号，手动触发用占位版本
+          if [[ "$GITHUB_REF_NAME" == v[0-9]* ]]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION="0.0.0-dev"; fi
           OUT="deskkit-${VERSION}-darwin-${ARCH}"
           # .app 必须整目录压缩，Wails 自更新只认 zip
           cd bin
