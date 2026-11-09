@@ -16,16 +16,20 @@ const localPrefix = "local@"
 
 // ProviderInfo 给前端用的服务商快照。
 type ProviderInfo struct {
-	Name    string   `json:"name"`
-	Label   string   `json:"label"`
-	Kind    string   `json:"kind"`
-	BaseURL string   `json:"baseURL"`
-	Model   string   `json:"model"`
-	HasKey  bool     `json:"hasKey"` // 是否已拿到密钥（环境变量或用户设置）
-	Local   bool     `json:"local"`  // 是否为本地探测出来的
-	Ready   bool     `json:"ready"`  // 当前能否直接用
-	Error   string   `json:"error,omitempty"`
-	Models  []string `json:"models,omitempty"`
+	Name  string `json:"name"`
+	Label string `json:"label"`
+	// LabelKey 需要翻译时的 i18n 词条键（如 ai.provider.custom）。
+	// 品牌名（DeepSeek/OpenRouter/Ollama）不翻译，留空即可；
+	// 后端不生产任何语言的界面文案——它不知道用户当前用哪种语言。
+	LabelKey string   `json:"labelKey,omitempty"`
+	Kind     string   `json:"kind"`
+	BaseURL  string   `json:"baseURL"`
+	Model    string   `json:"model"`
+	HasKey   bool     `json:"hasKey"` // 是否已拿到密钥（环境变量或用户设置）
+	Local    bool     `json:"local"`  // 是否为本地探测出来的
+	Ready    bool     `json:"ready"`  // 当前能否直接用
+	Error    string   `json:"error,omitempty"`
+	Models   []string `json:"models,omitempty"`
 }
 
 // Manager 配置 + 用户设置的合并视图，也是服务的唯一入口。
@@ -141,11 +145,12 @@ func (m *Manager) Providers(ctx context.Context) []ProviderInfo {
 
 	// 「自定义」始终列在最后：谁都能接，不依赖配置里有什么
 	custom := ProviderInfo{
-		Name:    CustomProvider,
-		Label:   "自定义 / 其它",
-		Kind:    "openai",
-		BaseURL: "",
-		Model:   "",
+		Name:     CustomProvider,
+		Label:    "Custom",
+		LabelKey: "ai.provider.custom",
+		Kind:     "openai",
+		BaseURL:  "",
+		Model:    "",
 	}
 	if st.Provider == CustomProvider {
 		custom.BaseURL = st.BaseURL
@@ -170,7 +175,7 @@ func (m *Manager) Providers(ctx context.Context) []ProviderInfo {
 		}
 		info := ProviderInfo{
 			Name:    localPrefix + ep.Endpoint,
-			Label:   "本地 · " + ep.Endpoint,
+			Label:   ep.Endpoint, // 品牌名/地址不翻译；「本地」由前端的 ai.local 词条补
 			Kind:    ep.Kind,
 			BaseURL: ep.Endpoint,
 			Local:   true,

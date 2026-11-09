@@ -111,6 +111,8 @@ export const zhCN = {
   "ai.provider": "服务商",
   "ai.model": "模型",
   "ai.ready": "可用",
+  "ai.local": "本地",
+  "ai.provider.custom": "自定义 / 其它",
   "ai.notReady": "未就绪",
   "ai.keySaved": "已保存（留空则不修改）",
   "ai.testFailed": "连接失败",

@@ -187,7 +187,7 @@ ai:
     # 本地：数据不出机器，是「隐私」卖点的技术前提。不需要 key。
     ollama:
       kind: ollama
-      label: 本地 Ollama
+      label: Ollama
       baseURL: http://127.0.0.1:11434
       model: qwen2.5:7b
       timeout: 120s        # 本地小模型首字延迟高，超时给宽一点
@@ -195,7 +195,7 @@ ai:
     # LM Studio / llama.cpp server：同样 OpenAI 兼容，跑在本机
     lmstudio:
       kind: openai
-      label: LM Studio（本地）
+      label: LM Studio
       baseURL: http://127.0.0.1:1234/v1
       model: local-model
       timeout: 120s

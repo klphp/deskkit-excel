@@ -1114,7 +1114,7 @@ onUnmounted(() => {
                 @change="pickProvider(($event.target as HTMLSelectElement).value)"
               >
                 <option v-for="p in providers" :key="p.name" :value="p.name">
-                  {{ p.label || p.name }} · {{ p.ready ? t("ai.ready") : p.local ? t("ai.notRunning") : t("ai.needsKey") }}
+                  {{ p.labelKey ? t(p.labelKey) : p.label || p.name }}<span v-if="p.local" class="opacity-70"> · {{ t("ai.local") }}</span> · {{ p.ready ? t("ai.ready") : p.local ? t("ai.notRunning") : t("ai.needsKey") }}
                 </option>
               </select>
               <ChevronDown

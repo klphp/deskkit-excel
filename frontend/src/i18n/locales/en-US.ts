@@ -105,6 +105,8 @@ export const enUS = {
   "ai.provider": "Provider",
   "ai.model": "Model",
   "ai.ready": "ready",
+  "ai.local": "local",
+  "ai.provider.custom": "Custom / other",
   "ai.notReady": "not ready",
   "ai.keySaved": "Saved (leave blank to keep)",
   "ai.testFailed": "Connection failed",
