@@ -84,13 +84,14 @@ update:
 # 语言切换入口出现在设置窗口，只列出 locales 里的语言。
 # ─────────────────────────────────────────────────────────────
 i18n:
-  # 打开：设置页出现语言切换，选完写 localStorage，重启保持。
+  # 设置页出现语言切换的条件是「locales 里配了两种以上语言」。
+  # 第一版只发布英文形态：这里只留 en-US，切换器因此不出现。
+  # 以后要放开中文，把 zh-CN 一行加回来即可，词条文件已在 i18n/locales/ 里。
   enabled: true
-  defaultLocale: zh-CN
-  fallbackLocale: zh-CN
+  defaultLocale: en-US
+  fallbackLocale: en-US
   locales:
-    - zh-CN
-    - en-US        # 缺的词条自动回退中文，可以分批翻译
+    - en-US
 
 # 官方/第三方 API 对接
 apis:
