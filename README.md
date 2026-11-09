@@ -29,8 +29,7 @@ companies won't upload their financial workbooks to somebody else's server.
 
 Early. This is version 0.1.0 and it is honest about that:
 
-- **Excel only.** The tool registry is built for adding more file types (PDF, media),
-  but nothing else is implemented yet.
+- **Excel only.** That is the whole scope. One tool, one job.
 - **Windows 10 and later.** The app refuses to start on older Windows. macOS builds
   exist and run, but are not polished.
 - **Unsigned binaries.** SmartScreen and Gatekeeper will warn about an unknown
