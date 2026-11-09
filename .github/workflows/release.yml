@@ -42,6 +42,7 @@ jobs:
             ext: ""
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -119,15 +120,19 @@ jobs:
           Write-Output "PE subsystem = $sub (2 = GUI)"
           if ($sub -ne 2) { throw "产物是控制台程序（subsystem=$sub），双击会多一个命令行窗口" }
 
-      # 未签名 + arm64 的 macOS 上，二进制至少要有一个 ad-hoc 签名才能运行
+      # 未签名 + arm64 的 macOS 上，二进制至少要有一个 ad-hoc 签名才能运行。
+      # 注意：**不要**在这里运行 bin/deskkit —— 它是 GUI 程序，会一直挂着不退出，
+      # 上一版就是因为写了 `./bin/deskkit --version` 把 macOS job 挂死了 40 多分钟。
       - name: Ad-hoc sign (macOS)
         if: matrix.platform == 'darwin'
         shell: bash
+        timeout-minutes: 5
         run: |
           chmod +x bin/deskkit
           codesign --force --sign - bin/deskkit
           codesign -dv bin/deskkit 2>&1 | head -3
-          ./bin/deskkit --version 2>/dev/null || echo "（GUI 程序，跳过运行验证）"
+          file bin/deskkit
+          lipo -archs bin/deskkit 2>/dev/null || true
 
       # macOS 用户拿裸二进制也能跑，但 .app 更像正常软件：双击即用、有图标。
       # 这里手工拼一个最小 bundle，避免依赖 wails3 package 的平台限制。
