@@ -67,11 +67,14 @@ server:
 # 会报 "has no asset for darwin/arm64"。
 # ─────────────────────────────────────────────────────────────
 update:
-  enabled: false
+  # 打开：应用会按 checkInterval 查 GitHub Releases，并在「关于」里显示检查结果。
+  # 只有发布出比当前版本更高的 tag，才会提示更新。
+  enabled: true
   provider: github
-  repository: ""             # 如 klphp/myapp
+  repository: "klphp/deskkit-excel"
   manifestUrl: ""            # provider: endpoint 时用
-  checksumAsset: ""          # 如 SHA256SUMS，只防下载损坏
+  # 必须与 CI 汇总出来的校验和文件名一致（.github/workflows/release.yml）
+  checksumAsset: "SHA256SUMS"
   prerelease: false
   publicKey: ""              # 留空 = 不验签
   checkInterval: 6h
