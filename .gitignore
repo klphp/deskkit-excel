@@ -28,3 +28,6 @@ README.zh-CN.md
 
 # 构建时生成的 Windows 资源文件
 rsrc_*.syso
+
+# 项目背景（Hermes 自动加载），不进仓库
+.hermes.md
