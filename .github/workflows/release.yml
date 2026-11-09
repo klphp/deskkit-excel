@@ -165,35 +165,39 @@ jobs:
           VERSION: ${{ github.ref_name }}
 
       # ── 打包 ──
-      - name: Package
+      # 每个平台的产物形状不同，而且不能共用一个 shell 脚本：
+      # Windows runner 上没有 zip 命令（那是 Linux/macOS 的东西），必须用 Compress-Archive。
+      - name: Package (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          $version = "$env:GITHUB_REF_NAME" -replace '^v',''
+          if (-not $version) { $version = "0.0.0-dev" }
+          $name = "deskkit-$version-windows-$env:ARCH"
+          $stage = "dist/$name"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item bin/deskkit.exe, README.md, DISCLAIMER.md -Destination $stage
+          $hash = (Get-FileHash "$stage/deskkit.exe" -Algorithm SHA256).Hash.ToLower()
+          "deskkit.exe  SHA256=$hash" | Out-File -Encoding ascii "$stage/SHA256SUMS.txt"
+          Compress-Archive -Path "$stage/*" -DestinationPath "$name.zip" -CompressionLevel Optimal
+          Write-Output ("package = " + $name + ".zip " + (Get-Item "$name.zip").Length + " bytes")
+
+      - name: Package (macOS)
+        if: matrix.platform == 'darwin'
         shell: bash
         env:
-          PLATFORM: ${{ matrix.platform }}
           ARCH: ${{ matrix.arch }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           [ -z "$VERSION" ] && VERSION="0.0.0-dev"
-          OUT="deskkit-${VERSION}-${PLATFORM}-${ARCH}"
-          case "$PLATFORM" in
-            windows)
-              # 便携版：解压即用，附带说明与免责声明
-              STAGE="dist/$OUT"
-              mkdir -p "$STAGE"
-              cp bin/deskkit.exe README.md DISCLAIMER.md "$STAGE/"
-              (cd "$STAGE" && sha256sum deskkit.exe > SHA256SUMS.txt)
-              (cd dist && zip -qr "../$OUT.zip" "$OUT")
-              ;;
-            darwin)
-              # .app 必须整目录压缩，Wails 自更新只认 zip
-              cd bin
-              zip -qry "../$OUT.zip" "DeskKit Excel.app"
-              cd ..
-              ;;
-            linux)
-              tar -czf "$OUT.tar.gz" -C bin deskkit
-              ;;
-          esac
-          ls -lh "$OUT".* 2>/dev/null || ls -lh $OUT.zip
+          OUT="deskkit-${VERSION}-darwin-${ARCH}"
+          # .app 必须整目录压缩，Wails 自更新只认 zip
+          cd bin
+          zip -qry "../$OUT.zip" "DeskKit Excel.app"
+          cd ..
+          ls -lh "$OUT.zip"
 
       - name: Checksums
         shell: bash
