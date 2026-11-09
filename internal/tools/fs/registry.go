@@ -19,6 +19,12 @@ func Register(r *ai.Registry) error {
 
 // registerWithGuard 用指定的边界注册工具。
 // 单独抽出来是为了测试能用临时目录当根，不去碰用户主目录。
+// 也供 cmd/mcp-fs 复用：MCP server 和桌面应用必须暴露同一套语义，
+// 否则「AI 在应用里删不掉的东西，在 MCP 里能删」这种不一致迟早出事。
+func RegisterWithGuard(r *ai.Registry, g Guard) error {
+	return registerWithGuard(r, g)
+}
+
 func registerWithGuard(r *ai.Registry, g Guard) error {
 
 	// ── 遍历 ──
@@ -27,10 +33,11 @@ func registerWithGuard(r *ai.Registry, g Guard) error {
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path":       map[string]any{"type": "string", "description": "目录绝对路径"},
-				"recursive":  map[string]any{"type": "boolean", "description": "是否递归子目录"},
-				"pattern":    map[string]any{"type": "string", "description": "文件名通配，如 *.xlsx；留空表示全部"},
-				"maxEntries": map[string]any{"type": "integer", "description": "最多返回多少条，默认 2000"},
+				"path":        map[string]any{"type": "string", "description": "目录绝对路径"},
+				"recursive":   map[string]any{"type": "boolean", "description": "是否递归子目录"},
+				"pattern":     map[string]any{"type": "string", "description": "文件名通配，如 *.xlsx；留空表示全部"},
+				"maxEntries":  map[string]any{"type": "integer", "description": "最多返回多少条，默认 2000"},
+				"concurrency": map[string]any{"type": "integer", "description": "递归时的并行度，默认核数×2（上限 32）；1 = 串行。一般不用传"},
 			},
 			"required": []string{"path"},
 		})
@@ -87,6 +94,71 @@ func registerWithGuard(r *ai.Registry, g Guard) error {
 			return "", err
 		}
 		res, err := g.Peek(ctx, in)
+		if err != nil {
+			return "", err
+		}
+		raw, _ := json.Marshal(res)
+		return string(raw), nil
+	}); err != nil {
+		return err
+	}
+
+	// ── 读文本文件的一段 ──
+	readDef, err := ai.FunctionTool("fs_read",
+		"读文本文件的一段（按行）。处理编码（UTF-8/GBK/Big5/UTF-16/BOM）并告诉你真实编码、总行数和行号区间。文件很大时用 offset/limit 定位，不要整文件读。",
+		map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"path":     map[string]any{"type": "string", "description": "文件绝对路径"},
+				"offset":   map[string]any{"type": "integer", "description": "起始行，从 1 开始，默认 1"},
+				"limit":    map[string]any{"type": "integer", "description": "读多少行，默认 200，上限 50000"},
+				"maxBytes": map[string]any{"type": "integer", "description": "单次最多读多少字节，默认 2MB，上限 64MB"},
+			},
+			"required": []string{"path"},
+		})
+	if err != nil {
+		return err
+	}
+	if err := r.Add(readDef, func(ctx context.Context, args json.RawMessage) (string, error) {
+		var in ReadOptions
+		if err := json.Unmarshal(args, &in); err != nil {
+			return "", err
+		}
+		res, err := g.Read(ctx, in)
+		if err != nil {
+			return "", err
+		}
+		raw, _ := json.Marshal(res)
+		return string(raw), nil
+	}); err != nil {
+		return err
+	}
+
+	// ── 按内容搜关键字 ──
+	searchDef, err := ai.FunctionTool("fs_search",
+		"按内容在目录里搜关键字（纯文本包含匹配，不是正则）。自动处理 GBK/Big5/UTF-16，跳过二进制和超大文件，返回文件路径 + 行号 + 该行内容。想知道「哪个文件里有这段报错」就用它，别自己写 grep。",
+		map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"path":          map[string]any{"type": "string", "description": "目录或单个文件的绝对路径"},
+				"pattern":       map[string]any{"type": "string", "description": "要搜的关键字（纯文本，不支持正则）"},
+				"extensions":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "只看这些后缀，如 [\"txt\",\"csv\"]；留空表示全部"},
+				"maxResults":    map[string]any{"type": "integer", "description": "最多返回多少条命中，默认 100，上限 5000"},
+				"maxFileSize":   map[string]any{"type": "integer", "description": "超过多少字节的文件跳过，默认 5MB"},
+				"concurrency":   map[string]any{"type": "integer", "description": "并行扫几个文件，默认核数×2（上限 32）"},
+				"caseSensitive": map[string]any{"type": "boolean", "description": "是否区分大小写，默认 false"},
+			},
+			"required": []string{"path", "pattern"},
+		})
+	if err != nil {
+		return err
+	}
+	if err := r.Add(searchDef, func(ctx context.Context, args json.RawMessage) (string, error) {
+		var in SearchOptions
+		if err := json.Unmarshal(args, &in); err != nil {
+			return "", err
+		}
+		res, err := g.Search(ctx, in)
 		if err != nil {
 			return "", err
 		}

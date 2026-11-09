@@ -10,10 +10,12 @@ require (
 	github.com/jfyne/csvd v1.0.0
 	github.com/montanaflynn/stats v0.14.0
 	github.com/mutecomm/go-sqlcipher/v4 v4.4.2
+	github.com/panjf2000/ants/v2 v2.12.1
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d
 	github.com/shopspring/decimal v1.6.0
 	github.com/wailsapp/wails/v3 v3.1.0
 	github.com/xuri/excelize/v2 v2.11.1
+	golang.org/x/sync v0.24.0
 	golang.org/x/text v0.43.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.62.0
