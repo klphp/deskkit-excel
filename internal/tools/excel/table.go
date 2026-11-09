@@ -214,7 +214,10 @@ func WriteTable(path string, t *Table, opt WriteOptions) (string, error) {
 	if opt.Sheet == "" {
 		opt.Sheet = "结果"
 	}
-	path = uniquePath(path)
+	path, err := uniquePath(path)
+	if err != nil {
+		return "", err
+	}
 
 	if IsCSV(path) {
 		table := make([][]string, 0, len(t.Rows)+1)
@@ -628,20 +631,25 @@ func displayWidth(s string) int {
 	return w
 }
 
-// uniquePath 同名时加 -1、-2，绝不覆盖已有文件。
-func uniquePath(path string) string {
+// uniquePath 同名时加 -1、-2……，绝不覆盖已有文件。
+//
+// 候选名用尽（-1 到 -999 全被占）时**返回错误**，不退回原路径：
+// 退回原路径等于把「绝不覆盖」的承诺作废——调用方接着写文件就会盖掉别人的东西。
+// 这种情况本来就该让人先清理目录，而不是悄悄覆盖。
+func uniquePath(path string) (string, error) {
 	if _, err := os.Stat(path); err != nil {
-		return path
+		return path, nil
 	}
 	ext := filepath.Ext(path)
-	base := strings.TrimSuffix(path, ext)
+	stem := strings.TrimSuffix(path, ext)
 	for i := 1; i < 1000; i++ {
-		p := fmt.Sprintf("%s-%d%s", base, i, ext)
+		p := fmt.Sprintf("%s-%d%s", stem, i, ext)
 		if _, err := os.Stat(p); err != nil {
-			return p
+			return p, nil
 		}
 	}
-	return path
+	return "", fmt.Errorf("同名文件过多：%s 的 -1 到 -999 已全部被占用，请先清理或改名",
+		filepath.Base(path))
 }
 
 // endColumn 列号 → 列名（1 → A，27 → AA）。

@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/klphp/fsx/xtext"
+	"github.com/klphp/deskkit-excel/internal/fsx/xtext"
 )
 
 func writeFile(t *testing.T, dir, name string, data []byte) string {

@@ -1,4 +1,4 @@
-// Package fsai 把文件能力（github.com/klphp/fsx）接进桌面应用的 ai.Registry。
+// Package fsai 把文件能力（github.com/klphp/deskkit-excel/internal/fsx）接进桌面应用的 ai.Registry。
 //
 // 为什么单独一个包：fsx 必须保持「零桌面依赖」，因为同一份能力还要被
 // MCP server（github.com/klphp/deskmcp）复用。
@@ -12,7 +12,7 @@ import (
 
 	"github.com/klphp/deskkit-excel/internal/ai"
 	"github.com/klphp/deskkit-excel/internal/capability"
-	"github.com/klphp/fsx"
+	"github.com/klphp/deskkit-excel/internal/fsx"
 )
 
 // Register 把文件操作注册成 AI 可调用的工具。

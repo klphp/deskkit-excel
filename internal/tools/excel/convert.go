@@ -37,7 +37,10 @@ func Convert(opt ConvertOptions) (string, int, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	path = uniquePath(path)
+	path, err = uniquePath(path)
+	if err != nil {
+		return "", 0, err
+	}
 
 	if IsCSV(path) {
 		table := make([][]string, 0, len(t.Rows)+1)

@@ -3,7 +3,7 @@
 An AI-driven batch processor for Excel files, running entirely on your own machine.
 
 Describe what you want in one sentence, point it at a folder, and it works through
-the files locally. Nothing is uploaded, and no account is required.
+the files locally. No account, and the files themselves never leave the machine.
 
 ```
 You:   merge the 200 department reports into one sheet, summarised by department
@@ -66,6 +66,23 @@ describe the job in words.
 | Local model | Auto-detects Ollama / LM Studio on this machine — keeps everything offline |
 
 Keys are stored on the local machine only (`0600`), never uploaded.
+
+## What leaves this machine
+
+Being precise about this, because "local" and "no upload" can be read two ways:
+
+- **Your files stay local.** Reading, cleaning, merging, writing — all of it happens
+  on this machine. The app makes no request to any server by default.
+- **With a local model** (Ollama / LM Studio on your own machine) nothing leaves at all.
+- **With a cloud model** you configured (DeepSeek, OpenAI, OpenRouter …), the model
+  provider receives your chat messages **and the results the tools return** — which can
+  include table excerpts, column values and query output. That is inherent to using a
+  hosted model: it has to see the data to answer. The app shows which provider is in
+  use under the input box, and says so explicitly when it is not a local one.
+- **The update check** is the only other outbound request, and it is a version check.
+
+If the data must not leave the machine under any circumstances, use a local model —
+that keeps everything on disk.
 
 ## Build
 

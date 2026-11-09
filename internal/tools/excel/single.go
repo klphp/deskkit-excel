@@ -92,7 +92,10 @@ func SuggestOutputPath(src, suffix string) string {
 // ★ 落盘前必走 uniquePath：时间戳只到秒，用户连点两次「执行」或模型重试一次，
 // 第二次就会覆盖第一次的结果（两次返回同一路径），结果既不可复现也不可追溯。
 func WriteRowsAlong(src, suffix string, columns []string, rows [][]string) (string, error) {
-	path := uniquePath(SuggestOutputPath(src, suffix))
+	path, err := uniquePath(SuggestOutputPath(src, suffix))
+	if err != nil {
+		return "", err
+	}
 
 	f := excelize.NewFile()
 	defer f.Close()

@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"github.com/klphp/deskkit-excel/internal/ai"
-	"github.com/klphp/fsx"
+	"github.com/klphp/deskkit-excel/internal/fsx"
 )
 
 func TestConfirmPrefixMatchesAI(t *testing.T) {

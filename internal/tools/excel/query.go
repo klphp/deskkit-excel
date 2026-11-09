@@ -486,7 +486,10 @@ func WriteQuery(ctx context.Context, db *sql.DB, query, outputDir, fileName stri
 		}
 	}
 	// 剩下的同名情况走 uniquePath（-1、-2），绝不覆盖已有文件
-	path := uniquePath(raw)
+	path, err := uniquePath(raw)
+	if err != nil {
+		return "", 0, err
+	}
 
 	if IsCSV(path) {
 		table := make([][]string, 0, len(res.Rows)+1)

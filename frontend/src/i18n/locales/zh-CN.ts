@@ -112,6 +112,7 @@ export const zhCN = {
   "ai.model": "模型",
   "ai.ready": "可用",
   "ai.local": "本地",
+  "ai.cloudNotice": "你的消息和工具结果会发送到 {host}。文件处理仍在本机完成。",
   "ai.provider.custom": "自定义 / 其它",
   "ai.notReady": "未就绪",
   "ai.keySaved": "已保存（留空则不修改）",

@@ -123,7 +123,7 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 			continue
 		}
 
-		fileRows, missing, err := readAligned(f, columns)
+		fileRows, missing, err := readAligned(ctx, f, columns)
 		if err != nil {
 			out.Skipped = append(out.Skipped, SkipInfo{Name: f.Name, Reason: err.Error()})
 			continue
@@ -240,7 +240,7 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 // readAligned 读一个文件的数据行，按目标列顺序对齐。
 //
 // 返回缺失的列名，供上层汇总成 warning —— 不静默丢列，也不因缺列整份跳过。
-func readAligned(info SheetInfo, columns []string) ([][]string, []string, error) {
+func readAligned(ctx context.Context, info SheetInfo, columns []string) ([][]string, []string, error) {
 	f, err := openWorkbook(info.Path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("打开失败: %w", err)
@@ -268,7 +268,13 @@ func readAligned(info SheetInfo, columns []string) ([][]string, []string, error)
 	seenHeader := false
 
 	var out [][]string
+	// 每 512 行看一次取消信号：以前只在文件之间检查，单个几百万行的文件
+	// 一旦开始读就停不下来，用户点取消要等到整个文件读完。
+	const cancelCheckEvery = 512
 	for rows.Next() {
+		if len(out)%cancelCheckEvery == 0 && ctx.Err() != nil {
+			return nil, nil, ctx.Err()
+		}
 		cells, err := rows.Columns()
 		if err != nil {
 			return nil, nil, fmt.Errorf("读取行内容失败: %w", err)

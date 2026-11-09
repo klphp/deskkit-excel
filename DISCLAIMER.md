@@ -7,8 +7,10 @@
   unknown developer. That is what unsigned means, not a sign of a problem.
 - **No warranty**, including fitness for a particular purpose or freedom from data loss.
   **Back up important data before use.**
-- **No data upload**: all file processing happens locally. The only network features are
-  the update check and the AI endpoint you configure yourself.
+- **Data flow**: file processing happens locally; the app itself uploads nothing.
+  If you configure a cloud model provider, your messages and the results returned by
+  the tools (which can contain table data) are sent to that provider. With a local
+  model, nothing leaves the machine. The only other outbound request is the update check.
 - **AI output can be wrong**: the app shows pending changes and asks for confirmation
   before writing, but verify the results yourself — especially amounts, IDs and dates.
 - **No support commitment**: issues and suggestions are welcome, but no response or

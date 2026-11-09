@@ -16,10 +16,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/jfyne/csvd"
-	"github.com/klphp/fsx/xtext"
+	"github.com/klphp/deskkit-excel/internal/fsx/xtext"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -166,6 +167,55 @@ func readCSVWithDelim(path string) ([][]string, string, error) {
 	return rows, string(r.Comma), nil
 }
 
+// sanitizeCSVCell 防公式注入（CSV injection）。
+//
+// 为什么要有：Excel / WPS / Numbers 打开 CSV 时，以 = + - @ 开头的单元格会被当成
+// 公式执行。数据来源是别人的导出文件时（订单、流水、台账），一个 "=cmd|..." 就能
+// 变成一条可执行语句。excelize 写 xlsx 没有这个问题，只有纯文本 CSV 有。
+//
+// 两条约束：
+//   - 合法的数字不能动：-123、-0.5、+8 这类加了前缀就变成文本，用户会看到脏数据；
+//   - 判定不看第一个字符，看去掉前导空白后的第一个字符——Excel 会忽略前导空格。
+func sanitizeCSVCell(s string) string {
+	if s == "" {
+		return s
+	}
+	if isNumericLiteral(s) {
+		return s
+	}
+	trimmed := strings.TrimLeft(s, " \t\r\n")
+	if trimmed == "" {
+		return s
+	}
+	switch trimmed[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		// 前置单引号是表格软件的「按文本处理」约定，打开后不显示引号
+		return "'" + s
+	}
+	return s
+}
+
+// isNumericLiteral 判断整格是不是一个合法数字（用来放过负数、正号数）。
+func isNumericLiteral(s string) bool {
+	if _, err := strconv.ParseFloat(strings.TrimSpace(s), 64); err == nil {
+		return true
+	}
+	return false
+}
+
+// sanitizeCSVRows 复制一份并逐格消毒，不改调用方的数据。
+func sanitizeCSVRows(rows [][]string) [][]string {
+	out := make([][]string, len(rows))
+	for i, row := range rows {
+		cells := make([]string, len(row))
+		for j, c := range row {
+			cells[j] = sanitizeCSVCell(c)
+		}
+		out[i] = cells
+	}
+	return out
+}
+
 // writeCSVGBK 写 GBK 编码的 CSV（不带 BOM，GBK 本身不需要）。
 //
 // 为什么要有：老系统（尤其国内的 ERP、财务软件）导入时只认 GBK，
@@ -173,7 +223,7 @@ func readCSVWithDelim(path string) ([][]string, string, error) {
 func writeCSVGBK(path string, rows [][]string) error {
 	var buf strings.Builder
 	w := csv.NewWriter(&buf)
-	if err := w.WriteAll(rows); err != nil {
+	if err := w.WriteAll(sanitizeCSVRows(rows)); err != nil {
 		return fmt.Errorf("生成 CSV 失败: %w", err)
 	}
 	w.Flush()
@@ -205,7 +255,7 @@ func WriteCSV(path string, rows [][]string) error {
 	buf.WriteString("\uFEFF")
 
 	w := csv.NewWriter(&buf)
-	if err := w.WriteAll(rows); err != nil {
+	if err := w.WriteAll(sanitizeCSVRows(rows)); err != nil {
 		return fmt.Errorf("生成 CSV 失败: %w", err)
 	}
 	w.Flush()

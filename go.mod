@@ -8,21 +8,19 @@ require (
 	github.com/extrame/xls v0.0.1
 	github.com/gin-gonic/gin v1.10.1
 	github.com/jfyne/csvd v1.0.0
-	github.com/klphp/fsx v0.0.0
 	github.com/montanaflynn/stats v0.14.0
 	github.com/mutecomm/go-sqlcipher/v4 v4.4.2
+	github.com/panjf2000/ants/v2 v2.12.1
+	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d
 	github.com/shopspring/decimal v1.6.0
 	github.com/wailsapp/wails/v3 v3.1.0
 	github.com/xuri/excelize/v2 v2.8.1
+	golang.org/x/sync v0.24.0
 	golang.org/x/sys v0.48.0
+	golang.org/x/text v0.43.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.44.3
 )
-
-// 文件能力核心已搬到独立模块（/Volumes/server/go/src/fsx）：桌面应用与
-// MCP server（github.com/klphp/deskmcp）共用同一份 —— 本机惯例用 replace
-// 直连源码（同 vitalis-app → vitalis），改哪边都立刻生效，不发版本。
-replace github.com/klphp/fsx => /Volumes/server/go/src/fsx
 
 require (
 	github.com/bytedance/sonic v1.14.0 // indirect
@@ -50,13 +48,11 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
-	github.com/panjf2000/ants/v2 v2.12.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/richardlehane/mscfb v1.0.9 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/xuri/efp v0.0.3-0.20260924042702-217b81952dec // indirect
@@ -66,9 +62,7 @@ require (
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	modernc.org/libc v1.67.6 // indirect

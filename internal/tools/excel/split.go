@@ -62,7 +62,10 @@ func SplitByColumn(t *Table, col, outDir, ext string, maxFiles int) ([]SplitOutp
 		if name == "" {
 			name = "sheet"
 		}
-		path := uniquePath(filepath.Join(outDir, name+ext))
+		path, err := uniquePath(filepath.Join(outDir, name+ext))
+		if err != nil {
+			return nil, err
+		}
 		sub := &Table{Path: t.Path, Sheet: t.Sheet, Headers: append([]string(nil), t.Headers...), Rows: groups[k]}
 		if _, err := WriteTable(path, sub, WriteOptions{BoldHeader: true, AutoWidth: true, NumbersAsNumbers: true}); err != nil {
 			return nil, err
@@ -91,7 +94,10 @@ func SplitSheets(path, outDir string) ([]SplitOutput, error) {
 		if err != nil {
 			return nil, err
 		}
-		p := uniquePath(filepath.Join(outDir, sanitizeFileName(name)+".xlsx"))
+		p, err := uniquePath(filepath.Join(outDir, sanitizeFileName(name)+".xlsx"))
+		if err != nil {
+			return nil, err
+		}
 		if _, err := WriteTable(p, t, WriteOptions{Sheet: name, BoldHeader: true, AutoWidth: true, NumbersAsNumbers: true}); err != nil {
 			return nil, err
 		}
@@ -147,7 +153,11 @@ func StackSheets(tables []*Table) *Table {
 
 // WriteMultiSheet 把多张表写进同一个文件的多个工作表（带来源列标注）。
 func WriteMultiSheet(path string, tables []*Table, opt WriteOptions) (string, error) {
-	path = uniquePath(path)
+	uniq, err := uniquePath(path)
+	if err != nil {
+		return "", err
+	}
+	path = uniq
 	f, err := newExcelFile()
 	if err != nil {
 		return "", err

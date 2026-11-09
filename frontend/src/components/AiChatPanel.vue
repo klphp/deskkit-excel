@@ -214,6 +214,29 @@ let offAsk: (() => void) | null = null;
 const current = computed(() => providers.value.find((p) => p.name === provider.value));
 
 /** 底部状态栏显示的「正在用的服务商名」，跟生效值走，不跟弹窗草稿走。 */
+/** 当前生效的服务商对象（用来判断本地/云端，以及取出主机名）。 */
+const activeProviderInfo = computed(
+  () => providers.value.find((p) => p.name === activeProvider.value),
+);
+
+/**
+ * 云端服务商要显式告诉用户数据去哪了。
+ *
+ * 「文件在本机处理」是真的——表格文件本身不离开磁盘；但用云端模型时，
+ * 你的消息和工具返回的结果（可能包含表格片段、查询结果）会发到服务商。
+ * 这两件事不是一回事，界面必须说清楚，不能让人以为全程一个字都没出去。
+ */
+const activeIsLocal = computed(() => activeProviderInfo.value?.local === true);
+
+const activeHost = computed(() => {
+  const raw = activeProviderInfo.value?.baseURL || "";
+  try {
+    return raw ? new URL(raw).host : "";
+  } catch {
+    return raw;
+  }
+});
+
 const activeLabel = computed(
   () =>
     providers.value.find((p) => p.name === activeProvider.value)?.label ||
@@ -1001,6 +1024,14 @@ onUnmounted(() => {
           <button v-else type="button" class="text-primary hover:underline" @click="openSettings">
             {{ t("ai.configureFirst") }}
           </button>
+        </div>
+
+        <!-- 云端模型：明确说出「消息和工具结果会发到哪」，本地模型不显示 -->
+        <div
+          v-if="ready && !activeIsLocal"
+          class="mt-0.5 px-1 text-[11px] leading-relaxed text-muted-foreground/80"
+        >
+          {{ t("ai.cloudNotice", { host: activeHost || activeLabel }) }}
         </div>
       </div>
     </div>

@@ -106,6 +106,7 @@ export const enUS = {
   "ai.model": "Model",
   "ai.ready": "ready",
   "ai.local": "local",
+  "ai.cloudNotice": "Your messages and tool results are sent to {host}. File processing still happens on this machine.",
   "ai.provider.custom": "Custom / other",
   "ai.notReady": "not ready",
   "ai.keySaved": "Saved (leave blank to keep)",
