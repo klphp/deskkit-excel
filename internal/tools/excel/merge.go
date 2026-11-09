@@ -112,6 +112,8 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 	seen := make(map[string]struct{})
 	dupCount := 0
 	var rows [][]string
+	var approxBytes int64
+	warnedMemory := false
 
 	// ── 逐文件取数 ──
 	for _, f := range scan.Files {
@@ -164,6 +166,21 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 				seen[key] = struct{}{}
 			}
 			rows = append(rows, row)
+			approxBytes += estimateRowBytes(row)
+
+			// 硬线：再攒下去用户机器可能被系统杀掉进程，直接停并说明怎么办
+			if approxBytes > mergeHardLimitBytes {
+				return out, fmt.Errorf(
+					"合并结果太大：已读取 %d 行、约 %s，超过安全上限 %s，继续下去可能占满内存导致软件被系统关闭。"+
+						"请分批处理：先按条件拆成几个子集分别合并，再把结果合起来；或先筛掉不需要的列再合并",
+					len(rows), humanMB(approxBytes), humanMB(mergeHardLimitBytes))
+			}
+			// 软线：只提醒一次，用户可以选择继续
+			if approxBytes > mergeSoftLimitBytes && !warnedMemory {
+				warnedMemory = true
+				out.Warnings = append(out.Warnings, fmt.Sprintf(
+					"合并数据已占约 %s 内存（%d 行），大文件建议分批合并", humanMB(approxBytes), len(rows)))
+			}
 		}
 	}
 
@@ -235,6 +252,31 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 	out.ElapsedMS = time.Since(start).Milliseconds()
 	_ = first
 	return out, nil
+}
+
+// 合并是「先把所有行攒在内存，最后一次性写出」，所以内存占用随行数线性增长。
+// 用户机器多是 8～16GB，与其冒被系统杀掉进程的风险，不如在到达危险线之前明确拦住：
+// 软线只提醒（还能继续），硬线直接报错并告诉他怎么办。
+//
+// 数值是保守估计：一个单元格按 24 字节结构开销 + 内容长度算，
+// 100 万行 × 10 列 × 平均 8 字 ≈ 400MB 上下。
+var (
+	mergeSoftLimitBytes int64 = 256 << 20 // 256MB：警告，继续
+	mergeHardLimitBytes int64 = 1 << 30   // 1GB：拒绝，给出分批建议
+)
+
+// estimateRowBytes 估算一行数据在内存里的大致体积。
+func estimateRowBytes(row []string) int64 {
+	n := int64(len(row) * 24) // 每个字符串头（指针+长度）
+	for _, c := range row {
+		n += int64(len(c))
+	}
+	return n
+}
+
+// humanMB 把字节数说成人话，报错信息里用。
+func humanMB(n int64) string {
+	return fmt.Sprintf("%.0f MB", float64(n)/(1<<20))
 }
 
 // readAligned 读一个文件的数据行，按目标列顺序对齐。
