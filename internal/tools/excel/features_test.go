@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/klphp/excel-batch-tool/internal/xtext"
+	"github.com/klphp/fsx/xtext"
 )
 
 // sampleTable 一张典型的员工表，带各种毛病。

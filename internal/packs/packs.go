@@ -5,7 +5,7 @@
 //
 //	internal/capability      类型定义（叶子包，不依赖业务）
 //	internal/tools/excel     表格处理 + excel.Pack()
-//	internal/tools/fs        文件能力核心（纯 Go，零桌面依赖）
+//	github.com/klphp/fsx     文件能力核心（独立模块，纯 Go，零桌面依赖）
 //	internal/tools/fsai      把文件能力挂进 ai.Registry + fsai.Pack()
 //	internal/tools/<新工具>   照抄上面两个，加 Pack() 即可
 //

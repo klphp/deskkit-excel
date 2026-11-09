@@ -8,18 +8,20 @@ require (
 	github.com/extrame/xls v0.0.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/jfyne/csvd v1.0.0
+	github.com/klphp/fsx v0.0.0
 	github.com/montanaflynn/stats v0.14.0
 	github.com/mutecomm/go-sqlcipher/v4 v4.4.2
-	github.com/panjf2000/ants/v2 v2.12.1
-	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d
 	github.com/shopspring/decimal v1.6.0
 	github.com/wailsapp/wails/v3 v3.1.0
 	github.com/xuri/excelize/v2 v2.11.1
-	golang.org/x/sync v0.24.0
-	golang.org/x/text v0.43.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.62.0
 )
+
+// 文件能力核心已搬到独立模块（/Volumes/server/go/src/fsx）：桌面应用与
+// MCP server（github.com/klphp/deskmcp）共用同一份 —— 本机惯例用 replace
+// 直连源码（同 vitalis-app → vitalis），改哪边都立刻生效，不发版本。
+replace github.com/klphp/fsx => /Volumes/server/go/src/fsx
 
 require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
@@ -47,12 +49,14 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
+	github.com/panjf2000/ants/v2 v2.12.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/richardlehane/mscfb v1.0.9 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect
+	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
@@ -63,8 +67,10 @@ require (
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	modernc.org/libc v1.80.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

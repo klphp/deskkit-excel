@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/klphp/excel-batch-tool/internal/ai"
-	"github.com/klphp/excel-batch-tool/internal/tools/fs"
+	"github.com/klphp/fsx"
 )
 
 func mustWrite(t *testing.T, path, content string) {
@@ -54,7 +54,7 @@ func TestRegisterIncludesAllTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fs_read 执行失败: %v", err)
 	}
-	var read fs.ReadResult
+	var read fsx.ReadResult
 	if err := json.Unmarshal([]byte(out), &read); err != nil {
 		t.Fatalf("fs_read 返回的不是合法 JSON: %v（%s）", err, out)
 	}
@@ -67,7 +67,7 @@ func TestRegisterIncludesAllTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fs_search 执行失败: %v", err)
 	}
-	var sr fs.SearchResult
+	var sr fsx.SearchResult
 	if err := json.Unmarshal([]byte(out), &sr); err != nil {
 		t.Fatalf("fs_search 返回的不是合法 JSON: %v（%s）", err, out)
 	}

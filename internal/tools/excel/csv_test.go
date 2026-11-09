@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/klphp/excel-batch-tool/internal/xtext"
+	"github.com/klphp/fsx/xtext"
 )
 
 func writeFile(t *testing.T, dir, name string, data []byte) string {

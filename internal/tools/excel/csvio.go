@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"github.com/jfyne/csvd"
-	"github.com/klphp/excel-batch-tool/internal/xtext"
+	"github.com/klphp/fsx/xtext"
 	"github.com/xuri/excelize/v2"
 )
 

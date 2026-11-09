@@ -2,7 +2,7 @@ package fsai
 
 // 危险操作必须过「用户确认」这道门：没有令牌一步都不许执行。
 //
-// 这里同时盯住一件事：fs.ConfirmPrefix 必须和 ai.ConfirmPrefix 逐字节相同。
+// 这里同时盯住一件事：fsx.ConfirmPrefix 必须和 ai.ConfirmPrefix 逐字节相同。
 // 界面的对话循环靠 ai.ConfirmPrefix 识别「这轮在等用户点确认」，而令牌本身
 // 现在由 fs 包（能力核心，不带桌面依赖）发放。两边一旦不一致，删除会静默
 // 失效 —— 用户点确认也没反应，或者更糟：不确认就删了。
@@ -16,20 +16,20 @@ import (
 	"testing"
 
 	"github.com/klphp/excel-batch-tool/internal/ai"
-	"github.com/klphp/excel-batch-tool/internal/tools/fs"
+	"github.com/klphp/fsx"
 )
 
 func TestConfirmPrefixMatchesAI(t *testing.T) {
-	if fs.ConfirmPrefix != ai.ConfirmPrefix {
-		t.Fatalf("fs.ConfirmPrefix(%q) 必须等于 ai.ConfirmPrefix(%q)：否则界面收不到确认请求",
-			fs.ConfirmPrefix, ai.ConfirmPrefix)
+	if fsx.ConfirmPrefix != ai.ConfirmPrefix {
+		t.Fatalf("fsx.ConfirmPrefix(%q) 必须等于 ai.ConfirmPrefix(%q)：否则界面收不到确认请求",
+			fsx.ConfirmPrefix, ai.ConfirmPrefix)
 	}
 }
 
-func testGuard(t *testing.T) (fs.Guard, string) {
+func testGuard(t *testing.T) (fsx.Guard, string) {
 	t.Helper()
 	root := t.TempDir()
-	return fs.Guard{Roots: []string{root}}, root
+	return fsx.Guard{Roots: []string{root}}, root
 }
 
 func TestDeleteRequiresConfirmToken(t *testing.T) {

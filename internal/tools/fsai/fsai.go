@@ -1,9 +1,9 @@
-// Package fsai 把文件能力（internal/tools/fs）接进桌面应用的 ai.Registry。
+// Package fsai 把文件能力（github.com/klphp/fsx）接进桌面应用的 ai.Registry。
 //
-// 为什么单独一个包：fs 包必须保持「零桌面依赖」，因为同一份能力还要被
-// MCP server（cmd/mcp-fs → 将来的 github.com/klphp/deskmcp）复用。
+// 为什么单独一个包：fsx 必须保持「零桌面依赖」，因为同一份能力还要被
+// MCP server（github.com/klphp/deskmcp）复用。
 // 而 ai 包带着对话循环、会话存储，MCP 侧一个都用不上。
-// 所以「能力定义」留在 fs，「怎么挂进桌面应用」放在这里。
+// 所以「能力定义」留在 fsx，「怎么挂进桌面应用」放在这里。
 package fsai
 
 import (
@@ -12,7 +12,7 @@ import (
 
 	"github.com/klphp/excel-batch-tool/internal/ai"
 	"github.com/klphp/excel-batch-tool/internal/capability"
-	"github.com/klphp/excel-batch-tool/internal/tools/fs"
+	"github.com/klphp/fsx"
 )
 
 // Register 把文件操作注册成 AI 可调用的工具。
@@ -20,12 +20,12 @@ import (
 // 删除类工具刻意做成「默认进废纸篓」：模型误判时用户还能捞回来。
 // 永久删除要显式传 permanent=true，且必须带用户点过确认的令牌。
 func Register(r *ai.Registry) error {
-	return RegisterWithGuard(r, fs.DefaultGuard())
+	return RegisterWithGuard(r, fsx.DefaultGuard())
 }
 
 // RegisterWithGuard 用指定的边界注册工具。
 // 单独抽出来是为了测试能用临时目录当根，不去碰用户主目录。
-func RegisterWithGuard(r *ai.Registry, g fs.Guard) error {
+func RegisterWithGuard(r *ai.Registry, g fsx.Guard) error {
 	for _, tool := range g.Catalog() {
 		def, err := ai.FunctionTool(tool.Name, tool.Description, tool.Schema)
 		if err != nil {
