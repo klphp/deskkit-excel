@@ -2,19 +2,18 @@ name: Release
 
 # 推一个 v* 标签就出全套产物 + GitHub Release。
 #
-#   git tag v0.1.1 && git push --tags
+#   git tag v0.1.0 && git push origin v0.1.0
 #
-# 产物命名必须让 Wails 的 DefaultAssetMatcher 能认出来：文件名小写后
-# 要同时包含平台名（darwin/windows/linux）和架构名（amd64/arm64）。
-# 所以是 deskkit-0.1.1-windows-amd64.zip 这种形式，
-# 写成 deskkit-0.1.1-win-x64.zip 会匹配不上（报 "has no asset for
-# darwin/arm64"）。这一点是自更新能不能用的硬前提。
+# 也可以手动跑（workflow_dispatch）：只出产物不建 Release，用来验证 workflow 本身。
+#
+# 产物命名必须让 Wails 的 DefaultAssetMatcher 认出来：文件名小写后要同时包含
+# 平台名（darwin/windows/linux）和架构名（amd64/arm64），否则自更新会报
+# "has no asset for darwin/arm64"。这是硬前提，别改成 win-x64 这种写法。
 
 on:
   push:
     tags:
       - "v*"
-  # 手动触发，方便先验证 workflow 本身而不必真的发版
   workflow_dispatch:
 
 permissions:
@@ -26,16 +25,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
-            platform: darwin
-            arch: arm64
-          # Windows 用户是主力，amd64 必出
+          # Windows 是主力目标
           - os: windows-latest
             platform: windows
             arch: amd64
+            ext: .exe
+          # Mac 分两种芯片：Intel 用 Intel runner，M 系列用 arm64 runner。
+          # 都是 CGO（SQLCipher），所以不能靠交叉编译糊弄，各上各的机器。
+          - os: macos-15
+            platform: darwin
+            arch: amd64
+            ext: ""
+          - os: macos-15-arm64
+            platform: darwin
+            arch: arm64
+            ext: ""
           - os: ubuntu-latest
             platform: linux
             arch: amd64
+            ext: ""
 
     runs-on: ${{ matrix.os }}
 
@@ -53,7 +61,18 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # Wails CLI 版本跟着 go.mod 里引用的 v3 走，避免 CLI 和库不匹配
+      # 会话库用 SQLCipher，必须 CGO。Windows runner 自带 MSYS2，但不在 PATH 里，
+      # 不挂上去 go build 会直接报 "gcc: executable file not found"。
+      - name: Setup C toolchain (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $mingw = "C:\msys64\ucrt64\bin"
+          if (-not (Test-Path "$mingw\gcc.exe")) { throw "MSYS2 ucrt64 不在预期位置: $mingw" }
+          "$mingw" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          "CC=gcc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & "$mingw\gcc.exe" --version | Select-Object -First 1
+
       - name: Install Wails CLI
         shell: bash
         run: |
@@ -61,61 +80,130 @@ jobs:
           echo "wails module = $version"
           go install github.com/wailsapp/wails/v3/cmd/wails3@$version
           echo "$HOME/go/bin" >> $GITHUB_PATH
+          if [ -d "$(go env GOPATH)/bin" ]; then echo "$(go env GOPATH)/bin" >> $GITHUB_PATH; fi
 
       - name: Build
         shell: bash
-        run: |
-          cd frontend && npm ci && cd ..
-          wails3 build
-
-      # ── 打包 ──
-      # 每个平台的产物形状不同：
-      #   macOS  必须是 .zip（内含 .app），Wails 的自更新只认 zip
-      #   Windows 单 exe 或 zip 都行，用 zip 更小且能带说明文件
-      #   Linux   单文件或 tar.gz
-      - name: Package (macOS)
-        if: matrix.os == 'macos-latest'
-        shell: bash
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          cd bin
-          # wails3 build 在 macOS 上只出裸二进制，正式 .app 要用 package
-          wails3 package || true
-          TARGET=$(ls -d *.app 2>/dev/null | head -1)
-          if [ -z "$TARGET" ]; then
-            echo "找不到 .app，回退到裸二进制打包"
-            zip -q "../deskkit-${VERSION}-darwin-${ARCH}.zip" deskkit
-          else
-            zip -qry "../deskkit-${VERSION}-darwin-${ARCH}.zip" "$TARGET"
-          fi
         env:
-          ARCH: ${{ matrix.arch }}
+          CGO_ENABLED: "1"
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          cd frontend && npm ci && npm run build && cd ..
+          # 与本地一致的参数：production 标签 + 去符号；Windows 必须 windowsgui，
+          # 否则双击会附带一个黑色命令行窗口。
+          LDFLAGS="-w -s"
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            LDFLAGS="-w -s -H windowsgui"
+          fi
+          go build -tags production -trimpath -ldflags "$LDFLAGS" -o "bin/deskkit${{ matrix.ext }}" .
+          ls -lh bin/
 
-      - name: Package (Windows)
-        if: matrix.os == 'windows-latest'
+      # 硬验证，不靠"应该没问题"：Windows 产物的 PE 子系统必须是 2（GUI）。
+      # 3 表示控制台程序，双击会多一个黑框，用户会当成 bug 报上来。
+      - name: Verify Windows subsystem
+        if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          $version = $env:GITHUB_REF_NAME -replace '^v',''
-          $name = "deskkit-$version-windows-amd64.zip"
-          Compress-Archive -Path bin/deskkit.exe -DestinationPath $name
+          $fs = [System.IO.File]::OpenRead("bin/deskkit.exe")
+          $br = New-Object System.IO.BinaryReader($fs)
+          $fs.Position = 0x3C
+          $peOff = $br.ReadInt32()
+          $fs.Position = $peOff + 0x5C
+          $sub = $br.ReadUInt16()
+          $br.Close(); $fs.Close()
+          Write-Output "PE subsystem = $sub (2 = GUI)"
+          if ($sub -ne 2) { throw "产物是控制台程序（subsystem=$sub），双击会多一个命令行窗口" }
 
-      - name: Package (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      # 未签名 + arm64 的 macOS 上，二进制至少要有一个 ad-hoc 签名才能运行
+      - name: Ad-hoc sign (macOS)
+        if: matrix.platform == 'darwin'
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          tar -czf "deskkit-${VERSION}-linux-amd64.tar.gz" -C bin deskkit
+          chmod +x bin/deskkit
+          codesign --force --sign - bin/deskkit
+          codesign -dv bin/deskkit 2>&1 | head -3
+          ./bin/deskkit --version 2>/dev/null || echo "（GUI 程序，跳过运行验证）"
 
-      # 校验和文件。注意它只防下载损坏 —— 文件和校验和放在同一个 release
-      # 里，防不住同时改两者的人。要真防篡改得配 Config.PublicKey 签名。
+      # macOS 用户拿裸二进制也能跑，但 .app 更像正常软件：双击即用、有图标。
+      # 这里手工拼一个最小 bundle，避免依赖 wails3 package 的平台限制。
+      - name: Bundle .app (macOS)
+        if: matrix.platform == 'darwin'
+        shell: bash
+        run: |
+          APP="DeskKit Excel.app"
+          rm -rf "bin/$APP"
+          mkdir -p "bin/$APP/Contents/MacOS" "bin/$APP/Contents/Resources"
+          cp bin/deskkit "bin/$APP/Contents/MacOS/DeskKit Excel"
+          cp build/darwin/icons.icns "bin/$APP/Contents/Resources/iconfile.icns" 2>/dev/null || true
+          cat > "bin/$APP/Contents/Info.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>DeskKit Excel</string>
+            <key>CFBundleDisplayName</key><string>DeskKit Excel</string>
+            <key>CFBundleIdentifier</key><string>com.klphp.deskkit</string>
+            <key>CFBundleExecutable</key><string>DeskKit Excel</string>
+            <key>CFBundleIconFile</key><string>iconfile</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+            <key>CFBundleVersion</key><string>${VERSION}</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          sed -i '' "s/\${VERSION}/${GITHUB_REF_NAME#v}/" "bin/$APP/Contents/Info.plist" 2>/dev/null || \
+            sed -i "s/\${VERSION}/${GITHUB_REF_NAME#v}/" "bin/$APP/Contents/Info.plist"
+          codesign --force --deep --sign - "bin/$APP"
+        env:
+          VERSION: ${{ github.ref_name }}
+
+      # ── 打包 ──
+      - name: Package
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ -z "$VERSION" ] && VERSION="0.0.0-dev"
+          OUT="deskkit-${VERSION}-${PLATFORM}-${ARCH}"
+          case "$PLATFORM" in
+            windows)
+              # 便携版：解压即用，附带说明与免责声明
+              STAGE="dist/$OUT"
+              mkdir -p "$STAGE"
+              cp bin/deskkit.exe README.md DISCLAIMER.md "$STAGE/"
+              (cd "$STAGE" && sha256sum deskkit.exe > SHA256SUMS.txt)
+              (cd dist && zip -qr "../$OUT.zip" "$OUT")
+              ;;
+            darwin)
+              # .app 必须整目录压缩，Wails 自更新只认 zip
+              cd bin
+              zip -qry "../$OUT.zip" "DeskKit Excel.app"
+              cd ..
+              ;;
+            linux)
+              tar -czf "$OUT.tar.gz" -C bin deskkit
+              ;;
+          esac
+          ls -lh "$OUT".* 2>/dev/null || ls -lh $OUT.zip
+
       - name: Checksums
         shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
         run: |
           shopt -s nullglob
           files=(deskkit-*.zip deskkit-*.tar.gz)
-          sha256sum "${files[@]}" > SHA256SUMS-${{ matrix.platform }}-${{ matrix.arch }}.txt || \
-            shasum -a 256 "${files[@]}" > SHA256SUMS-${{ matrix.platform }}-${{ matrix.arch }}.txt
-          cat SHA256SUMS-${{ matrix.platform }}-${{ matrix.arch }}.txt
+          if command -v sha256sum >/dev/null; then
+            sha256sum "${files[@]}" > "SHA256SUMS-${PLATFORM}-${ARCH}.txt"
+          else
+            shasum -a 256 "${files[@]}" > "SHA256SUMS-${PLATFORM}-${ARCH}.txt"
+          fi
+          cat "SHA256SUMS-${PLATFORM}-${ARCH}.txt"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -138,7 +226,7 @@ jobs:
       - name: List artifacts
         run: ls -lh dist/
 
-      # 汇总成单个 SHA256SUMS 也一起发出去，配置里的 ChecksumAsset 指向它
+      # 汇总成单个 SHA256SUMS：配置里的 ChecksumAsset 指向它
       - name: Merge checksums
         run: |
           cd dist
