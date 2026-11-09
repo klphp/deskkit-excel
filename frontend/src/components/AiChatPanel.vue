@@ -11,7 +11,7 @@
  * 把流式文字和工具步骤显示出来、没接入模型时把设置打开。
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import { ArrowDown, ArrowUp, Check, ChevronDown, Copy, FileSpreadsheet, FileText, Film, FolderOpen, Layers, Loader2, Maximize2, Minimize2, Plus, Settings2, ThumbsDown, ThumbsUp, Wrench, X } from "@lucide/vue";
+import { ArrowDown, ArrowUp, Check, ChevronDown, Copy, FileText, Film, FolderOpen, Layers, Loader2, Maximize2, Minimize2, Plus, Settings2, ThumbsDown, ThumbsUp, Wrench, X } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import { renderMarkdown } from "../lib/markdown";
 import { useWorkspace } from "../composables/workspace";
@@ -229,32 +229,6 @@ const ready = computed(() => providers.value.some((p) => p.ready));
  * 视频与文档两组现在还没接（v1 只做表格），但不藏起来 —— 用户有权知道
  * 这个工具打算做什么；同时必须标清「即将支持」，不能让人以为点了就能用。
  */
-const intro = computed(() => [
-  {
-    id: "excel",
-    icon: FileSpreadsheet,
-    name: t("intro.excel.name"),
-    available: true,
-    badge: "",
-    items: [t("intro.excel.i1"), t("intro.excel.i2"), t("intro.excel.i3"), t("intro.excel.i4")],
-  },
-  {
-    id: "video",
-    icon: Film,
-    name: t("intro.video.name"),
-    available: false,
-    badge: t("intro.soon"),
-    items: [t("intro.video.i1"), t("intro.video.i2"), t("intro.video.i3"), t("intro.video.i4")],
-  },
-  {
-    id: "docs",
-    icon: FileText,
-    name: t("intro.docs.name"),
-    available: false,
-    badge: t("intro.soon"),
-    items: [t("intro.docs.i1"), t("intro.docs.i2"), t("intro.docs.i3")],
-  },
-]);
 
 /** 生效的模型名：设置里存过就用存的，否则用服务商的默认模型。 */
 function ActiveModelOrDefault(st: { model?: string }): string {
@@ -795,39 +769,15 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- 首屏 = 产品介绍。用户第一次打开不知道它能干什么，
-             与其放一句「你想做什么」，不如把能力和边界直接摊开：
-             现在能用的、还要等组件的，都写清楚。 -->
-        <div v-if="turns.length === 0 && !streaming" class="flex min-h-full flex-col items-center justify-center py-8">
-          <div class="w-full max-w-[680px]">
-            <div class="mb-1.5 flex items-center gap-2">
-              <FileSpreadsheet :size="18" class="text-primary" />
-              <span class="text-[12.5px] font-medium uppercase tracking-wide text-muted-foreground">{{ t("intro.kicker") }}</span>
-            </div>
-            <h1 class="text-[26px] font-semibold leading-[1.3] tracking-tight">{{ t("intro.title") }}</h1>
-            <p class="mt-3 max-w-[560px] text-[14.5px] leading-[1.75] text-muted-foreground">{{ t("intro.lead") }}</p>
-
-            <!-- 能力清单：三组，逐条列它到底能干什么 -->
-            <div class="mt-6 space-y-2.5">
-              <div v-for="group in intro" :key="group.id" class="rounded-xl border border-border bg-card px-4 py-3.5">
-                <div class="flex items-baseline gap-2">
-                  <component :is="group.icon" :size="15" class="translate-y-[2px] text-primary" />
-                  <span class="text-[14.5px] font-medium">{{ group.name }}</span>
-                  <span
-                    class="rounded-full px-1.5 py-0.5 text-[11.5px]"
-                    :class="group.available ? 'bg-primary/12 text-primary' : 'bg-muted text-muted-foreground'"
-                  >
-                    {{ group.available ? t("intro.ready") : group.badge }}
-                  </span>
-                </div>
-                <ul class="mt-2 space-y-1 pl-6 text-[13px] leading-[1.65] text-muted-foreground">
-                  <li v-for="item in group.items" :key="item" class="list-outside list-disc marker:text-border">{{ item }}</li>
-                </ul>
-              </div>
-            </div>
-
+          <!-- 首屏只放一句话：这款工具是什么。
+               不要再堆能力清单与边界说明——用户打开就想知道「这是干嘛的」，一句话够了；
+               产品介绍放在 README 与发布页，不占用户视线。 -->
+          <!-- absolute 相对滚动区外层定位：文案要在「聊天区域」的正中间，
+                 而不是贴着内容顶部 —— 里面的 wrapper 是内容高度，min-h-full 撑不开。 -->
+          <div v-if="turns.length === 0 && !streaming"
+               class="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <p class="text-[15px] font-medium tracking-wide text-muted-foreground">{{ t("intro.tagline") }}</p>
           </div>
-        </div>
 
         <template v-for="(turn, i) in turns" :key="turn.id ?? i">
           <!-- 每 20 条一个分页标记：既是视觉上的「到哪儿了」，也是往上翻时的落点参考 -->
