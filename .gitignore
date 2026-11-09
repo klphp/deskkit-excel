@@ -19,3 +19,5 @@ bin/
 
 # 临时草稿目录
 .tmp-cfg/
+# 中文简介只留本地，不进仓库
+README.zh-CN.md
