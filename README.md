@@ -11,18 +11,34 @@ It:    reads 200 xlsx files → aligns headers → merges → groups → writes 
        all local, no upload, no account
 ```
 
-## What it is actually for
+## What it is for
 
-The cases where the files are many, the formats are dirty, and the data is not
-allowed to leave the machine:
+The job it does is narrow: take many spreadsheet files that are messy or
+inconsistently shaped, and turn them into one clean table. Merging, cleaning,
+de-duplicating, splitting, extracting columns, comparing two versions.
 
-- **Month-end report merging** — 200 department files with inconsistent headers.
-- **Cleaning exported data** — blank rows, duplicates, broken dates, numbers stored as text.
-  It shows you what it is about to change before changing anything.
-- **Consolidating years of history** — pull selected columns out of many differently
-  shaped workbooks into one clean table.
+Common cases:
 
-A cloud AI can't do these well: it can't read 3,000 files on your disk, and most
+- **Bank statement reconciliation** — bank exports are often GBK-encoded CSV with
+  inconsistent date and amount formats. Merge a month of statements, normalise the
+  columns, match amounts against your ledger.
+- **Broker and trading statements** — merge monthly trade confirmations from a broker,
+  total by ticker, check the numbers against your own records.
+- **Month-end report merging** — 200 department files, headers that don't match.
+  Align the headers, merge, summarise by department.
+- **E-commerce order exports** — combine daily order dumps from several stores into
+  one sheet, group by SKU, drop duplicate order IDs.
+- **Payroll and HR sheets** — merge per-department payroll files; verify headcount
+  and totals line up.
+- **Audit and sampling** — pull a sample of rows, or diff two versions of a workbook
+  to see exactly what changed.
+- **Survey and research data** — merge exported batches, remove duplicate respondents,
+  reshape columns.
+
+What it does **not** do: charts, statistics, forecasting, portfolio analysis. It gets
+your data into one clean table; the analysis is up to you.
+
+A cloud AI can't do this well: it can't read 3,000 files on your disk, and most
 companies won't upload their financial workbooks to somebody else's server.
 
 ## Status
