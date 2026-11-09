@@ -40,10 +40,6 @@ jobs:
             platform: darwin
             arch: arm64
             ext: ""
-          - os: ubuntu-latest
-            platform: linux
-            arch: amd64
-            ext: ""
 
     runs-on: ${{ matrix.os }}
 
@@ -75,12 +71,20 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          $mingw = "C:\msys64\ucrt64\bin"
-          if (-not (Test-Path "$mingw\gcc.exe")) { Get-ChildItem C:\msys64 -Directory | Select-Object Name }
-          if (-not (Test-Path "$mingw\gcc.exe")) { throw "找不到 gcc：$mingw" }
+          # runner 上的 MSYS2 在 C:\tools\msys64（不是 C:\msys64），而且路径随镜像版本变，
+          # 所以不写死：先试已知位置，再退化成按名字找。
+          $known = @("C:\tools\msys64\ucrt64\bin", "C:\msys64\ucrt64\bin")
+          $mingw = $known | Where-Object { Test-Path (Join-Path $_ "gcc.exe") } | Select-Object -First 1
+          if (-not $mingw) {
+            $found = Get-ChildItem -Path C:\ -Filter gcc.exe -Recurse -Depth 5 -ErrorAction SilentlyContinue |
+                     Where-Object { $_.FullName -match "ucrt64|mingw64" } | Select-Object -First 1
+            if ($found) { $mingw = $found.DirectoryName }
+          }
+          if (-not $mingw) { throw "找不到 gcc（试过 $($known -join ', ')）" }
+          Write-Output "gcc dir = $mingw"
           "$mingw" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           "CC=gcc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          & "$mingw\gcc.exe" --version | Select-Object -First 1
+          & (Join-Path $mingw "gcc.exe") --version | Select-Object -First 1
 
       - name: Build
         shell: bash
@@ -88,6 +92,7 @@ jobs:
           CGO_ENABLED: "1"
           GOARCH: ${{ matrix.arch }}
         run: |
+          mkdir -p bin
           cd frontend && npm ci && npm run build && cd ..
           # 与本地一致的参数：production 标签 + 去符号；Windows 必须 windowsgui，
           # 否则双击会附带一个黑色命令行窗口。
