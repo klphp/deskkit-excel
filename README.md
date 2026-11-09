@@ -84,3 +84,9 @@ DeskKit 是这条产品线的名字。Excel 是第一个工具，后续同类工
 ## 授权
 
 闭源软件，保留所有权利。详见 `LICENSE.txt`。
+
+## 声明
+
+**本软件为自用工具，闭源发布，二进制未做代码签名**，按「现状」提供，不承诺无数据损失——
+处理重要数据前请自行备份。Windows SmartScreen / macOS Gatekeeper 的「未知开发者」提示是未签名的
+必然结果。完整条款（中英）见 [DISCLAIMER.md](./DISCLAIMER.md)。
