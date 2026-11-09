@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/deskkit-excel/internal/config"
 )
 
 // Client 一个服务商的对话客户端。

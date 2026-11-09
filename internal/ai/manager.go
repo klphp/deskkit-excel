@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/deskkit-excel/internal/config"
 )
 
 // localPrefix 本地探测出来的服务商名前缀，形如 local@http://127.0.0.1:11434。

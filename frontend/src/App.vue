@@ -68,7 +68,7 @@ onMounted(async () => {
   initChatFont();
 
   try {
-    const { AppService } = await import("../bindings/github.com/klphp/excel-batch-tool/internal/services");
+    const { AppService } = await import("../bindings/github.com/klphp/deskkit-excel/internal/services");
     appInfo.value = await AppService.GetInfo();
     // 拿到配置才知道要不要启用多语言、用哪个语言
     await initI18n(appInfo.value?.i18n);

@@ -32,7 +32,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/endpoint"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 
-	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/deskkit-excel/internal/config"
 )
 
 // ErrNetwork 是「网络不通」的统一出口。

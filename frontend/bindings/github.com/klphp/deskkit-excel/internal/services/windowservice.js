@@ -24,7 +24,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
  * @returns {$CancellablePromise<void>}
  */
 export function Close() {
-    return $Call.ByID(2525104901);
+    return $Call.ByID(3884814171);
 }
 
 /**
@@ -32,7 +32,7 @@ export function Close() {
  * @returns {$CancellablePromise<boolean>}
  */
 export function IsMaximised() {
-    return $Call.ByID(1336757624);
+    return $Call.ByID(1408394018);
 }
 
 /**
@@ -40,7 +40,7 @@ export function IsMaximised() {
  * @returns {$CancellablePromise<void>}
  */
 export function Minimise() {
-    return $Call.ByID(50740570);
+    return $Call.ByID(1461103784);
 }
 
 /**
@@ -51,7 +51,7 @@ export function Minimise() {
  * @returns {$CancellablePromise<string>}
  */
 export function Platform() {
-    return $Call.ByID(3490005440);
+    return $Call.ByID(1902053610);
 }
 
 /**
@@ -59,7 +59,7 @@ export function Platform() {
  * @returns {$CancellablePromise<void>}
  */
 export function Quit() {
-    return $Call.ByID(2173161672);
+    return $Call.ByID(3632056654);
 }
 
 /**
@@ -80,7 +80,7 @@ export function Quit() {
  * @returns {$CancellablePromise<void>}
  */
 export function ResizeToContent(width, height) {
-    return $Call.ByID(3737816539, width, height);
+    return $Call.ByID(4118930653, width, height);
 }
 
 /**
@@ -88,7 +88,7 @@ export function ResizeToContent(width, height) {
  * @returns {$CancellablePromise<boolean>}
  */
 export function ToggleFullscreen() {
-    return $Call.ByID(732547794);
+    return $Call.ByID(501546064);
 }
 
 /**
@@ -96,5 +96,5 @@ export function ToggleFullscreen() {
  * @returns {$CancellablePromise<boolean>}
  */
 export function ToggleMaximise() {
-    return $Call.ByID(1725891932);
+    return $Call.ByID(2998376722);
 }

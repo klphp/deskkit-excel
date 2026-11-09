@@ -19,7 +19,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
  * @returns {$CancellablePromise<void>}
  */
 export function CenterOnParent() {
-    return $Call.ByID(3444370036);
+    return $Call.ByID(3287687746);
 }
 
 /**
@@ -28,7 +28,7 @@ export function CenterOnParent() {
  * @returns {$CancellablePromise<void>}
  */
 export function Close(name) {
-    return $Call.ByID(988674044, name);
+    return $Call.ByID(3771174454, name);
 }
 
 /**
@@ -36,7 +36,7 @@ export function Close(name) {
  * @returns {$CancellablePromise<string[]>}
  */
 export function Names() {
-    return $Call.ByID(2725376968).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2132916902).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -49,7 +49,7 @@ export function Names() {
  * @returns {$CancellablePromise<void>}
  */
 export function Open(name) {
-    return $Call.ByID(2447402640, name);
+    return $Call.ByID(2102396434, name);
 }
 
 /**
@@ -57,7 +57,7 @@ export function Open(name) {
  * @returns {$CancellablePromise<string[]>}
  */
 export function Opened() {
-    return $Call.ByID(235219089).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(466953251).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }

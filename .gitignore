@@ -16,3 +16,6 @@ bin/
 # go build 默认输出（模块名/目录名同名，忘了 -o 就会掉在仓库根）
 /wails3-base
 /excel-batch-tool
+
+# 临时草稿目录
+.tmp-cfg/

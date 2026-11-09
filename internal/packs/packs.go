@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
-	"github.com/klphp/excel-batch-tool/internal/capability"
-	"github.com/klphp/excel-batch-tool/internal/tools/excel"
-	"github.com/klphp/excel-batch-tool/internal/tools/fsai"
+	"github.com/klphp/deskkit-excel/internal/ai"
+	"github.com/klphp/deskkit-excel/internal/capability"
+	"github.com/klphp/deskkit-excel/internal/tools/excel"
+	"github.com/klphp/deskkit-excel/internal/tools/fsai"
 )
 
 // All 全部能力包。顺序即界面顺序，也是模型选工具时的倾向顺序。

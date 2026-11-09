@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/klphp/excel-batch-tool/internal/money"
+	"github.com/klphp/deskkit-excel/internal/money"
 	"github.com/montanaflynn/stats"
 	"github.com/shopspring/decimal"
 )

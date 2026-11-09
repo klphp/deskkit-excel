@@ -13,7 +13,7 @@ package capability
 import (
 	"os/exec"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
+	"github.com/klphp/deskkit-excel/internal/ai"
 )
 
 // Pack 一个能力包（一类功能）。

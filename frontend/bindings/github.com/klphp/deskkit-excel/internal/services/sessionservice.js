@@ -27,7 +27,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function Append(id, role, content) {
-    return $Call.ByID(7402575, id, role, content);
+    return $Call.ByID(3684828217, id, role, content);
 }
 
 /**
@@ -36,7 +36,7 @@ export function Append(id, role, content) {
  * @returns {$CancellablePromise<void>}
  */
 export function BindStore(st) {
-    return $Call.ByID(1079022721, st);
+    return $Call.ByID(1907243815, st);
 }
 
 /**
@@ -44,7 +44,7 @@ export function BindStore(st) {
  * @returns {$CancellablePromise<number>}
  */
 export function ClearAll() {
-    return $Call.ByID(459405531);
+    return $Call.ByID(1669909809);
 }
 
 /**
@@ -53,7 +53,7 @@ export function ClearAll() {
  * @returns {$CancellablePromise<void>}
  */
 export function Delete(id) {
-    return $Call.ByID(2216240724, id);
+    return $Call.ByID(977696642, id);
 }
 
 /**
@@ -62,7 +62,7 @@ export function Delete(id) {
  * @returns {$CancellablePromise<number>}
  */
 export function Import(items) {
-    return $Call.ByID(271634246, items);
+    return $Call.ByID(1697060652, items);
 }
 
 /**
@@ -70,7 +70,7 @@ export function Import(items) {
  * @returns {$CancellablePromise<session$0.Summary[]>}
  */
 export function List() {
-    return $Call.ByID(916677039).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(517208425).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -82,7 +82,7 @@ export function List() {
  * @returns {$CancellablePromise<$models.SessionPage>}
  */
 export function ListPage(limit, offset) {
-    return $Call.ByID(1148266708, limit, offset).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(526819466, limit, offset).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -93,7 +93,7 @@ export function ListPage(limit, offset) {
  * @returns {$CancellablePromise<session$0.Session>}
  */
 export function Load(id) {
-    return $Call.ByID(3028045023, id).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(4158651089, id).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType3($result);
     }));
 }
@@ -106,7 +106,7 @@ export function Load(id) {
  * @returns {$CancellablePromise<$models.MessagePage>}
  */
 export function MessagesPage(id, limit, beforeID) {
-    return $Call.ByID(2821245780, id, limit, beforeID).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(465059006, id, limit, beforeID).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType4($result);
     }));
 }
@@ -116,7 +116,7 @@ export function MessagesPage(id, limit, beforeID) {
  * @returns {$CancellablePromise<boolean>}
  */
 export function Ready() {
-    return $Call.ByID(1916790934);
+    return $Call.ByID(1611961820);
 }
 
 /**
@@ -126,7 +126,7 @@ export function Ready() {
  * @returns {$CancellablePromise<void>}
  */
 export function Rename(id, title) {
-    return $Call.ByID(792429693, id, title);
+    return $Call.ByID(3204181755, id, title);
 }
 
 /**
@@ -134,7 +134,7 @@ export function Rename(id, title) {
  * @returns {$CancellablePromise<number>}
  */
 export function Retention() {
-    return $Call.ByID(3542803263);
+    return $Call.ByID(2576372905);
 }
 
 /**
@@ -143,7 +143,7 @@ export function Retention() {
  * @returns {$CancellablePromise<string>}
  */
 export function SessionInstructions(id) {
-    return $Call.ByID(1879157792, id);
+    return $Call.ByID(4125299594, id);
 }
 
 /**
@@ -155,7 +155,7 @@ export function SessionInstructions(id) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetRetention(days) {
-    return $Call.ByID(1312561977, days);
+    return $Call.ByID(105941875, days);
 }
 
 /**
@@ -165,7 +165,7 @@ export function SetRetention(days) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetSessionInstructions(id, text) {
-    return $Call.ByID(1981293082, id, text);
+    return $Call.ByID(759706980, id, text);
 }
 
 /**
@@ -173,7 +173,7 @@ export function SetSessionInstructions(id, text) {
  * @returns {$CancellablePromise<string>}
  */
 export function StoragePath() {
-    return $Call.ByID(230957435);
+    return $Call.ByID(1981368677);
 }
 
 /**
@@ -183,7 +183,7 @@ export function StoragePath() {
  * @returns {$CancellablePromise<void>}
  */
 export function Upsert(id, title) {
-    return $Call.ByID(1802332556, id, title);
+    return $Call.ByID(1173946026, id, title);
 }
 
 // Private type creation functions

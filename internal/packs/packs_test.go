@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
+	"github.com/klphp/deskkit-excel/internal/ai"
 )
 
 // v1 只开放表格处理：配置写什么，注册和界面就只看到什么。

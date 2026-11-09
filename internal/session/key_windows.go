@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/klphp/excel-batch-tool/internal/dpapi"
+	"github.com/klphp/deskkit-excel/internal/dpapi"
 )
 
 // Windows 的密钥存储：DPAPI 加密后落盘。

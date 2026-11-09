@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
+	"github.com/klphp/deskkit-excel/internal/ai"
 )
 
 // UsageDoc 一个能力包的用法说明。

@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
+	"github.com/klphp/deskkit-excel/internal/ai"
 	"github.com/xuri/excelize/v2"
 )
 

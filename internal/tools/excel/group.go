@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/klphp/excel-batch-tool/internal/money"
+	"github.com/klphp/deskkit-excel/internal/money"
 	"github.com/shopspring/decimal"
 )
 

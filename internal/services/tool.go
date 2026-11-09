@@ -12,9 +12,9 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/klphp/excel-batch-tool/internal/capability"
-	"github.com/klphp/excel-batch-tool/internal/packs"
-	"github.com/klphp/excel-batch-tool/internal/tools/excel"
+	"github.com/klphp/deskkit-excel/internal/capability"
+	"github.com/klphp/deskkit-excel/internal/packs"
+	"github.com/klphp/deskkit-excel/internal/tools/excel"
 )
 
 // ToolService Excel 能力在前端的门面。

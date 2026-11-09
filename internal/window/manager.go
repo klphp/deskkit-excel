@@ -35,7 +35,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 
-	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/deskkit-excel/internal/config"
 )
 
 // Manager 窗口管理器。并发安全（bindings 可能被多个窗口同时调）。

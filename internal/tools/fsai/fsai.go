@@ -10,8 +10,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
-	"github.com/klphp/excel-batch-tool/internal/capability"
+	"github.com/klphp/deskkit-excel/internal/ai"
+	"github.com/klphp/deskkit-excel/internal/capability"
 	"github.com/klphp/fsx"
 )
 

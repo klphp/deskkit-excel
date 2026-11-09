@@ -7,11 +7,11 @@
  *   · 组件只关心「一段历史 + 一次调用」，不该知道 ChatInput 的构造细节
  */
 import { Events } from "@wailsio/runtime";
-import * as AIService from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/aiservice";
-import { ChatInput } from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/models";
-import type { AISettings, TestResult } from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/models";
-import { Message } from "../../bindings/github.com/klphp/excel-batch-tool/internal/ai/models";
-import type { ProviderInfo } from "../../bindings/github.com/klphp/excel-batch-tool/internal/ai/models";
+import * as AIService from "../../bindings/github.com/klphp/deskkit-excel/internal/services/aiservice";
+import { ChatInput } from "../../bindings/github.com/klphp/deskkit-excel/internal/services/models";
+import type { AISettings, TestResult } from "../../bindings/github.com/klphp/deskkit-excel/internal/services/models";
+import { Message } from "../../bindings/github.com/klphp/deskkit-excel/internal/ai/models";
+import type { ProviderInfo } from "../../bindings/github.com/klphp/deskkit-excel/internal/ai/models";
 
 export { AIService };
 export type { AISettings, ProviderInfo, TestResult };

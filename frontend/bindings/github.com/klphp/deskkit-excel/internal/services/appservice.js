@@ -20,7 +20,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<$models.Info>}
  */
 export function GetInfo() {
-    return $Call.ByID(622883028).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3601625738).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }

@@ -13,8 +13,8 @@
  */
 import { computed, ref } from "vue";
 import { ChatTurn } from "../lib/ai";
-import * as Sessions from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/sessionservice";
-import type { Session as DbSession } from "../../bindings/github.com/klphp/excel-batch-tool/internal/session/models";
+import * as Sessions from "../../bindings/github.com/klphp/deskkit-excel/internal/services/sessionservice";
+import type { Session as DbSession } from "../../bindings/github.com/klphp/deskkit-excel/internal/session/models";
 
 const LEGACY_KEY = "deskkit-sessions-v1";
 

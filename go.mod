@@ -1,4 +1,4 @@
-module github.com/klphp/excel-batch-tool
+module github.com/klphp/deskkit-excel
 
 go 1.26.0
 

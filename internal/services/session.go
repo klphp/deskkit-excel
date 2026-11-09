@@ -8,7 +8,7 @@ package services
 import (
 	"sync"
 
-	"github.com/klphp/excel-batch-tool/internal/session"
+	"github.com/klphp/deskkit-excel/internal/session"
 )
 
 // SessionService 会话读写门面。

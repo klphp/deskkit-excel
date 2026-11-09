@@ -1,6 +1,6 @@
 package excel
 
-import "github.com/klphp/excel-batch-tool/internal/capability"
+import "github.com/klphp/deskkit-excel/internal/capability"
 
 // Pack 声明表格处理能力包。
 //

@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
-	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/deskkit-excel/internal/ai"
+	"github.com/klphp/deskkit-excel/internal/config"
 )
 
 // mockModel 一个会按剧本调用工具的假模型。

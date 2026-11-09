@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/deskkit-excel/internal/config"
 )
 
 func testAIConfig() config.AI {

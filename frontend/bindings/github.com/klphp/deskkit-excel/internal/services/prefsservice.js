@@ -24,7 +24,7 @@ import * as prefs$0 from "../prefs/models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function BindStore(st) {
-    return $Call.ByID(733535699, st);
+    return $Call.ByID(3282275289, st);
 }
 
 /**
@@ -32,7 +32,7 @@ export function BindStore(st) {
  * @returns {$CancellablePromise<string>}
  */
 export function GetInstructions() {
-    return $Call.ByID(2688152310);
+    return $Call.ByID(123109368);
 }
 
 /**
@@ -41,5 +41,5 @@ export function GetInstructions() {
  * @returns {$CancellablePromise<void>}
  */
 export function SetInstructions(text) {
-    return $Call.ByID(2071590202, text);
+    return $Call.ByID(3238730596, text);
 }

@@ -50,7 +50,7 @@ const errorMsg = ref("");
 
 async function getUpdateService(): Promise<any> {
   const mod: any = await import(
-    "../../bindings/github.com/klphp/excel-batch-tool/internal/services"
+    "../../bindings/github.com/klphp/deskkit-excel/internal/services"
   );
   return new mod.UpdateService();
 }

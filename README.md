@@ -1,92 +1,115 @@
 # DeskKit Excel
 
-**AI 驱动的 Excel 批量处理工具：把几百个表格丢进一个文件夹，用人话下指令，它批量改完 —— 数据一步都不出你的机器。**
+An AI-driven batch processor for Excel files, running entirely on your own machine.
+
+Describe what you want in one sentence, point it at a folder, and it works through
+the files locally. Nothing is uploaded, and no account is required.
 
 ```
-你：把 200 个部门报表合并成一张总表，按部门汇总
-它：读完 200 个 xlsx → 对齐表头 → 合并 → 分组汇总 → 输出总表.xlsx
-    全程本地，不上传，不需要账号
+You:   merge the 200 department reports into one sheet, summarised by department
+It:    reads 200 xlsx files → aligns headers → merges → groups → writes summary.xlsx
+       all local, no upload, no account
 ```
 
-## 这个工具解决什么
+## What it is actually for
 
-**① 月末合并报表**
-200 个部门发来的 xlsx，表头还不一样。全拖进去，说一句话，30 秒出结果。
+The cases where the files are many, the formats are dirty, and the data is not
+allowed to leave the machine:
 
-**② 清洗导出的脏数据**
-空行、重复行、日期格式混乱、数字被存成文本。说「清一下」，**执行前先把它将要改的内容列给你看**。
+- **Month-end report merging** — 200 department files with inconsistent headers.
+- **Cleaning exported data** — blank rows, duplicates, broken dates, numbers stored as text.
+  It shows you what it is about to change before changing anything.
+- **Consolidating years of history** — pull selected columns out of many differently
+  shaped workbooks into one clean table.
 
-**③ 汇总多年历史资料**
-几年的表格格式各不相同，人工复制粘贴要一整天。批量提取指定列，合成一张规范表。
+A cloud AI can't do these well: it can't read 3,000 files on your disk, and most
+companies won't upload their financial workbooks to somebody else's server.
 
-共同点：**文件多、格式脏、数据不能外传**。
+## Status
 
-> 云端 AI 干不了这些 —— 它拿不到你硬盘上的 3000 个文件，
-> 企业也不允许把财务表传到别人的服务器。
+Early. This is version 0.1.0 and it is honest about that:
 
-## 为什么是桌面应用，不是网页
+- **Excel only.** The tool registry is built for adding more file types (PDF, media),
+  but nothing else is implemented yet.
+- **Windows 10 and later.** The app refuses to start on older Windows. macOS builds
+  exist and run, but are not polished.
+- **Unsigned binaries.** SmartScreen and Gatekeeper will warn about an unknown
+  developer. That is what unsigned means, not a sign of a problem.
+- **AI output can be wrong.** The app lists pending changes and asks for
+  confirmation before writing, but verify results yourself — especially amounts,
+  IDs and dates.
+- **No support promise.** Issues and suggestions are welcome; no response time is promised.
 
-| | 云端 AI 表格服务 | DeskKit Excel |
-|---|---|---|
-| 读本地几千个文件 | ❌ 一个个上传 | ✅ 直接扫目录 |
-| 数据出机器 | ❌ 要 | ✅ 不要 |
-| 批量任务 | ❌ 一次一个 | ✅ 一次一批 |
-| 要账号 / 订阅 | ❌ 要 | ✅ 不要 |
-| 断网可用 | ❌ 不行 | ✅ 能（配本地模型） |
+## Using AI
 
-## AI 怎么用
+All batch operations work without AI. With a model connected you can also just
+describe the job in words.
 
-不接 AI 也能用全部批处理功能。接了之后可以用人话下指令。
-
-| 方式 | 说明 |
+| Option | Notes |
 |---|---|
-| **自带 Key** | 任意 OpenAI 兼容端点（DeepSeek / 通义 / Kimi / OpenAI） |
-| **本地模型** | 自动探测本机 Ollama / LM Studio，选它 = 全程不出机器 |
+| Your own key | Any OpenAI-compatible endpoint (DeepSeek, OpenAI, OpenRouter, …) |
+| Local model | Auto-detects Ollama / LM Studio on this machine — keeps everything offline |
 
-密钥只存本机（`0600`），不上传。
+Keys are stored on the local machine only (`0600`), never uploaded.
 
-## 技术栈
+## Build
 
-```
-Wails v3.1.0 + Go 1.26 + Vue 3 + TypeScript + Vite
-单实例锁 · 内嵌本地接口 · 配置驱动多窗口 · 自更新
-```
-
-## 目录结构
-
-```
-main.go               入口：内嵌配置与前端，调 boot.Run（36 行）
-internal/
-  boot/               ★ 装配与启动：配置 → 本地服务 → AI → 单实例 → 开窗口
-  ai/                 AI 接入：协议、流式、工具调用循环、错误归一
-  config/             配置解析（app.yaml / windows.yaml）
-  server/             内嵌本地 HTTP 服务
-  window/             配置驱动的多窗口
-  update/             自更新
-config/app.yaml       应用配置（AI、服务、更新、i18n）
-docs/ai.md            AI 接入说明
-docs/single-instance.md  禁止多开与端口
-```
-
-## 开发
+Requirements: Go 1.26+, Node 22+, and the Wails v3 CLI. The session database uses
+SQLCipher, so `CGO_ENABLED=1` is required.
 
 ```bash
-wails3 dev              # 热重载
-wails3 build            # 构建
-go test ./internal/...  # 测试
+wails3 dev                  # hot reload
+wails3 build                # build
+go test ./internal/...      # tests
+./build-app.sh              # macOS .app bundle
 ```
 
-## 关于 DeskKit
+On Windows with MSYS2, `gcc` from `ucrt64` must be on `PATH`, and the binary should be
+linked with `-H windowsgui`, otherwise a console window opens alongside the app.
 
-DeskKit 是这条产品线的名字。Excel 是第一个工具，后续同类工具（PDF、媒体批处理）
-会共用同一套内核：AI 接入层、工具注册表、单实例、自更新都不重写。
+## Layout
 
-## 授权
+```
+main.go               entry: embeds config and frontend, calls boot.Run
+internal/
+  boot/               wiring and startup: config → local service → AI → single instance → window
+  ai/                 model access: protocol, streaming, tool-call loop, error normalisation
+  config/             config parsing (app.yaml / windows.yaml)
+  server/             embedded local HTTP service
+  window/             config-driven multi-window
+  update/             self update
+  tools/              capability packages (excel, fs)
+config/app.yaml       app config (AI, service, update, i18n)
+docs/                 design and integration notes
+```
 
-闭源软件，保留所有权利。详见 `LICENSE.txt`。
+## Stack
 
-## 声明
+Wails v3.1.0 · Go 1.26 · Vue 3 · TypeScript · Vite · SQLCipher (session storage).
+File operations live in a separate library, [`fsx`](https://github.com/klphp/fsx).
 
-**本软件为自用工具，闭源发布，二进制未做代码签名**，按「现状」提供，不承诺无数据损失——
-处理重要数据前请自行备份。Windows SmartScreen / macOS Gatekeeper 的「未知开发者」提示是未签名的
-必然结果。完整条款（中英）见 [DISCLAIMER.md](./DISCLAIMER.md)。
+## License
+
+MIT — see [LICENSE](./LICENSE).
+
+---
+
+## 中文
+
+**AI 驱动的 Excel 批量处理工具，全部在本机完成。**
+
+一句话下指令，指向一个文件夹，它在本地把文件处理完。不上传、不需要账号。
+
+适合的场景都是「文件多、格式脏、数据不能外传」：月末合并几百个部门报表、
+清洗导出的脏数据、把多年格式不一的历史表合成一张。云端 AI 做不了这些——
+它读不到你硬盘上的几千个文件，企业也不允许把财务表传到别人的服务器。
+
+现状（0.1.0）：
+
+- 只做了 Excel；后续文件类型可以接进同一套注册表，但尚未实现。
+- Windows 10 及以上；更老的系统会直接退出。macOS 能跑，但没做打磨。
+- 二进制未签名，SmartScreen / Gatekeeper 会提示「未知开发者」。
+- AI 输出可能出错：写文件前会列出将要改的内容让你确认，金额、编号、日期请自行核对。
+- 不承诺技术支持时间。
+
+不接 AI 也能用全部批处理功能；接上之后可以用人话下指令，密钥只存本机（`0600`）。

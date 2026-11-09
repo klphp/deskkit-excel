@@ -6,12 +6,12 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
-	"github.com/klphp/excel-batch-tool/internal/boot"
-	"github.com/klphp/excel-batch-tool/internal/packs"
-	"github.com/klphp/excel-batch-tool/internal/prefs"
-	"github.com/klphp/excel-batch-tool/internal/services"
-	"github.com/klphp/excel-batch-tool/internal/session"
+	"github.com/klphp/deskkit-excel/internal/ai"
+	"github.com/klphp/deskkit-excel/internal/boot"
+	"github.com/klphp/deskkit-excel/internal/packs"
+	"github.com/klphp/deskkit-excel/internal/prefs"
+	"github.com/klphp/deskkit-excel/internal/services"
+	"github.com/klphp/deskkit-excel/internal/session"
 )
 
 // 内核要用的配置（app.yaml + windows.yaml）。

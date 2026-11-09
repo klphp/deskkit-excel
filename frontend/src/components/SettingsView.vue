@@ -10,9 +10,9 @@ import { Languages } from "@lucide/vue";
 import { setTheme, useTheme, type ThemeMode } from "../composables/useTheme";
 import { useChatFont } from "../composables/useChatFont";
 import { onMounted, ref } from "vue";
-import * as Sessions from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/sessionservice";
+import * as Sessions from "../../bindings/github.com/klphp/deskkit-excel/internal/services/sessionservice";
 import { refreshSessions } from "../composables/sessions";
-import * as Prefs from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/prefsservice";
+import * as Prefs from "../../bindings/github.com/klphp/deskkit-excel/internal/services/prefsservice";
 import { useI18n } from "../i18n";
 
 type AppInfo = {

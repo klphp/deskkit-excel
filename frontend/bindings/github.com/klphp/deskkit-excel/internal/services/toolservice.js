@@ -31,7 +31,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function BindApp(app) {
-    return $Call.ByID(1871128649, app);
+    return $Call.ByID(405558123, app);
 }
 
 /**
@@ -44,7 +44,7 @@ export function BindApp(app) {
  * @returns {$CancellablePromise<string>}
  */
 export function CapabilityUsage(id) {
-    return $Call.ByID(4218384178, id);
+    return $Call.ByID(168644340, id);
 }
 
 /**
@@ -53,7 +53,7 @@ export function CapabilityUsage(id) {
  * @returns {$CancellablePromise<excel$0.CleanResult>}
  */
 export function Clean(opt) {
-    return $Call.ByID(3938710218, opt).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3405458396, opt).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -62,7 +62,7 @@ export function Clean(opt) {
  * @returns {$CancellablePromise<excel$0.SampleInfo>}
  */
 export function MakeSample() {
-    return $Call.ByID(910632337).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(3262373783).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -73,7 +73,7 @@ export function MakeSample() {
  * @returns {$CancellablePromise<excel$0.MergeResult>}
  */
 export function Merge(opt) {
-    return $Call.ByID(2648683803, opt).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1035536221, opt).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType2($result);
     }));
 }
@@ -82,7 +82,7 @@ export function Merge(opt) {
  * @returns {$CancellablePromise<$models.PackInfo[]>}
  */
 export function Packs() {
-    return $Call.ByID(2223143837).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2024388595).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType4($result);
     }));
 }
@@ -93,7 +93,7 @@ export function Packs() {
  * @returns {$CancellablePromise<string[]>}
  */
 export function PickDirs(title) {
-    return $Call.ByID(3744558936, title).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2733195638, title).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType5($result);
     }));
 }
@@ -107,7 +107,7 @@ export function PickDirs(title) {
  * @returns {$CancellablePromise<string[]>}
  */
 export function PickFiles(title) {
-    return $Call.ByID(618232275, title).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(622899357, title).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType5($result);
     }));
 }
@@ -122,7 +122,7 @@ export function PickFiles(title) {
  * @returns {$CancellablePromise<string>}
  */
 export function PickFolder(title) {
-    return $Call.ByID(1263552432, title);
+    return $Call.ByID(1009936418, title);
 }
 
 /**
@@ -135,7 +135,7 @@ export function PickFolder(title) {
  * @returns {$CancellablePromise<string[]>}
  */
 export function PickPaths(title) {
-    return $Call.ByID(1078787040, title).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(569034670, title).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType5($result);
     }));
 }
@@ -152,7 +152,7 @@ export function PickPaths(title) {
  * @returns {$CancellablePromise<void>}
  */
 export function RevealPath(path) {
-    return $Call.ByID(2438062971, path);
+    return $Call.ByID(3362950921, path);
 }
 
 // Private type creation functions

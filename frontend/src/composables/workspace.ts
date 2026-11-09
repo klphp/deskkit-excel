@@ -10,8 +10,8 @@
  * 不假设用户一定要处理文件。
  */
 import { computed, ref } from "vue";
-import * as Tools from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/toolservice";
-import type { PackInfo } from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/models";
+import * as Tools from "../../bindings/github.com/klphp/deskkit-excel/internal/services/toolservice";
+import type { PackInfo } from "../../bindings/github.com/klphp/deskkit-excel/internal/services/models";
 
 /**
  * 当前功能。空字符串 = 普通对话。

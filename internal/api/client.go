@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/deskkit-excel/internal/config"
 )
 
 // ErrNotFound 资源不存在（404）。

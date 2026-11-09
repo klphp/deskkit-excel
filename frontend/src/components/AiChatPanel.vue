@@ -17,9 +17,9 @@ import { renderMarkdown } from "../lib/markdown";
 import { useWorkspace } from "../composables/workspace";
 import AttachButton from "./AttachButton.vue";
 import SelectedPaths from "./SelectedPaths.vue";
-import * as Tools from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/toolservice";
-import * as Prefs from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/prefsservice";
-import * as Sessions from "../../bindings/github.com/klphp/excel-batch-tool/internal/services/sessionservice";
+import * as Tools from "../../bindings/github.com/klphp/deskkit-excel/internal/services/toolservice";
+import * as Prefs from "../../bindings/github.com/klphp/deskkit-excel/internal/services/prefsservice";
+import * as Sessions from "../../bindings/github.com/klphp/deskkit-excel/internal/services/sessionservice";
 import { initSessions, useSessions } from "../composables/sessions";
 import {
   AIService,

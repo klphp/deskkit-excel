@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/deskkit-excel/internal/config"
 )
 
 // newTestServer 起一个只测路由的实例（不监听端口）。

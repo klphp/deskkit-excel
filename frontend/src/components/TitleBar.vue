@@ -101,7 +101,7 @@ onMounted(async () => {
   platform.value = detectPlatform();
   try {
     const { WindowService } = await import(
-      "../../bindings/github.com/klphp/excel-batch-tool/internal/services"
+      "../../bindings/github.com/klphp/deskkit-excel/internal/services"
     );
     isMaximised.value = await WindowService.IsMaximised();
   } catch {
@@ -110,7 +110,7 @@ onMounted(async () => {
 });
 
 async function getService(): Promise<any> {
-  const mod: any = await import("../../bindings/github.com/klphp/excel-batch-tool/internal/services");
+  const mod: any = await import("../../bindings/github.com/klphp/deskkit-excel/internal/services");
   return mod.WindowService;
 }
 

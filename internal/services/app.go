@@ -3,8 +3,8 @@ package services
 import (
 	"runtime"
 
-	"github.com/klphp/excel-batch-tool/internal/config"
-	"github.com/klphp/excel-batch-tool/internal/server"
+	"github.com/klphp/deskkit-excel/internal/config"
+	"github.com/klphp/deskkit-excel/internal/server"
 )
 
 // AppService 应用级信息。

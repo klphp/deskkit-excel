@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
+	"github.com/klphp/deskkit-excel/internal/ai"
 )
 
 // registerFileTools 注册单文件工具（第一版主力）。

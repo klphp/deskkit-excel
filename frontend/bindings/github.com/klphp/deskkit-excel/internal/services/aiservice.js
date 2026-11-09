@@ -31,7 +31,7 @@ import * as $models from "./models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function BindApp(app) {
-    return $Call.ByID(1702650533, app);
+    return $Call.ByID(3763596071, app);
 }
 
 /**
@@ -40,7 +40,7 @@ export function BindApp(app) {
  * @returns {$CancellablePromise<void>}
  */
 export function BindManager(m) {
-    return $Call.ByID(2092584189, m);
+    return $Call.ByID(3756329771, m);
 }
 
 /**
@@ -49,7 +49,7 @@ export function BindManager(m) {
  * @returns {$CancellablePromise<$models.ChatResult>}
  */
 export function Chat($in) {
-    return $Call.ByID(4159164747, $in).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2558616725, $in).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -64,7 +64,7 @@ export function Chat($in) {
  * @returns {$CancellablePromise<$models.ChatResult>}
  */
 export function ChatAgent($in) {
-    return $Call.ByID(697794552, $in).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1363275222, $in).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -78,7 +78,7 @@ export function ChatAgent($in) {
  * @returns {$CancellablePromise<$models.ChatResult>}
  */
 export function ChatStream($in) {
-    return $Call.ByID(1755400707, $in).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(138963637, $in).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
     }));
 }
@@ -88,7 +88,7 @@ export function ChatStream($in) {
  * @returns {$CancellablePromise<boolean>}
  */
 export function Enabled() {
-    return $Call.ByID(1266692542);
+    return $Call.ByID(1957613136);
 }
 
 /**
@@ -97,7 +97,7 @@ export function Enabled() {
  * @returns {$CancellablePromise<string[]>}
  */
 export function Models(provider) {
-    return $Call.ByID(3847552043, provider).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2572143009, provider).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -107,7 +107,7 @@ export function Models(provider) {
  * @returns {$CancellablePromise<ai$0.ProviderInfo[]>}
  */
 export function Providers() {
-    return $Call.ByID(1434383613).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(1421047403).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType3($result);
     }));
 }
@@ -118,7 +118,7 @@ export function Providers() {
  * @returns {$CancellablePromise<void>}
  */
 export function SaveSettings($in) {
-    return $Call.ByID(1593569301, $in);
+    return $Call.ByID(2847078131, $in);
 }
 
 /**
@@ -127,7 +127,7 @@ export function SaveSettings($in) {
  * @returns {$CancellablePromise<void>}
  */
 export function SetRegistry(r) {
-    return $Call.ByID(2029610884, r);
+    return $Call.ByID(1204183306, r);
 }
 
 /**
@@ -135,7 +135,7 @@ export function SetRegistry(r) {
  * @returns {$CancellablePromise<$models.AISettings>}
  */
 export function Settings() {
-    return $Call.ByID(1031440296).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(2020582134).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType4($result);
     }));
 }
@@ -149,7 +149,7 @@ export function Settings() {
  * @returns {$CancellablePromise<$models.TestResult>}
  */
 export function Test(provider) {
-    return $Call.ByID(90879621, provider).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(596511071, provider).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType5($result);
     }));
 }

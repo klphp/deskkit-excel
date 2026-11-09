@@ -34,10 +34,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/klphp/excel-batch-tool/internal/capability"
-	"github.com/klphp/excel-batch-tool/internal/packs"
+	"github.com/klphp/deskkit-excel/internal/capability"
+	"github.com/klphp/deskkit-excel/internal/packs"
 
-	"github.com/klphp/excel-batch-tool/internal/config"
+	"github.com/klphp/deskkit-excel/internal/config"
 )
 
 // Server 本地服务。

@@ -26,7 +26,7 @@ import * as update$0 from "../update/models.js";
  * @returns {$CancellablePromise<void>}
  */
 export function BindManager(m) {
-    return $Call.ByID(3486863156, m);
+    return $Call.ByID(61641786, m);
 }
 
 /**
@@ -34,7 +34,7 @@ export function BindManager(m) {
  * @returns {$CancellablePromise<update$0.Result | null>}
  */
 export function Check() {
-    return $Call.ByID(718659918).then(/** @type {($result: any) => any} */(($result) => {
+    return $Call.ByID(987540332).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType1($result);
     }));
 }
@@ -44,7 +44,7 @@ export function Check() {
  * @returns {$CancellablePromise<boolean>}
  */
 export function Enabled() {
-    return $Call.ByID(4035521275);
+    return $Call.ByID(1184293669);
 }
 
 /**
@@ -52,7 +52,7 @@ export function Enabled() {
  * @returns {$CancellablePromise<void>}
  */
 export function Install() {
-    return $Call.ByID(2007063845);
+    return $Call.ByID(859460415);
 }
 
 // Private type creation functions

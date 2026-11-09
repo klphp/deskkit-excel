@@ -5,7 +5,7 @@ package services
 import (
 	"sync"
 
-	"github.com/klphp/excel-batch-tool/internal/prefs"
+	"github.com/klphp/deskkit-excel/internal/prefs"
 )
 
 // PrefsService 自定义指令的读写。
