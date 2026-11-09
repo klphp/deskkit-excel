@@ -226,7 +226,9 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    # 只要有一个平台构建成功就出 Release：Windows 是主力目标，
+    # 不能让一个较慢/失败的 macOS job 把整次发版卡死。没有产物则不发空 Release。
+    if: always() && startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -235,6 +237,15 @@ jobs:
 
       - name: List artifacts
         run: ls -lh dist/
+
+      - name: Ensure there is something to release
+        run: |
+          shopt -s nullglob
+          files=(dist/deskkit-*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "没有任何构建产物，放弃发 Release"
+            exit 1
+          fi
 
       # 汇总成单个 SHA256SUMS：配置里的 ChecksumAsset 指向它
       - name: Merge checksums
