@@ -79,7 +79,6 @@ internal/
   update/             self update
   tools/              capability packages (excel, fs)
 config/app.yaml       app config (AI, service, update, i18n)
-docs/                 design and integration notes
 ```
 
 ## Stack
