@@ -1,4 +1,11 @@
-package fs
+package fsai
+
+// 危险操作必须过「用户确认」这道门：没有令牌一步都不许执行。
+//
+// 这里同时盯住一件事：fs.ConfirmPrefix 必须和 ai.ConfirmPrefix 逐字节相同。
+// 界面的对话循环靠 ai.ConfirmPrefix 识别「这轮在等用户点确认」，而令牌本身
+// 现在由 fs 包（能力核心，不带桌面依赖）发放。两边一旦不一致，删除会静默
+// 失效 —— 用户点确认也没反应，或者更糟：不确认就删了。
 
 import (
 	"context"
@@ -9,15 +16,26 @@ import (
 	"testing"
 
 	"github.com/klphp/excel-batch-tool/internal/ai"
+	"github.com/klphp/excel-batch-tool/internal/tools/fs"
 )
 
-// 危险操作必须过「用户确认」这道门：没有令牌一步都不许执行。
+func TestConfirmPrefixMatchesAI(t *testing.T) {
+	if fs.ConfirmPrefix != ai.ConfirmPrefix {
+		t.Fatalf("fs.ConfirmPrefix(%q) 必须等于 ai.ConfirmPrefix(%q)：否则界面收不到确认请求",
+			fs.ConfirmPrefix, ai.ConfirmPrefix)
+	}
+}
+
+func testGuard(t *testing.T) (fs.Guard, string) {
+	t.Helper()
+	root := t.TempDir()
+	return fs.Guard{Roots: []string{root}}, root
+}
+
 func TestDeleteRequiresConfirmToken(t *testing.T) {
-	dir := t.TempDir()
-	g := Guard{Roots: []string{dir}}
 	reg := ai.NewRegistry()
-	// 直接用临时目录做根，避免碰用户主目录
-	if err := registerWithGuard(reg, g); err != nil {
+	g, dir := testGuard(t)
+	if err := RegisterWithGuard(reg, g); err != nil {
 		t.Fatal(err)
 	}
 
@@ -91,10 +109,9 @@ func TestDeleteRequiresConfirmToken(t *testing.T) {
 
 // 换一组参数（哪怕只是顺序不同）令牌也要失效。
 func TestConfirmTokenBoundToArgs(t *testing.T) {
-	dir := t.TempDir()
-	g := Guard{Roots: []string{dir}}
 	reg := ai.NewRegistry()
-	if err := registerWithGuard(reg, g); err != nil {
+	g, dir := testGuard(t)
+	if err := RegisterWithGuard(reg, g); err != nil {
 		t.Fatal(err)
 	}
 

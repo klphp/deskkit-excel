@@ -7,11 +7,10 @@ package fs
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/klphp/excel-batch-tool/internal/ai"
 )
 
 func TestGuardRejectsSymlinkEscape(t *testing.T) {
@@ -79,12 +78,25 @@ func TestGuardExpandsHome(t *testing.T) {
 	}
 }
 
+// 空 paths 不该生成确认请求（用户点确认之后什么也没删，说不清）。
+// 直接调能力目录里的 fs_delete，不经过 ai 适配层 —— fs 包只依赖标准库。
 func TestDeleteToolRejectsEmptyPaths(t *testing.T) {
-	r := ai.NewRegistry()
-	if err := Register(r); err != nil {
-		t.Fatal(err)
+	g := Guard{Roots: []string{t.TempDir()}}
+	var del *Tool
+	catalog := g.Catalog()
+	for i := range catalog {
+		if catalog[i].Name == "fs_delete" {
+			del = &catalog[i]
+		}
 	}
-	if _, err := r.Execute(context.Background(), "fs_delete", `{}`); err == nil {
+	if del == nil {
+		t.Fatal("能力目录里没有 fs_delete")
+	}
+	if _, err := del.Run(context.Background(), json.RawMessage(`{}`)); err == nil {
 		t.Fatal("空 paths 竟然生成了确认请求")
+	}
+	// 参数不是合法 JSON 时也必须是错误，不能 panic
+	if _, err := del.Run(context.Background(), json.RawMessage(`{"paths":`)); err == nil {
+		t.Fatal("坏 JSON 应报错")
 	}
 }

@@ -1,19 +1,31 @@
-package fs
+package fsai
 
-// 工具注册层测试：确保 fs_read / fs_search 确实挂进了 AI 的工具表，
-// 并且参数错误时返回错误而不是 panic（模型传错参数是常态）。
+// 工具注册层测试：确保 8 个文件工具都挂进了 AI 工具表，参数错误时返回错误
+// 而不是 panic，并且 fs_read / fs_search 的返回是模型能直接用的 JSON。
 
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/klphp/excel-batch-tool/internal/ai"
+	"github.com/klphp/excel-batch-tool/internal/tools/fs"
 )
 
-func TestRegisterIncludesReadAndSearch(t *testing.T) {
+func mustWrite(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("写 %s 失败: %v", path, err)
+	}
+}
+
+func TestRegisterIncludesAllTools(t *testing.T) {
 	g, root := testGuard(t)
 	reg := ai.NewRegistry()
 	if err := RegisterWithGuard(reg, g); err != nil {
@@ -30,6 +42,9 @@ func TestRegisterIncludesReadAndSearch(t *testing.T) {
 			t.Errorf("工具 %s 没注册上（当前 %v）", name, keys(got))
 		}
 	}
+	if reg.Len() != len(want) {
+		t.Errorf("工具数应为 %d，实际 %d", len(want), reg.Len())
+	}
 
 	mustWrite(t, filepath.Join(root, "a.txt"), "第一行\n关键字在这里\n")
 	mustWrite(t, filepath.Join(root, "b.txt"), "无关\n")
@@ -39,7 +54,7 @@ func TestRegisterIncludesReadAndSearch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fs_read 执行失败: %v", err)
 	}
-	var read ReadResult
+	var read fs.ReadResult
 	if err := json.Unmarshal([]byte(out), &read); err != nil {
 		t.Fatalf("fs_read 返回的不是合法 JSON: %v（%s）", err, out)
 	}
@@ -52,7 +67,7 @@ func TestRegisterIncludesReadAndSearch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fs_search 执行失败: %v", err)
 	}
-	var sr SearchResult
+	var sr fs.SearchResult
 	if err := json.Unmarshal([]byte(out), &sr); err != nil {
 		t.Fatalf("fs_search 返回的不是合法 JSON: %v（%s）", err, out)
 	}

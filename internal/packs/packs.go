@@ -5,7 +5,8 @@
 //
 //	internal/capability      类型定义（叶子包，不依赖业务）
 //	internal/tools/excel     表格处理 + excel.Pack()
-//	internal/tools/fs        文件操作 + fs.Pack()
+//	internal/tools/fs        文件能力核心（纯 Go，零桌面依赖）
+//	internal/tools/fsai      把文件能力挂进 ai.Registry + fsai.Pack()
 //	internal/tools/<新工具>   照抄上面两个，加 Pack() 即可
 //
 // 加一个第三方工具（视频、PDF、OCR…）要改的只有下面 All() 一行。
@@ -20,14 +21,14 @@ import (
 	"github.com/klphp/excel-batch-tool/internal/ai"
 	"github.com/klphp/excel-batch-tool/internal/capability"
 	"github.com/klphp/excel-batch-tool/internal/tools/excel"
-	"github.com/klphp/excel-batch-tool/internal/tools/fs"
+	"github.com/klphp/excel-batch-tool/internal/tools/fsai"
 )
 
 // All 全部能力包。顺序即界面顺序，也是模型选工具时的倾向顺序。
 func All() []capability.Pack {
 	return []capability.Pack{
 		excel.Pack(),
-		fs.Pack(),
+		fsai.Pack(),
 		// 待做：
 		//   video.Pack()  依赖 ffmpeg
 		//   pdf.Pack()    依赖 pandoc / pdfcpu

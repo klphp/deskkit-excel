@@ -7,6 +7,11 @@ package main
 //   notify   : notifications/initialized（以及其它 notifications/*）→ 不回包
 //   unknown  : JSON-RPC error -32601（不是「静默忽略」—— 静默会让客户端一直等）
 //
+// 依赖边界（重要）：这一层只依赖 internal/tools/fs 的能力目录 + 标准库，
+// **不碰 ai / capability / services / session 任何桌面端包**。
+// 目的是让整个 cmd/mcp-fs + internal/tools/fs + internal/xtext 能原样搬进
+// 独立模块 github.com/klphp/deskmcp，不牵扯 wails / sqlcipher。
+//
 // 关键取舍：**工具执行失败不是协议错误**。文件不存在、路径越界这些都是
 // 正常的业务失败，要包成 isError:true 的 content 回给模型，让它自己换路径重试；
 // 只有「你发的 JSON 不是请求」才算协议错误。把两者混在一起是 MCP 实现里
@@ -20,11 +25,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"sync"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
 	"github.com/klphp/excel-batch-tool/internal/tools/fs"
 )
 
@@ -62,9 +65,9 @@ type rpcResponse struct {
 
 // mcpTool 对外暴露的工具描述。
 type mcpTool struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	InputSchema json.RawMessage `json:"inputSchema"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	InputSchema map[string]any `json:"inputSchema"`
 }
 
 type textContent struct {
@@ -78,21 +81,25 @@ type callResult struct {
 }
 
 type server struct {
-	reg   *ai.Registry
 	guard fs.Guard
+	tools []fs.Tool
+	index map[string]fs.Tool
 
 	// writeMu 串行化 stdout 写入：并发回的包不能互相插进对方中间。
 	writeMu sync.Mutex
-	out     io.Writer
 }
 
-func newServer(reg *ai.Registry, guard fs.Guard) *server {
-	return &server{reg: reg, guard: guard}
+func newServer(guard fs.Guard) *server {
+	tools := guard.Catalog()
+	index := make(map[string]fs.Tool, len(tools))
+	for _, t := range tools {
+		index[t.Name] = t
+	}
+	return &server{guard: guard, tools: tools, index: index}
 }
 
 // serve 读 stdin 直到 EOF。
 func (s *server) serve(stdin io.Reader, stdout io.Writer) error {
-	s.out = stdout
 	sc := bufio.NewScanner(stdin)
 	// 一行可能很长（批量 paths、大文件内容进参数），给 8MB 上限；
 	// 默认的 64KB 会在真实使用中直接报 "token too long"。
@@ -123,9 +130,7 @@ func (s *server) serve(stdin io.Reader, stdout io.Writer) error {
 			}
 			s.writeMu.Lock()
 			defer s.writeMu.Unlock()
-			if err := enc.Encode(resp); err != nil {
-				fmt.Fprintf(io.Discard, "%v", err)
-			}
+			_ = enc.Encode(resp)
 		}()
 	}
 	// EOF：先把在飞的请求回完再退出，否则最后一个 tools/call 的响应会丢。
@@ -163,7 +168,7 @@ func (s *server) handle(line []byte) (rpcResponse, bool) {
 		return okResponse(req.ID, map[string]any{}), !isNotification
 
 	case "tools/list":
-		return okResponse(req.ID, map[string]any{"tools": s.tools()}), !isNotification
+		return okResponse(req.ID, map[string]any{"tools": s.mcpTools()}), !isNotification
 
 	case "tools/call":
 		if isNotification {
@@ -172,7 +177,7 @@ func (s *server) handle(line []byte) (rpcResponse, bool) {
 		return s.handleCall(req)
 
 	default:
-		if isNotification || len(req.Method) > 0 && req.Method[0] == 'n' && hasPrefix(req.Method, "notifications/") {
+		if isNotification {
 			// 未知通知：按规范静默忽略（客户端可能在发我们不认识的进度通知）
 			return rpcResponse{}, false
 		}
@@ -180,17 +185,10 @@ func (s *server) handle(line []byte) (rpcResponse, bool) {
 	}
 }
 
-func hasPrefix(s, p string) bool { return len(s) >= len(p) && s[:len(p)] == p }
-
-func (s *server) tools() []mcpTool {
-	defs := s.reg.Definitions()
-	out := make([]mcpTool, 0, len(defs))
-	for _, d := range defs {
-		out = append(out, mcpTool{
-			Name:        d.Function.Name,
-			Description: d.Function.Description,
-			InputSchema: d.Function.Parameters,
-		})
+func (s *server) mcpTools() []mcpTool {
+	out := make([]mcpTool, 0, len(s.tools))
+	for _, t := range s.tools {
+		out = append(out, mcpTool{Name: t.Name, Description: t.Description, InputSchema: t.Schema})
 	}
 	return out
 }
@@ -207,6 +205,14 @@ func (s *server) handleCall(req rpcRequest) (rpcResponse, bool) {
 	if in.Name == "" {
 		return errorResponse(req.ID, codeInvalidParams, "tools/call 缺少工具名 name"), true
 	}
+	tool, ok := s.index[in.Name]
+	if !ok {
+		// 未知工具也走 isError：模型看到的应该是「没有这个工具」，不是连接断了。
+		return okResponse(req.ID, callResult{
+			Content: []textContent{{Type: "text", Text: "没有这个工具: " + in.Name}},
+			IsError: true,
+		}), true
+	}
 	args := in.Arguments
 	if len(args) == 0 || string(args) == "null" {
 		args = json.RawMessage("{}")
@@ -214,7 +220,7 @@ func (s *server) handleCall(req rpcRequest) (rpcResponse, bool) {
 
 	// 用 context.Background：stdio 上难以做「单次调用取消」，但工具内部的
 	// 并行扫描仍然受并发上限约束，不会无限跑下去。
-	out, err := s.reg.Execute(context.Background(), in.Name, string(args))
+	out, err := tool.Run(context.Background(), args)
 	if err != nil {
 		// ★ 业务失败 → isError，不是协议错误。
 		return okResponse(req.ID, callResult{
@@ -239,9 +245,8 @@ func (s *server) handleCall(req rpcRequest) (rpcResponse, bool) {
 }
 
 func trimConfirmPrefix(out string) (string, bool) {
-	const prefix = ai.ConfirmPrefix
-	if len(out) >= len(prefix) && out[:len(prefix)] == prefix {
-		return out[len(prefix):], true
+	if len(out) >= len(fs.ConfirmPrefix) && out[:len(fs.ConfirmPrefix)] == fs.ConfirmPrefix {
+		return out[len(fs.ConfirmPrefix):], true
 	}
 	return "", false
 }

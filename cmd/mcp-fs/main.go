@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/klphp/excel-batch-tool/internal/ai"
 	"github.com/klphp/excel-batch-tool/internal/tools/fs"
 )
 
@@ -53,14 +52,9 @@ func run(args []string) int {
 		return 1
 	}
 
-	// 和桌面应用共用同一份工具注册表：语义（含删除确认、编码处理）完全一致。
-	reg := ai.NewRegistry()
-	if err := fs.RegisterWithGuard(reg, guard); err != nil {
-		fmt.Fprintln(os.Stderr, "mcp-fs: 注册工具失败:", err)
-		return 1
-	}
-
-	srv := newServer(reg, guard)
+	// 和桌面应用共用同一份能力目录（fs.Guard.Catalog()）：语义（含删除确认、
+	// 编码处理、路径边界）完全一致，但这里只依赖 fs 包 + 标准库。
+	srv := newServer(guard)
 	// 日志只能写 stderr：stdout 是协议通道，多打一个字节客户端就崩。
 	fmt.Fprintf(os.Stderr, "mcp-fs %s ready (roots: %v)\n", serverVersion, guard.Roots)
 	if err := srv.serve(os.Stdin, os.Stdout); err != nil {
