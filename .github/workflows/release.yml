@@ -87,6 +87,19 @@ jobs:
           "CC=gcc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           & (Join-Path $mingw "gcc.exe") --version | Select-Object -First 1
 
+      # 直接 go build 不会嵌 Windows 资源：图标和 DPI manifest 全靠 .syso。
+      # 不走 wails3 build 就得自己生成，否则 exe 在资源管理器里是个空白图标。
+      - name: Embed Windows icon + manifest
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          go install github.com/akavel/rsrc@latest
+          "$(go env GOPATH)/bin/rsrc" -arch amd64 \
+            -ico build/windows/icon.ico \
+            -manifest build/windows/wails.exe.manifest \
+            -o rsrc_windows_amd64.syso
+          ls -l rsrc_windows_amd64.syso
+
       - name: Build
         shell: bash
         env:
@@ -119,6 +132,12 @@ jobs:
           $br.Close(); $fs.Close()
           Write-Output "PE subsystem = $sub (2 = GUI)"
           if ($sub -ne 2) { throw "产物是控制台程序（subsystem=$sub），双击会多一个命令行窗口" }
+
+          # 图标检查：没有资源段时 ExtractAssociatedIcon 拿不到图标
+          Add-Type -AssemblyName System.Drawing
+          $ico = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path "bin/deskkit.exe").Path)
+          if (-not $ico -or $ico.Width -lt 16) { throw "exe 里没有图标资源（rsrc 没生效）" }
+          Write-Output ("icon = " + $ico.Width + "x" + $ico.Height)
 
       # 未签名 + arm64 的 macOS 上，二进制至少要有一个 ad-hoc 签名才能运行。
       # 注意：**不要**在这里运行 bin/deskkit —— 它是 GUI 程序，会一直挂着不退出，

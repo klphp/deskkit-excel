@@ -25,3 +25,6 @@ README.zh-CN.md
 # 开发笔记与工作日志只留本地，不进仓库
 /docs/
 /logs/
+
+# 构建时生成的 Windows 资源文件
+rsrc_*.syso
