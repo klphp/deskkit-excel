@@ -234,9 +234,13 @@ jobs:
           rm -f SHA256SUMS-*.txt
           cat SHA256SUMS 2>/dev/null || true
 
+      # 发布说明一律英文，并且不用「自动从提交生成」——本仓库的提交信息是中文，
+      # 自动生成会得到一份中文说明，与仓库对外语言不一致。
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          generate_release_notes: true
+          name: DeskKit Excel ${{ github.ref_name }}
+          body_path: .github/release-notes.md
+          generate_release_notes: false
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
