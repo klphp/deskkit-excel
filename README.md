@@ -84,7 +84,7 @@ config/app.yaml       app config (AI, service, update, i18n)
 ## Stack
 
 Wails v3.1.0 · Go 1.26 · Vue 3 · TypeScript · Vite · SQLCipher (session storage).
-File operations live in a separate library, [`fsx`](https://github.com/klphp/fsx).
+File operations live in a separate Go module, `fsx`.
 
 ## License
 
