@@ -4,7 +4,7 @@
 
 **本软件为自用工具，按「现状」提供。**
 
-- **闭源发布**：只提供可执行程序，不提供源代码。仓库与发布页不包含源码。
+- **源代码公开**：源码在本仓库，可自行审计、编译、改动。
 - **未做代码签名**：Windows SmartScreen 与 macOS Gatekeeper 可能提示「未知开发者」。
   这是未签名的必然结果，不代表程序有问题。确认来源可信后可继续运行。
 - **无任何担保**：不承诺适用于特定用途，不承诺数据绝对无损失。
@@ -22,7 +22,7 @@
 
 **This software is a self-use tool provided "AS IS".**
 
-- **Closed source**: binaries only; no source code is distributed.
+- **Source available**: the source lives in this repository — audit, build or fork it.
 - **Unsigned**: Windows SmartScreen / macOS Gatekeeper may warn about an unknown developer.
   This is expected for unsigned builds and does not by itself indicate a problem.
 - **No warranty of any kind**, including fitness for a particular purpose or freedom from data loss.
