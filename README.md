@@ -11,6 +11,8 @@ It:    reads 200 xlsx files → aligns headers → merges → groups → writes 
        all local, no upload, no account
 ```
 
+![DeskKit Excel on Windows](screenshots/index.png)
+
 ## What it is for
 
 The job it does is narrow: take many spreadsheet files that are messy or
