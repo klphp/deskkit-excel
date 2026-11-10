@@ -112,6 +112,18 @@ func (m *Manager) Open(name string) error {
 		m.mu.Lock()
 		delete(m.open, name)
 		m.mu.Unlock()
+
+		// 主窗口（main: true）关掉就退出应用。
+		//
+		// 为什么必须显式写：boot 里只设了 MacOptions.ApplicationShouldTerminateAfter
+		// LastWindowClosed，那是 macOS 专有行为。Windows 上关掉窗口后进程会继续
+		// 活着 —— 变成一个没有窗口的僵尸进程。用户再双击 exe，新实例被单实例
+		// 机制拦下、去“激活主窗口”，可那个窗口早就没了。用户看到的现象就是
+		// 「双击毫无反应」，实际程序在后台开着，只能去任务管理器杀。
+		if def.Main {
+			slog.Info("主窗口已关闭，退出应用", "name", name)
+			m.app.Quit()
+		}
 	})
 
 	// 子窗口相对父窗口居中。
