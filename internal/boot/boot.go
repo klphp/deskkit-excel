@@ -281,6 +281,17 @@ func loadConfig(configFS fs.FS) (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	// DESKKIT_CONFIG 指向外部 app.yaml 时优先用它。
+	// 用途：联调自更新时把 update.baseURL 指到内网模拟源（树莓派 192.168.0.246:8790），
+	// 不必为每次改动重新构建。Windows 上同样可设，两边指向同一个地址。
+	if p := strings.TrimSpace(os.Getenv("DESKKIT_CONFIG")); p != "" {
+		if b, e := os.ReadFile(p); e == nil {
+			appYAML = b
+			slog.Info("使用外部配置", "path", p)
+		} else {
+			slog.Warn("外部配置读不到，回退内嵌配置", "path", p, "err", e)
+		}
+	}
 	winYAML, err := fs.ReadFile(configFS, "config/windows.yaml")
 	if err != nil {
 		return nil, err

@@ -30,15 +30,12 @@ jobs:
             platform: windows
             arch: amd64
             ext: .exe
-          # Mac 分两种芯片：Intel 用 Intel runner，M 系列用 arm64 runner。
-          # 都是 CGO（SQLCipher），所以不能靠交叉编译糊弄，各上各的机器。
+          # macOS 用一台 Intel runner 同时出 Intel 与 Apple Silicon 两个包。
+          # 原因：arm64 专用 runner 排队动辄几小时（实测三次都没跑出来），
+          # 而 clang 交叉编 arm64 我们在本机验证过可行（cgo + SQLCipher 都过）。
           - os: macos-15
             platform: darwin
-            arch: amd64
-            ext: ""
-          - os: macos-15-arm64
-            platform: darwin
-            arch: arm64
+            arch: both
             ext: ""
 
     runs-on: ${{ matrix.os }}
@@ -89,6 +86,21 @@ jobs:
 
       # 直接 go build 不会嵌 Windows 资源：图标和 DPI manifest 全靠 .syso。
       # 不走 wails3 build 就得自己生成，否则 exe 在资源管理器里是个空白图标。
+      # 早期闸门：tag 与 config 里的版本必须一致。
+      # 客户端比较的是编译进二进制的 app.version，不是 tag；两者不一致时用户
+      # 永远收不到更新，而且没有任何报错——只能靠这道检查发现。
+      - name: Check tag matches config version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          CFG=$(grep -E "^  version:" config/app.yaml | head -1 | awk '{print $2}' | tr -d '"')
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "config version = $CFG, tag = $TAG"
+          if [ "$CFG" != "$TAG" ]; then
+            echo "✗ tag 与 config 版本不一致：客户端会比较 config 里的 $CFG，永远不会看到 $TAG"
+            exit 1
+          fi
+
       - name: Embed Windows icon + manifest
         if: matrix.platform == 'windows'
         shell: bash
@@ -115,7 +127,17 @@ jobs:
           if [ "${{ matrix.platform }}" = "windows" ]; then
             LDFLAGS="-w -s -H windowsgui"
           fi
-          go build -tags production -trimpath -ldflags "$LDFLAGS" -o "bin/deskkit${{ matrix.ext }}" .
+          if [ "${{ matrix.arch }}" = "both" ]; then
+            # 同一台 Intel runner 上交叉编两个架构，产物名字带架构，后面按名字打包
+            for a in amd64 arm64; do
+              echo "=== build darwin/$a ==="
+              CGO_ENABLED=1 GOARCH=$a CC=clang \
+                CGO_CFLAGS="-arch $a" CGO_LDFLAGS="-arch $a" \
+                go build -tags production -trimpath -ldflags "$LDFLAGS" -o "bin/deskkit-$a" .
+            done
+          else
+            go build -tags production -trimpath -ldflags "$LDFLAGS" -o "bin/deskkit${{ matrix.ext }}" .
+          fi
           ls -lh bin/
 
       # 硬验证，不靠"应该没问题"：Windows 产物的 PE 子系统必须是 2（GUI）。
@@ -146,13 +168,16 @@ jobs:
       - name: Ad-hoc sign (macOS)
         if: matrix.platform == 'darwin'
         shell: bash
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
-          chmod +x bin/deskkit
-          codesign --force --sign - bin/deskkit
-          codesign -dv bin/deskkit 2>&1 | head -3
-          file bin/deskkit
-          lipo -archs bin/deskkit 2>/dev/null || true
+          for a in amd64 arm64; do
+            chmod +x "bin/deskkit-$a"
+            codesign --force --sign - "bin/deskkit-$a"
+            file "bin/deskkit-$a"
+            lipo -archs "bin/deskkit-$a"
+            # 架构自检：编错了架构的包用户装了跑不起来
+            lipo -archs "bin/deskkit-$a" | grep -q "$a" || { echo "架构不对：期望 $a"; exit 1; }
+          done
 
       # macOS 用户拿裸二进制也能跑，但 .app 更像正常软件：双击即用、有图标。
       # 这里手工拼一个最小 bundle，避免依赖 wails3 package 的平台限制。
@@ -160,12 +185,13 @@ jobs:
         if: matrix.platform == 'darwin'
         shell: bash
         run: |
-          APP="DeskKit Excel.app"
-          rm -rf "bin/$APP"
-          mkdir -p "bin/$APP/Contents/MacOS" "bin/$APP/Contents/Resources"
-          cp bin/deskkit "bin/$APP/Contents/MacOS/DeskKit Excel"
-          cp build/darwin/icons.icns "bin/$APP/Contents/Resources/iconfile.icns" 2>/dev/null || true
-          cat > "bin/$APP/Contents/Info.plist" <<'PLIST'
+          for a in amd64 arm64; do
+            APP="DeskKit-$a.app"
+            rm -rf "bin/$APP"
+            mkdir -p "bin/$APP/Contents/MacOS" "bin/$APP/Contents/Resources"
+            cp "bin/deskkit-$a" "bin/$APP/Contents/MacOS/DeskKit Excel"
+            cp build/darwin/icons.icns "bin/$APP/Contents/Resources/iconfile.icns" 2>/dev/null || true
+            cat > "bin/$APP/Contents/Info.plist" <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -183,9 +209,11 @@ jobs:
           </dict>
           </plist>
           PLIST
-          sed -i '' "s/\${VERSION}/${GITHUB_REF_NAME#v}/" "bin/$APP/Contents/Info.plist" 2>/dev/null || \
-            sed -i "s/\${VERSION}/${GITHUB_REF_NAME#v}/" "bin/$APP/Contents/Info.plist"
-          codesign --force --deep --sign - "bin/$APP"
+            sed -i '' "s/\${VERSION}/${GITHUB_REF_NAME#v}/" "bin/$APP/Contents/Info.plist" 2>/dev/null || \
+              sed -i "s/\${VERSION}/${GITHUB_REF_NAME#v}/" "bin/$APP/Contents/Info.plist"
+            codesign --force --deep --sign - "bin/$APP"
+            file "bin/$APP/Contents/MacOS/DeskKit Excel"
+          done
         env:
           VERSION: ${{ github.ref_name }}
 
@@ -218,12 +246,19 @@ jobs:
         run: |
           # 同上：只有 v 开头的 tag 才当版本号，手动触发用占位版本
           if [[ "$GITHUB_REF_NAME" == v[0-9]* ]]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION="0.0.0-dev"; fi
-          OUT="deskkit-${VERSION}-darwin-${ARCH}"
-          # .app 必须整目录压缩，Wails 自更新只认 zip
           cd bin
-          zip -qry "../$OUT.zip" "DeskKit Excel.app"
+          for a in amd64 arm64; do
+            OUT="../deskkit-${VERSION}-darwin-${a}.zip"
+            # .app 必须整目录压缩，Wails 自更新只认 zip
+            zip -qry "$OUT" "DeskKit-$a.app"
+            # 包名自检：文件名必须含平台 + 架构，否则客户端匹配不到
+            case "$(basename "$OUT")" in
+              *darwin*"$a"*) ;;
+              *) echo "产物命名不含 darwin/$a：$OUT"; exit 1 ;;
+            esac
+          done
           cd ..
-          ls -lh "$OUT.zip"
+          ls -lh deskkit-*-darwin-*.zip
 
       - name: Checksums
         shell: bash
@@ -290,3 +325,19 @@ jobs:
           generate_release_notes: false
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+  # 发版后复核：机器判定这版能不能被客户端发现并安装，不靠人点。
+  verify:
+    needs: release
+    runs-on: ubuntu-latest
+    if: always() && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify published release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/verify-release.sh
+          ./scripts/verify-release.sh "${GITHUB_REF_NAME}"
