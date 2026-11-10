@@ -259,12 +259,18 @@ jobs:
           $ref = "$env:GITHUB_REF_NAME"
           if ($ref -match '^v\d') { $version = $ref -replace '^v','' } else { $version = "0.0.0-dev" }
           $name = "deskkit-$version-windows-$env:ARCH"
-          $stage = "dist/$name"
+          # zip 里只能有可执行文件本身。
+          # Wails 更新器在解压后要求「只有一个顶层条目」，并把它直接顶替运行中的
+          # exe；多放一个 README 就会得到
+          #   updater: archive must contain exactly one top-level entry, got 4
+          # 用户点更新什么都不发生 —— 实测踩过。README/免责声明在仓库里，校验和是
+          # 独立资产（SHA256SUMS），不需要塞进包里。
+          $stage = "dist/pkg-$name"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          Copy-Item bin/deskkit.exe, README.md, DISCLAIMER.md -Destination $stage
-          $hash = (Get-FileHash "$stage/deskkit.exe" -Algorithm SHA256).Hash.ToLower()
-          "deskkit.exe  SHA256=$hash" | Out-File -Encoding ascii "$stage/SHA256SUMS.txt"
-          Compress-Archive -Path "$stage/*" -DestinationPath "$name.zip" -CompressionLevel Optimal
+          Copy-Item bin/deskkit.exe -Destination $stage
+          $entries = @(Get-ChildItem $stage).Count
+          if ($entries -ne 1) { throw "windows package must hold exactly one file, found $entries" }
+          Compress-Archive -Path "$stage/deskkit.exe" -DestinationPath "$name.zip" -CompressionLevel Optimal
           Write-Output ("package = " + $name + ".zip " + (Get-Item "$name.zip").Length + " bytes")
 
       - name: Package (macOS)

@@ -84,6 +84,33 @@ for spec in $PLATFORMS; do
   if [ -n "$hit" ]; then ok "$spec dmg → $hit"; else bad "$spec has no .dmg (Mac users would have nothing to drag into Applications)"; fi
 done
 
+# Windows 的 zip 必须只有一个顶层条目（就是 exe 本身）。
+# Wails 更新器解压后要求「只有一个顶层条目」并把它顶替运行中的 exe；
+# 包里多一个 README 就会让用户点更新后什么都不发生（实测踩过）。
+echo "-- 3c) the Windows zip holds exactly one top-level file --"
+for spec in $PLATFORMS; do
+  plat="${spec%/*}"; arch="${spec#*/}"
+  [ "$plat" = "windows" ] || continue
+  win_asset=$(for a in $ASSETS; do
+    low=$(echo "$a" | tr '[:upper:]' '[:lower:]')
+    case "$low" in *.zip) echo "$low" | grep -q "windows" && echo "$low" | grep -q "$arch" && echo "$a" ;; esac
+  done | head -1)
+  [ -n "$win_asset" ] || continue
+  ztmp=$(mktemp -d)
+  if curl -sfL "https://github.com/$REPO/releases/download/$TAG/$win_asset" -o "$ztmp/a.zip"; then
+    top=$(unzip -Z1 "$ztmp/a.zip" | awk -F/ 'NF==1 || $2=="" {print $1}' | sort -u)
+    count=$(printf '%s\n' "$top" | grep -c . || true)
+    if [ "$count" -eq 1 ] && printf '%s' "$top" | grep -qi '\.exe$'; then
+      ok "$win_asset → single entry: $top"
+    else
+      bad "$win_asset has $count top-level entries ($(printf '%s' "$top" | tr '\n' ' ')) - the updater needs exactly one, and it must be the exe"
+    fi
+  else
+    bad "could not download $win_asset"
+  fi
+  rm -rf "$ztmp"
+done
+
 echo "-- 4) SHA256SUMS matches the real files --"
 SUMS_URL="https://github.com/$REPO/releases/download/$TAG/SHA256SUMS"
 TMP=$(mktemp -d)
