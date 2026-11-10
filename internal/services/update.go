@@ -39,6 +39,15 @@ func (s *UpdateService) Enabled() bool {
 	return false
 }
 
+// ReleasePage 手动下载页。检查或安装失败时前端用它给一个出口，
+// 不让用户对着"检查失败"四个字发呆。
+func (s *UpdateService) ReleasePage() string {
+	if m := s.manager(); m != nil {
+		return m.ReleasePage()
+	}
+	return ""
+}
+
 // Check 手动检查一次更新。只查不装 —— 装不装由用户点按钮决定。
 func (s *UpdateService) Check(ctx context.Context) (*update.Result, error) {
 	m := s.manager()

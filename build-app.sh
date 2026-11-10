@@ -20,6 +20,7 @@ BIN="bin/deskkit"
 OUT="dist/${APP_NAME}.app"
 
 # ★ 前端也要在这里构建，否则 dist 还是上一次的。
+  ./scripts/check-frontend-guards.sh
 # 前后端两条命令分开跑，最容易出现「改了前端、忘了 npm run build，然后
 # 只跑打包」—— 界面纹丝不动，人却以为代码没生效。一条命令做完最稳。
 if [[ "${SKIP_FRONTEND:-0}" != "1" ]]; then

@@ -44,7 +44,37 @@ import (
 //	Get "https://api.github.com/...": dial tcp: lookup api.github.com: no such host
 //
 // 这既看不懂也不知道该做什么。统一换成一句能照着做的话。
-var ErrNetwork = errors.New("网络连接失败，请检查网络后重试")
+var ErrNetwork = errors.New("network")
+
+// 检查更新失败时给前端的稳定短代码。用户不该看到 GitHub 的原始 JSON
+// （里面是 API 链接、限流阈值、IP），也不该看到 "updater: all providers failed: github: github: ..."
+// 这种内部链式错误。原文用 slog 记下来，界面只显示一句人话。
+var (
+	// ErrRateLimited GitHub 对匿名请求限流（每小时 60 次/出口 IP）。
+	ErrRateLimited = errors.New("rate_limited")
+	// ErrNoRelease 更新源里还没有任何 Release。
+	ErrNoRelease = errors.New("no_release")
+	// ErrCheckFailed 其它失败：一律归到这里，避免把底层细节漏出去。
+	ErrCheckFailed = errors.New("check_failed")
+)
+
+// classify 把底层错误压成一个稳定代码。判断基于原文特征，宁可归到"失败"
+// 也不要漏出原始 JSON。
+func classify(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "rate limit") || strings.Contains(msg, "403"):
+		return ErrRateLimited
+	case strings.Contains(msg, "404") || strings.Contains(msg, "not found"):
+		return ErrNoRelease
+	case isNetworkError(err):
+		return ErrNetwork
+	}
+	return ErrCheckFailed
+}
 
 // isNetworkError 判断错误是不是出在网络上（而不是配置、签名、磁盘）。
 //
@@ -171,6 +201,12 @@ func (m *Manager) Setup() error {
 // Enabled 报告自更新是否启用。
 func (m *Manager) Enabled() bool { return m.cfg.Enabled }
 
+// ReleasePage 检查/下载失败时给用户的手动出口。
+//
+// 自动更新失败时，用户最需要的是"我自己去下载"。没有这个链接，界面只剩一句
+// 失败提示，人就卡住了。
+func (m *Manager) ReleasePage() string { return m.fallbackURL }
+
 // Check 只检查，不下载、不安装。这是「用户自己决定」的关键 ——
 // 前端拿到结果后可以只显示一个提示条，用户点了才走 Install。
 func (m *Manager) Check(ctx context.Context) (*Result, error) {
@@ -182,11 +218,9 @@ func (m *Manager) Check(ctx context.Context) (*Result, error) {
 	if err != nil {
 		// 网络不通就到此为止：不上报「无更新」、不提示「已是最新」，
 		// 那种结论在断网时是错的，会让用户以为版本检查成功了。
-		if isNetworkError(err) {
-			slog.Debug("检查更新时网络不通", "err", err)
-			return nil, ErrNetwork
-		}
-		return nil, err
+		// 原文只进日志：界面显示的是短代码，避免把 GitHub 的 JSON 甩给用户
+		slog.Warn("检查更新失败", "err", err)
+		return nil, classify(err)
 	}
 	if rel == nil {
 		return &Result{Available: false}, nil

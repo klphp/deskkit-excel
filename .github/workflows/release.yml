@@ -107,6 +107,7 @@ jobs:
           GOARCH: ${{ matrix.arch }}
         run: |
           mkdir -p bin
+          ./scripts/check-frontend-guards.sh
           cd frontend && npm ci && npm run build && cd ..
           # 与本地一致的参数：production 标签 + 去符号；Windows 必须 windowsgui，
           # 否则双击会附带一个黑色命令行窗口。

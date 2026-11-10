@@ -6,7 +6,7 @@
  * 那些只对开发者有意义，摆在界面上既占地方也显得可疑。
  */
 import { onMounted, ref } from "vue";
-import { Loader2, Download, AlertCircle, CheckCircle2, RefreshCw } from "@lucide/vue";
+import { Loader2, Download, AlertCircle, CheckCircle2, RefreshCw, ExternalLink } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import logoURL from "../assets/logo.svg";
 
@@ -41,6 +41,8 @@ const { t } = useI18n();
 
 /** 更新源是否在 config/app.yaml 里配好了。没配也能点，点了给一句明确提示。 */
 const updateConfigured = ref(false);
+/** 手动下载页：检查失败时给用户的出口 */
+const releasePage = ref("");
 const checking = ref(false);
 const installing = ref(false);
 /** idle | uptodate | available | error */
@@ -71,12 +73,22 @@ onMounted(async () => {
   try {
     const svc = await loadUpdateService();
     updateConfigured.value = await svc.Enabled();
+    releasePage.value = (await svc.ReleasePage?.()) || "";
   } catch (e) {
     // 不再静默：绑定层出问题时，至少控制台能看见，而不是让用户对着
     // 「没配置更新源」猜哪里错了。
     console.warn("[about] 读取自更新状态失败", e);
   }
 });
+
+/** 把后端给的短代码翻成一句人话；未知错误也绝不把原始报文甩给用户。 */
+function friendlyError(e: unknown): string {
+  const raw = String((e as any)?.message ?? e ?? "");
+  if (raw.includes("rate_limited")) return t("about.updateRateLimited");
+  if (raw.includes("no_release")) return t("about.updateNoRelease");
+  if (raw.includes("network")) return t("about.updateNetwork");
+  return t("about.updateCheckFailed");
+}
 
 async function checkUpdate() {
   if (checking.value) return;
@@ -90,12 +102,17 @@ async function checkUpdate() {
   checking.value = true;
   errorMsg.value = "";
   try {
-    const res: UpdateResult = await (await loadUpdateService()).Check();
-    result.value = res;
+    const res = await (await loadUpdateService()).Check();
+    if (!res) {
+      // 后端没有返回结果（例如更新未启用）：等价于"没有新版本"
+      state.value = "uptodate";
+      return;
+    }
+    result.value = res as UpdateResult;
     state.value = res.available ? "available" : "uptodate";
   } catch (e: any) {
     state.value = "error";
-    errorMsg.value = String(e?.message ?? e);
+    errorMsg.value = friendlyError(e);
   } finally {
     checking.value = false;
   }
@@ -114,7 +131,7 @@ async function installUpdate() {
     }
   } catch (e: any) {
     state.value = "error";
-    errorMsg.value = String(e?.message ?? e);
+    errorMsg.value = friendlyError(e);
   } finally {
     installing.value = false;
   }
@@ -190,6 +207,18 @@ async function installUpdate() {
         <AlertCircle :size="13" class="mt-0.5 shrink-0" />
         <span class="select-text">{{ errorMsg || t("about.checkFailed") }}</span>
       </p>
+
+      <!-- 失败时给一个手动出口：只说「失败」用户不知道下一步做什么 -->
+      <a
+        v-if="state === 'error' && releasePage"
+        :href="releasePage"
+        target="_blank"
+        rel="noopener"
+        class="mt-2 inline-flex items-center gap-1 text-[12px] text-primary hover:underline"
+      >
+        {{ t("about.openReleases") }}
+        <ExternalLink :size="11" />
+      </a>
     </div>
   </div>
 </template>
