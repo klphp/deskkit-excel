@@ -321,6 +321,7 @@ jobs:
           path: |
             deskkit-*.zip
             deskkit-*.tar.gz
+            deskkit-*.dmg
             SHA256SUMS-*.txt
 
   release:
