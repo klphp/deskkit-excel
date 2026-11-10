@@ -289,13 +289,26 @@ jobs:
             # 同时出一个 DMG：给人手动下载用（拖进"应用程序"）。
             # 两个都要的原因：Wails 自更新只认 zip（updater/extract.go 没有 dmg 分支），
             # 而 DMG 是 Mac 用户习惯的安装方式。zip 给更新器，dmg 给首次下载。
-            STAGE="../dmg-stage-$a"
-            rm -rf "$STAGE"; mkdir -p "$STAGE"
+            # 在临时目录里建镜像并用绝对路径输出。
+            # 踩过：用相对路径 + 仓库目录当 srcfolder，CI 上 hdiutil 报
+            # "create failed - Resource busy"（临时 RW 镜像和源目录在同一卷上打架）。
+            # 再加几次重试 —— 这个错误本身也常是瞬时的。
+            STAGE=$(mktemp -d)/stage
+            mkdir -p "$STAGE"
             cp -R "DeskKit-$a.app" "$STAGE/"
             ln -sf /Applications "$STAGE/Applications"
-            hdiutil create -volname "DeskKit Excel" -srcfolder "$STAGE" \
-              -ov -format UDZO "../deskkit-${VERSION}-darwin-${a}.dmg" >/dev/null
-            rm -rf "$STAGE"
+            OUTDMG="$PWD/../deskkit-${VERSION}-darwin-${a}.dmg"
+            ok=0
+            for attempt in 1 2 3; do
+              if hdiutil create -volname "DeskKit Excel" -srcfolder "$STAGE" \
+                   -ov -nospotlight -format UDZO "$OUTDMG" >/dev/null 2>&1; then
+                ok=1; break
+              fi
+              echo "hdiutil attempt $attempt failed; retrying"
+              sleep 5
+            done
+            rm -rf "$(dirname "$STAGE")"
+            if [ "$ok" -ne 1 ]; then echo "could not build $OUTDMG"; exit 1; fi
           done
           cd ..
           ls -lh deskkit-*-darwin-*.zip deskkit-*-darwin-*.dmg
