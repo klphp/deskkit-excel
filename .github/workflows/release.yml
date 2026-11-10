@@ -277,14 +277,12 @@ jobs:
           if [[ "$GITHUB_REF_NAME" == v[0-9]* ]]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION="0.0.0-dev"; fi
           cd bin
           for a in amd64 arm64; do
-            OUT="../deskkit-${VERSION}-darwin-${a}.zip"
-            # .app 必须整目录压缩，Wails 自更新只认 zip
-            zip -qry "$OUT" "DeskKit-$a.app"
-            # 包名自检：文件名必须含平台 + 架构，否则客户端匹配不到
-            case "$(basename "$OUT")" in
-              *darwin*"$a"*) ;;
-              *) echo "artifact name does not contain darwin/$a: $OUT"; exit 1 ;;
-            esac
+            # macOS 只发 DMG，不发 zip。
+            # 原因：Mac 上的更新是「给用户一个 dmg 链接，他自己拖进应用程序」，
+            # 那条路不需要 zip；而 zip 是自更新器专用的格式，Mac 上没人用它，
+            # 混在资产里只会让下载页多两个没人该点的文件。
+            # （Wails 更新器的资产匹配只看文件名里的平台+架构，dmg 同样能被认出来，
+            #   所以「检查更新」照常工作。）
 
             # 同时出一个 DMG：给人手动下载用（拖进"应用程序"）。
             # 两个都要的原因：Wails 自更新只认 zip（updater/extract.go 没有 dmg 分支），
