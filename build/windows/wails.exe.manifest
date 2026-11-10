@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
-    <assemblyIdentity type="win32" name="com.klphp.wails3base" version="0.1.0" processorArchitecture="*"/>
+    <assemblyIdentity type="win32" name="com.klphp.deskkit" version="1.0.0.0" processorArchitecture="*"/>
+    <!-- 版本必须是四段（1.0.0.0）。写成三段 0.1.0 时 Windows 拒绝生成激活上下文，
+         exe 双击毫无反应，事件日志报"assemblyIdentity 的 version 无效"。 -->
     <dependency>
         <dependentAssembly>
             <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0" processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/>
