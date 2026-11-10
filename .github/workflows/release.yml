@@ -285,9 +285,20 @@ jobs:
               *darwin*"$a"*) ;;
               *) echo "产物命名不含 darwin/$a：$OUT"; exit 1 ;;
             esac
+
+            # 同时出一个 DMG：给人手动下载用（拖进"应用程序"）。
+            # 两个都要的原因：Wails 自更新只认 zip（updater/extract.go 没有 dmg 分支），
+            # 而 DMG 是 Mac 用户习惯的安装方式。zip 给更新器，dmg 给首次下载。
+            STAGE="../dmg-stage-$a"
+            rm -rf "$STAGE"; mkdir -p "$STAGE"
+            cp -R "DeskKit-$a.app" "$STAGE/"
+            ln -sf /Applications "$STAGE/Applications"
+            hdiutil create -volname "DeskKit Excel" -srcfolder "$STAGE" \
+              -ov -format UDZO "../deskkit-${VERSION}-darwin-${a}.dmg" >/dev/null
+            rm -rf "$STAGE"
           done
           cd ..
-          ls -lh deskkit-*-darwin-*.zip
+          ls -lh deskkit-*-darwin-*.zip deskkit-*-darwin-*.dmg
 
       - name: Checksums
         shell: bash
@@ -296,7 +307,7 @@ jobs:
           ARCH: ${{ matrix.arch }}
         run: |
           shopt -s nullglob
-          files=(deskkit-*.zip deskkit-*.tar.gz)
+          files=(deskkit-*.zip deskkit-*.tar.gz deskkit-*.dmg)
           if command -v sha256sum >/dev/null; then
             sha256sum "${files[@]}" > "SHA256SUMS-${PLATFORM}-${ARCH}.txt"
           else

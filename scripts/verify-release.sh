@@ -73,6 +73,17 @@ for spec in $PLATFORMS; do
   if [ -n "$hit" ]; then ok "$spec → $hit"; else bad "$spec 没有可用资产（文件名需同时含 $plat 与 $arch）"; fi
 done
 
+echo "── ③b macOS 必须有 DMG（给人手动安装用）──"
+for spec in $PLATFORMS; do
+  plat="${spec%/*}"; arch="${spec#*/}"
+  [ "$plat" = "darwin" ] || continue
+  hit=$(for a in $ASSETS; do
+    low=$(echo "$a" | tr '[:upper:]' '[:lower:]')
+    case "$low" in *.dmg) echo "$low" | grep -q "darwin" && echo "$low" | grep -q "$arch" && echo "$a" ;; esac
+  done | head -1)
+  if [ -n "$hit" ]; then ok "$spec dmg → $hit"; else bad "$spec 没有 .dmg（Mac 用户下载后无法拖进应用程序）"; fi
+done
+
 echo "── ④ SHA256SUMS 与真实文件一致 ──"
 SUMS_URL="https://github.com/$REPO/releases/download/$TAG/SHA256SUMS"
 TMP=$(mktemp -d)
@@ -84,6 +95,7 @@ else
     case "$a" in
       SHA256SUMS|*.sig|*.asc|*SHA256SUMS*.txt) continue ;;
     esac
+    # zip 与 dmg 都校验（dmg 是下载安装包，zip 是更新包）
     want=$(awk -v n="$a" '$2==n || $2=="*"n {print $1}' "$TMP/SHA256SUMS" | head -1)
     if [ -z "$want" ]; then
       bad "$a 不在 SHA256SUMS 里"
