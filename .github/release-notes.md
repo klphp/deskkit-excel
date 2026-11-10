@@ -1,8 +1,15 @@
-# DeskKit Excel v0.1.0
+# DeskKit Excel
 
 An AI-driven batch processor for Excel files that runs entirely on your machine.
 Describe the job in one sentence, point it at a folder, and it works through the
 files locally — no account, and the files never leave your computer.
+
+## What's new in 0.1.1
+
+- Windows builds now carry the application icon and DPI manifest (the file no longer
+  shows up as a blank generic exe in Explorer).
+- The updater is configured and points at this repository, so the in-app
+  "check for updates" works from this release on.
 
 ## What it does
 
@@ -20,7 +27,7 @@ Ask for any of these in plain language, or use the operations directly — AI is
 
 Windows 10 or later:
 
-1. Download `deskkit-0.1.0-windows-amd64.zip` below and extract it — there is no installer.
+1. Download the `deskkit-<version>-windows-amd64.zip` from the assets below and extract it — there is no installer.
 2. Run `deskkit.exe`. SmartScreen will say "unrecognised app" because the build is
    unsigned: choose **More info → Run anyway**.
 3. Verify the download against `SHA256SUMS` if you want to be sure it arrived intact.
