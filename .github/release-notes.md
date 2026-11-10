@@ -4,12 +4,24 @@ An AI-driven batch processor for Excel files that runs entirely on your machine.
 Describe the job in one sentence, point it at a folder, and it works through the
 files locally — no account, and the files never leave your computer.
 
-## What's new in 0.1.1
+## What's new in 0.2.0
 
-- Windows builds now carry the application icon and DPI manifest (the file no longer
-  shows up as a blank generic exe in Explorer).
-- The updater is configured and points at this repository, so the in-app
-  "check for updates" works from this release on.
+First release meant to be installed by someone other than me. What changed:
+
+- **Windows updates itself.** One click on "download and install": fetch, verify the
+  checksum, swap the running executable and relaunch. No unzipping, no manual replace.
+- **macOS ships a disk image.** Download the `.dmg`, drag the app to Applications and
+  run it. The in-app update opens the `.dmg` download and stops there — installing is
+  yours to do.
+- **Fixed: the app would not start at all on Windows.** The embedded manifest declared
+  a three-part assembly version, which Windows rejects, so the process was killed by
+  the loader before it could draw anything. Doubled-clicking did nothing and left no
+  message behind.
+- **Fixed: closing the main window left a windowless process running**, and the next
+  double-click was swallowed by the single-instance check — it looked like the app was
+  dead. Closing the main window now exits.
+- **Fixed macOS arm64 builds were never produced**, so Apple Silicon users had nothing
+  to download. Both architectures are now built from one job.
 
 ## What it does
 
@@ -34,6 +46,15 @@ Windows 10 or later:
 
 Older Windows versions are refused at startup on purpose.
 
+macOS:
+
+1. Download the `deskkit-<version>-darwin-<arch>.dmg` that matches your Mac
+   (`arm64` for Apple Silicon, `amd64` for Intel), open it and drag the app to
+   Applications.
+2. First launch: Gatekeeper will refuse an unsigned app — right-click the app,
+   choose **Open**, then confirm.
+3. The in-app update downloads the newer `.dmg` for you; drag-and-drop is still manual.
+
 ## Requirements
 
 - **A model is needed for the chat interface.** Any OpenAI-compatible endpoint
@@ -52,6 +73,9 @@ Older Windows versions are refused at startup on purpose.
   refused with an explanation rather than risking your machine.
 - AI output can be wrong. Every write shows what it is about to change first, but
   verify amounts, IDs and dates yourself.
+- The Windows updater stages the new build inside the app's own folder, so the app must
+  live somewhere writable (anywhere under your user profile is fine). Under
+  `C:\Program Files` it cannot update itself.
 
 ## Verify
 

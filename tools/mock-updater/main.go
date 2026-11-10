@@ -30,14 +30,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// asset 必须和真实 GitHub 的资产对象一致。
+// 踩过一次：只给 browser_download_url，Wails 下载时用的是 url 字段
+// （GitHub API 的资产地址），缺了它就报 "release metadata missing asset URL"，
+// 而检查更新那一步一切正常 —— 模拟源不够真会掩盖问题。
 type asset struct {
+	ID                 int    `json:"id"`
 	Name               string `json:"name"`
+	URL                string `json:"url"`
 	BrowserDownloadURL string `json:"browser_download_url"`
 	Size               int64  `json:"size"`
 	ContentType        string `json:"content_type"`
 }
 
 type release struct {
+	HTMLURL     string  `json:"html_url"`
 	TagName     string  `json:"tag_name"`
 	Name        string  `json:"name"`
 	Draft       bool    `json:"draft"`
@@ -125,7 +132,9 @@ func main() {
 	ghAssets := make([]asset, 0, len(assets))
 	for _, a := range assets {
 		ghAssets = append(ghAssets, asset{
+			ID:                 len(ghAssets) + 1,
 			Name:               a.Name,
+			URL:                base + "/dl/" + a.Name,
 			BrowserDownloadURL: base + "/dl/" + a.Name,
 			Size:               a.Size,
 			ContentType:        contentType(a.Ext),
@@ -139,6 +148,7 @@ func main() {
 	// ① GitHub 风格：最新 release
 	r.GET("/repos/:owner/:repo/releases/latest", func(c *gin.Context) {
 		c.JSON(http.StatusOK, release{
+			HTMLURL:     base + "/releases/tag/" + tag,
 			TagName:     tag,
 			Name:        "DeskKit Excel " + tag,
 			Body:        *note,
