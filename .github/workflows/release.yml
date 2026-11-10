@@ -78,7 +78,7 @@ jobs:
                      Where-Object { $_.FullName -match "ucrt64|mingw64" } | Select-Object -First 1
             if ($found) { $mingw = $found.DirectoryName }
           }
-          if (-not $mingw) { throw "找不到 gcc（试过 $($known -join ', ')）" }
+          if (-not $mingw) { throw "gcc not found (tried: $($known -join ', '))" }
           Write-Output "gcc dir = $mingw"
           "$mingw" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           "CC=gcc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -97,7 +97,7 @@ jobs:
           TAG="${GITHUB_REF_NAME#v}"
           echo "config version = $CFG, tag = $TAG"
           if [ "$CFG" != "$TAG" ]; then
-            echo "✗ tag 与 config 版本不一致：客户端会比较 config 里的 $CFG，永远不会看到 $TAG"
+            echo "tag/config version mismatch: clients compare the version in config ($CFG) and will never see $TAG"
             exit 1
           fi
 
@@ -159,12 +159,12 @@ jobs:
           $bytes = [IO.File]::ReadAllBytes($exe)
           $text = [Text.Encoding]::UTF8.GetString($bytes)
           if ($text -notmatch 'version="\d+\.\d+\.\d+\.\d+"') {
-            throw "exe 里找不到四段版本的 assemblyIdentity —— manifest 没嵌进去，或版本写法非法（三段会导致双击无反应）"
+            throw "no four-part assemblyIdentity version found inside the exe - manifest missing, or version is malformed (three-part makes the app silently refuse to start)"
           }
           if ($text -match 'assemblyIdentity[^>]*version="0\.1\.0"') {
-            throw "exe 里的 manifest 仍是三段版本，Windows 会拒绝加载"
+            throw "the manifest inside the exe still uses a three-part version; Windows will refuse to load it"
           }
-          Write-Output "manifest 版本四段校验通过"
+          Write-Output "manifest version is four-part: ok"
 
       - name: Verify Windows subsystem
         if: matrix.platform == 'windows'
@@ -178,12 +178,12 @@ jobs:
           $sub = $br.ReadUInt16()
           $br.Close(); $fs.Close()
           Write-Output "PE subsystem = $sub (2 = GUI)"
-          if ($sub -ne 2) { throw "产物是控制台程序（subsystem=$sub），双击会多一个命令行窗口" }
+          if ($sub -ne 2) { throw "artifact is a console program (subsystem=$sub); double-clicking would open an extra console window" }
 
           # 图标检查：没有资源段时 ExtractAssociatedIcon 拿不到图标
           Add-Type -AssemblyName System.Drawing
           $ico = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path "bin/deskkit.exe").Path)
-          if (-not $ico -or $ico.Width -lt 16) { throw "exe 里没有图标资源（rsrc 没生效）" }
+          if (-not $ico -or $ico.Width -lt 16) { throw "no icon resource inside the exe (rsrc did not apply)" }
           Write-Output ("icon = " + $ico.Width + "x" + $ico.Height)
 
       # 未签名 + arm64 的 macOS 上，二进制至少要有一个 ad-hoc 签名才能运行。
@@ -205,7 +205,7 @@ jobs:
             file "bin/deskkit-$a"
             lipo -archs "bin/deskkit-$a"
             # 架构自检：编错架构的包用户装了跑不起来
-            lipo -archs "bin/deskkit-$a" | grep -q "$LIPO_ARCH" || { echo "架构不对：期望 $LIPO_ARCH（Go 的 $a）"; exit 1; }
+            lipo -archs "bin/deskkit-$a" | grep -q "$LIPO_ARCH" || { echo "wrong architecture: expected $LIPO_ARCH (Go arch $a)"; exit 1; }
           done
 
       # macOS 用户拿裸二进制也能跑，但 .app 更像正常软件：双击即用、有图标。
@@ -283,7 +283,7 @@ jobs:
             # 包名自检：文件名必须含平台 + 架构，否则客户端匹配不到
             case "$(basename "$OUT")" in
               *darwin*"$a"*) ;;
-              *) echo "产物命名不含 darwin/$a：$OUT"; exit 1 ;;
+              *) echo "artifact name does not contain darwin/$a: $OUT"; exit 1 ;;
             esac
 
             # 同时出一个 DMG：给人手动下载用（拖进"应用程序"）。
@@ -343,7 +343,7 @@ jobs:
           shopt -s nullglob
           files=(dist/deskkit-*)
           if [ ${#files[@]} -eq 0 ]; then
-            echo "没有任何构建产物，放弃发 Release"
+            echo "no build artifacts found; skipping the release"
             exit 1
           fi
 

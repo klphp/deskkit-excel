@@ -38,6 +38,12 @@ type ProbeResult struct {
 	AssetURL  string `json:"assetUrl,omitempty"`
 	Checksum  string `json:"checksum,omitempty"` // ok | missing | mismatch | skipped
 	Err       string `json:"error,omitempty"`
+
+	// AutoInstall 该平台点一下就自动装好（Windows）。
+	// DownloadURL 该平台要交给用户手动装的直链（macOS 上是 .dmg）。
+	// 两个字段和界面行为一一对应：自检看到什么，用户就会遇到什么。
+	AutoInstall bool   `json:"autoInstall"`
+	DownloadURL string `json:"downloadUrl,omitempty"`
 }
 
 // Probe 查询更新源。platform/arch 传 runtime.GOOS / runtime.GOARCH。
@@ -75,6 +81,12 @@ func Probe(ctx context.Context, cfg config.Update, current, platform, arch strin
 	res.Asset = assetName
 	res.AssetURL = assetURL
 	res.Available = versionNewer(latest, current)
+	res.AutoInstall = platform == "windows"
+	if platform != "windows" && res.Available {
+		// macOS / Linux：用户要自己装，所以直接给出 .dmg 直链。
+		// 这也是判断「点更新后浏览器会下到什么」的唯一手段。
+		res.DownloadURL = DMGURL(ctx, cfg, platform, arch)
+	}
 
 	if assetURL == "" {
 		res.Checksum = "missing"
@@ -121,7 +133,10 @@ type ghRelease struct {
 	Assets     []ghAsset `json:"assets"`
 }
 
-func probeGitHub(ctx context.Context, cfg config.Update, platform, arch string) (latest, assetName, assetURL, digest, errMsg string) {
+// fetchLatestRelease 拉最新 release（含全部资产清单）。
+// probe 与 dmg 查找共用，避免两份几乎一样的 HTTP 代码。
+func fetchLatestRelease(ctx context.Context, cfg config.Update) (ghRelease, string) {
+	var rel ghRelease
 	apiBase := strings.TrimRight(cfg.BaseURL, "/")
 	if apiBase == "" {
 		apiBase = "https://api.github.com"
@@ -135,34 +150,64 @@ func probeGitHub(ctx context.Context, cfg config.Update, platform, arch string) 
 	req.Header.Set("User-Agent", "deskkit-update-probe")
 	resp, err := httpClient().Do(req)
 	if err != nil {
-		errMsg = "network: " + err.Error()
-		return
+		return rel, "network: " + err.Error()
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 
 	switch {
 	case resp.StatusCode == 403 || strings.Contains(string(body), "rate limit"):
-		errMsg = "rate_limited"
-		return
+		return rel, "rate_limited"
 	case resp.StatusCode == 404:
-		errMsg = "no_release"
-		return
+		return rel, "no_release"
 	case resp.StatusCode != 200:
-		errMsg = fmt.Sprintf("github api %d", resp.StatusCode)
-		return
+		return rel, fmt.Sprintf("github api %d", resp.StatusCode)
 	}
 
-	var rel ghRelease
 	if cfg.Prerelease {
 		var list []ghRelease
 		if e := json.Unmarshal(body, &list); e != nil || len(list) == 0 {
-			errMsg = "no_release"
-			return
+			return rel, "no_release"
 		}
 		rel = list[0]
 	} else if e := json.Unmarshal(body, &rel); e != nil {
-		errMsg = "decode failed: " + e.Error()
+		return rel, "decode failed: " + e.Error()
+	}
+	return rel, ""
+}
+
+// pickDMG 找出该平台的 .dmg 资产。macOS 上给用户的下载目标就是它：
+// 浏览器直接下 dmg，用户双击挂载、拖进「应用程序」，装完的事我们不管。
+func pickDMG(assets []ghAsset, platform, arch string) int {
+	plat := strings.ToLower(platform)
+	arch = strings.ToLower(arch)
+	for i, a := range assets {
+		name := strings.ToLower(a.Name)
+		if !strings.HasSuffix(name, ".dmg") {
+			continue
+		}
+		if strings.Contains(name, plat) && strings.Contains(name, arch) {
+			return i
+		}
+	}
+	return -1
+}
+
+// DMGURL 返回最新 release 里该平台 .dmg 的直链，没有则空串。
+func DMGURL(ctx context.Context, cfg config.Update, platform, arch string) string {
+	rel, errMsg := fetchLatestRelease(ctx, cfg)
+	if errMsg != "" {
+		return ""
+	}
+	if i := pickDMG(rel.Assets, platform, arch); i >= 0 {
+		return rel.Assets[i].BrowserDownloadURL
+	}
+	return ""
+}
+
+func probeGitHub(ctx context.Context, cfg config.Update, platform, arch string) (latest, assetName, assetURL, digest, errMsg string) {
+	rel, errMsg := fetchLatestRelease(ctx, cfg)
+	if errMsg != "" {
 		return
 	}
 

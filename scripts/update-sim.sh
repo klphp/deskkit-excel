@@ -18,7 +18,7 @@ DEVCFG="${DEVCFG:-/tmp/dev-app.yaml}"
 
 mkdir -p "$SIMDIR"
 
-echo "── ① 起模拟更新源（版本 $VERSION，端口 $PORT）──"
+echo "-- 1) starting the mock update source (version $VERSION, port $PORT) --"
 # 注意：不能用 `go run` —— 它会把真正的服务进程作为子进程拉起，
 # kill 掉 go run 的 PID 之后子进程还在，端口被占住（踩过一次）。
 # 先编译成固定路径的二进制，再直接跑，PID 就是服务本身。
@@ -32,12 +32,12 @@ for _ in $(seq 1 40); do
   sleep 0.25
 done
 if ! curl -sf "http://127.0.0.1:$PORT/" >/dev/null 2>&1; then
-  echo "模拟服务没起来，日志：" >&2
+  echo "mock server did not start; log:" >&2
   tail -20 /tmp/mock-updater.log >&2
   exit 1
 fi
 
-echo "── ② 生成指向本地的开发配置 ──"
+echo "-- 2) writing a dev config that points at the local source --"
 python3 - "$PORT" "$DEVCFG" <<'PY'
 import pathlib, sys
 port, out = sys.argv[1], sys.argv[2]
@@ -48,13 +48,13 @@ pathlib.Path(out).write_text(dev, encoding="utf-8")
 print(f"  {out}")
 PY
 
-echo "── ③ 自检（不需要开窗口、不需要发版）──"
+echo "-- 3) self-check (no window, no release needed) --"
 if ! CGO_ENABLED=1 go build -tags production -o bin/deskkit . ; then
-  echo "构建失败" >&2
+  echo "build failed" >&2
   exit 1
 fi
 DESKKIT_CONFIG="$DEVCFG" ./bin/deskkit --check-update | tee /tmp/update-probe.json
 
 echo
-echo "判读：available=true 且有 asset、checksum=ok → 整条链路正常。"
-echo "想验证界面上那句话，再跑：./bin/deskkit（配置已经指向本地源）"
+echo "verdict: available=true with an asset and checksum=ok means the whole chain works."
+echo "to verify what the UI says, run: ./bin/deskkit (config already points at the local source)"

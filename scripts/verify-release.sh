@@ -28,38 +28,38 @@ ok()   { echo "  ✓ $*"; }
 bad()  { echo "  ✗ $*" >&2; fail=1; }
 
 if [ -z "$TAG" ]; then
-  echo "用法：$0 <tag> [--local]" >&2
+  echo "usage: $0 <tag> [--local]" >&2
   exit 2
 fi
 VER="${TAG#v}"
 
-echo "── ① tag 与配置版本一致 ──"
+echo "-- 1) tag matches the version in config --"
 CFG_VER=$(grep -E "^  version:" config/app.yaml | head -1 | awk '{print $2}' | tr -d '"')
 if [ "$CFG_VER" = "$VER" ]; then
   ok "config version = $CFG_VER"
 else
-  bad "config version = $CFG_VER，但 tag = $TAG —— 客户端比较的是配置里的版本，不匹配就永远看不到更新"
+  bad "config version = $CFG_VER but tag = $TAG - clients compare the version in config, so a mismatch means updates are never offered"
 fi
 
 if [ "$MODE" = "--local" ]; then
-  [ "$fail" -eq 0 ] && echo "本地一致性检查通过" || echo "本地一致性检查失败" >&2
+  [ "$fail" -eq 0 ] && echo "local consistency check passed" || echo "local consistency check failed" >&2
   exit "$fail"
 fi
 
-echo "── ② Release 存在且非 draft / 非 prerelease ──"
+echo "-- 2) release exists and is neither draft nor prerelease --"
 REL_JSON=$(gh release view "$TAG" --repo "$REPO" --json tagName,isDraft,isPrerelease,assets 2>/dev/null)
 if [ -z "$REL_JSON" ]; then
-  bad "找不到 Release $TAG"
+  bad "release $TAG not found"
   exit "$fail"
 fi
 IS_DRAFT=$(echo "$REL_JSON" | python3 -c "import json,sys;print(json.load(sys.stdin)['isDraft'])")
 IS_PRE=$(echo "$REL_JSON" | python3 -c "import json,sys;print(json.load(sys.stdin)['isPrerelease'])")
-[ "$IS_DRAFT" = "False" ] && ok "不是 draft" || bad "是 draft：releases/latest 不会返回它"
-[ "$IS_PRE" = "False" ] && ok "不是 prerelease" || bad "是 prerelease：releases/latest 不会返回它"
+[ "$IS_DRAFT" = "False" ] && ok "not a draft" || bad "it is a draft: releases/latest never returns drafts"
+[ "$IS_PRE" = "False" ] && ok "not a prerelease" || bad "it is a prerelease: releases/latest never returns prereleases"
 
-echo "── ③ 每个目标平台都有匹配的资产 ──"
+echo "-- 3) every target platform has a matching asset --"
 ASSETS=$(echo "$REL_JSON" | python3 -c "import json,sys;print(' '.join(a['name'] for a in json.load(sys.stdin)['assets']))")
-echo "  资产：$ASSETS"
+echo "  assets: $ASSETS"
 for spec in $PLATFORMS; do
   plat="${spec%/*}"; arch="${spec#*/}"
   hit=$(for a in $ASSETS; do
@@ -70,10 +70,10 @@ for spec in $PLATFORMS; do
     esac
     echo "$low" | grep -q "$plat" && echo "$low" | grep -q "$arch" && echo "$a"
   done | head -1)
-  if [ -n "$hit" ]; then ok "$spec → $hit"; else bad "$spec 没有可用资产（文件名需同时含 $plat 与 $arch）"; fi
+  if [ -n "$hit" ]; then ok "$spec → $hit"; else bad "$spec has no usable asset (file name must contain both $plat and $arch)"; fi
 done
 
-echo "── ③b macOS 必须有 DMG（给人手动安装用）──"
+echo "-- 3b) macOS must ship a DMG (for manual install) --"
 for spec in $PLATFORMS; do
   plat="${spec%/*}"; arch="${spec#*/}"
   [ "$plat" = "darwin" ] || continue
@@ -81,16 +81,16 @@ for spec in $PLATFORMS; do
     low=$(echo "$a" | tr '[:upper:]' '[:lower:]')
     case "$low" in *.dmg) echo "$low" | grep -q "darwin" && echo "$low" | grep -q "$arch" && echo "$a" ;; esac
   done | head -1)
-  if [ -n "$hit" ]; then ok "$spec dmg → $hit"; else bad "$spec 没有 .dmg（Mac 用户下载后无法拖进应用程序）"; fi
+  if [ -n "$hit" ]; then ok "$spec dmg → $hit"; else bad "$spec has no .dmg (Mac users would have nothing to drag into Applications)"; fi
 done
 
-echo "── ④ SHA256SUMS 与真实文件一致 ──"
+echo "-- 4) SHA256SUMS matches the real files --"
 SUMS_URL="https://github.com/$REPO/releases/download/$TAG/SHA256SUMS"
 TMP=$(mktemp -d)
 if ! curl -sfL "$SUMS_URL" -o "$TMP/SHA256SUMS"; then
-  bad "下载不到 SHA256SUMS（update.checksumAsset 指向它）"
+  bad "cannot download SHA256SUMS (update.checksumAsset points at it)"
 else
-  ok "SHA256SUMS 存在"
+  ok "SHA256SUMS present"
   for a in $ASSETS; do
     case "$a" in
       SHA256SUMS|*.sig|*.asc|*SHA256SUMS*.txt) continue ;;
@@ -98,20 +98,20 @@ else
     # zip 与 dmg 都校验（dmg 是下载安装包，zip 是更新包）
     want=$(awk -v n="$a" '$2==n || $2=="*"n {print $1}' "$TMP/SHA256SUMS" | head -1)
     if [ -z "$want" ]; then
-      bad "$a 不在 SHA256SUMS 里"
+      bad "$a is missing from SHA256SUMS"
       continue
     fi
-    curl -sfL "https://github.com/$REPO/releases/download/$TAG/$a" -o "$TMP/$a" || { bad "$a 下载失败"; continue; }
+    curl -sfL "https://github.com/$REPO/releases/download/$TAG/$a" -o "$TMP/$a" || { bad "$a failed to download"; continue; }
     got=$(shasum -a 256 "$TMP/$a" 2>/dev/null | awk '{print $1}' || sha256sum "$TMP/$a" | awk '{print $1}')
-    if [ "$want" = "$got" ]; then ok "$a sha256 一致"; else bad "$a sha256 不一致（表里 $want，实际 $got）"; fi
+    if [ "$want" = "$got" ]; then ok "$a sha256 matches"; else bad "$a sha256 mismatch (manifest says $want, actual $got)"; fi
   done
 fi
 rm -rf "$TMP"
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "全部通过：这个 Release 可以被客户端正确发现并安装。"
+  echo "all checks passed: clients can discover and install this release."
 else
-  echo "有项目未通过 —— 不要对外宣称这版可用。" >&2
+  echo "some checks failed - do not announce this release as usable." >&2
 fi
 exit "$fail"

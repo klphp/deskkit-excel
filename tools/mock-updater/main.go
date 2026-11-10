@@ -80,6 +80,7 @@ func main() {
 		Name string
 		Sum  string
 		Size int64
+		Ext  string
 	}
 	var assets []built
 	var sums []string
@@ -92,15 +93,24 @@ func main() {
 		if len(parts) != 2 {
 			log.Fatalf("--platforms 里 %q 格式应为 平台/架构", spec)
 		}
-		name := fmt.Sprintf("deskkit-%s-%s-%s.zip", ver, parts[0], parts[1])
-		path := filepath.Join(*dir, name)
-		payload := []byte("mock artifact " + name + " generated " + time.Now().Format(time.RFC3339))
-		if err := os.WriteFile(path, payload, 0o644); err != nil {
-			log.Fatalf("写资产失败: %v", err)
+		// 每个平台出两种包装，和真实发布保持一致：
+		//   .zip  给自更新（Wails updater 只认 zip/tar.gz）
+		//   .dmg  给 macOS 用户手动下载安装
+		exts := []string{".zip"}
+		if parts[0] == "darwin" {
+			exts = append(exts, ".dmg")
 		}
-		sum, size := fileSHA256(path)
-		assets = append(assets, built{Name: name, Sum: sum, Size: size})
-		sums = append(sums, sum+"  "+name)
+		for _, ext := range exts {
+			name := fmt.Sprintf("deskkit-%s-%s-%s%s", ver, parts[0], parts[1], ext)
+			path := filepath.Join(*dir, name)
+			payload := []byte("mock artifact " + name + " generated " + time.Now().Format(time.RFC3339))
+			if err := os.WriteFile(path, payload, 0o644); err != nil {
+				log.Fatalf("写资产失败: %v", err)
+			}
+			sum, size := fileSHA256(path)
+			assets = append(assets, built{Name: name, Sum: sum, Size: size, Ext: ext})
+			sums = append(sums, sum+"  "+name)
+		}
 	}
 	if len(assets) == 0 {
 		log.Fatal("没有可用资产，检查 --platforms")
@@ -113,7 +123,7 @@ func main() {
 			Name:               a.Name,
 			BrowserDownloadURL: base + "/dl/" + a.Name,
 			Size:               a.Size,
-			ContentType:        "application/zip",
+			ContentType:        contentType(a.Ext),
 		})
 	}
 
@@ -170,6 +180,15 @@ func main() {
 	if err := r.Run(addr); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// contentType 让模拟源的响应头与真实发布一致：
+// 下载 dmg 时浏览器按 application/x-apple-diskimage 处理。
+func contentType(ext string) string {
+	if ext == ".dmg" {
+		return "application/x-apple-diskimage"
+	}
+	return "application/zip"
 }
 
 func fileSHA256(path string) (string, int64) {

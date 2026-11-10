@@ -119,6 +119,10 @@ type Result struct {
 
 	// ArtifactSize 是安装包字节数，来自 release 元数据，用于推算下载超时。
 	ArtifactSize int64 `json:"artifactSize"`
+
+	// DownloadURL 是 macOS 上要交给浏览器的直链（.dmg）。
+	// Windows 上为空 —— 那边走下载+替换+重启，全自动，不需要链接。
+	DownloadURL string `json:"downloadUrl"`
 }
 
 // Manager 持有 Updater 配置和最近一次 Check 的结果。
@@ -237,6 +241,16 @@ func (m *Manager) Check(ctx context.Context) (*Result, error) {
 		ArtifactSize: rel.Artifact.Size,
 	}
 
+	// macOS / Linux：给用户一个能直接下载的 .dmg 直链。
+	// 先给直链而不是发布页，是因为「下载 dmg → 双击运行 → 剩下用户自己弄」
+	// 才是这边的既定做法；发布页还要用户在 zip 和 dmg 之间选，多一步。
+	// 查不到时退到发布页，不让用户卡住。
+	if runtime.GOOS != "windows" {
+		if u := DMGURL(ctx, m.cfg, runtime.GOOS, runtime.GOARCH); u != "" {
+			res.DownloadURL = u
+		}
+	}
+
 	m.mu.Lock()
 	m.last = res
 	m.mu.Unlock()
@@ -348,14 +362,26 @@ func (m *Manager) Install(ctx context.Context) error {
 
 	// macOS / Linux：走浏览器。优先用刚查到的 release 页面，
 	// 没有就退回配置里的固定地址。
-	url := m.fallbackURL
-	if r := m.Last(); r != nil && r.ReleaseURL != "" {
-		url = r.ReleaseURL
-	}
+	url := manualDownloadURL(m.Last(), m.fallbackURL)
 	if url == "" {
 		return fmt.Errorf("update: 没有可用的下载地址（检查配置里是否填了 repository 或 manifestUrl）")
 	}
 	return m.app.Browser.OpenURL(url)
+}
+
+// manualDownloadURL 决定「让用户自己装」时该打开哪个地址。
+//
+// 优先级：dmg 直链 > 发布页 > 配置里的固定地址。
+// 抽成纯函数是为了能单测 —— 这段逻辑错了用户就下载不到东西，但界面上
+// 只会看到浏览器打开了一个链接，看不出对错。
+func manualDownloadURL(res *Result, fallback string) string {
+	if res != nil && res.DownloadURL != "" {
+		return res.DownloadURL
+	}
+	if res != nil && res.ReleaseURL != "" {
+		return res.ReleaseURL
+	}
+	return fallback
 }
 
 // StartPeriodic 在后台按间隔检查，发现新版本时回调。
