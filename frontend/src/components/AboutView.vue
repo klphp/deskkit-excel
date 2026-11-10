@@ -48,18 +48,33 @@ const state = ref<"idle" | "uptodate" | "available" | "error">("idle");
 const result = ref<UpdateResult | null>(null);
 const errorMsg = ref("");
 
-async function getUpdateService(): Promise<any> {
-  const mod: any = await import(
-    "../../bindings/github.com/klphp/deskkit-excel/internal/services"
-  );
-  return new mod.UpdateService();
+/**
+ * 自更新服务的方法。
+ *
+ * ★ 这里必须用模块级函数（`export function Enabled()`），不能用 `new UpdateService()`：
+ * Wails 生成的绑定是一个个具名函数，没有类。写成 `new ...` 会在构造时抛
+ * TypeError，而外面那句 catch 会把它吞掉，界面就永远显示「没配置更新源」——
+ * 后端日志明明写着「自更新已启用」。这个 bug 就是这么来的。
+ */
+let updateSvc: typeof import("../../bindings/github.com/klphp/deskkit-excel/internal/services/updateservice") | null = null;
+
+async function loadUpdateService() {
+  if (!updateSvc) {
+    updateSvc = await import(
+      "../../bindings/github.com/klphp/deskkit-excel/internal/services/updateservice"
+    );
+  }
+  return updateSvc;
 }
 
 onMounted(async () => {
   try {
-    updateConfigured.value = await (await getUpdateService()).Enabled();
-  } catch {
-    /* bindings 未生成 */
+    const svc = await loadUpdateService();
+    updateConfigured.value = await svc.Enabled();
+  } catch (e) {
+    // 不再静默：绑定层出问题时，至少控制台能看见，而不是让用户对着
+    // 「没配置更新源」猜哪里错了。
+    console.warn("[about] 读取自更新状态失败", e);
   }
 });
 
@@ -75,7 +90,7 @@ async function checkUpdate() {
   checking.value = true;
   errorMsg.value = "";
   try {
-    const res: UpdateResult = await (await getUpdateService()).Check();
+    const res: UpdateResult = await (await loadUpdateService()).Check();
     result.value = res;
     state.value = res.available ? "available" : "uptodate";
   } catch (e: any) {
@@ -90,7 +105,7 @@ async function installUpdate() {
   if (installing.value) return;
   installing.value = true;
   try {
-    const svc = await getUpdateService();
+    const svc = await loadUpdateService();
     if (result.value?.autoInstall) {
       await svc.Install();
     } else if (result.value?.releaseUrl) {
