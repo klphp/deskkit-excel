@@ -103,9 +103,14 @@ func main() {
 		for _, ext := range exts {
 			name := fmt.Sprintf("deskkit-%s-%s-%s%s", ver, parts[0], parts[1], ext)
 			path := filepath.Join(*dir, name)
-			payload := []byte("mock artifact " + name + " generated " + time.Now().Format(time.RFC3339))
-			if err := os.WriteFile(path, payload, 0o644); err != nil {
-				log.Fatalf("写资产失败: %v", err)
+			// 目录里已有同名文件就直接用它 —— 这是做「真升级演练」的方式：
+			// 放一个真的安装包进去（比如当前的 Windows zip），模拟源照它发，
+			// 客户端会真的下载、校验、解压、替换，而不是拿到一个假文本。
+			if _, statErr := os.Stat(path); statErr != nil {
+				payload := []byte("mock artifact " + name + " generated " + time.Now().Format(time.RFC3339))
+				if err := os.WriteFile(path, payload, 0o644); err != nil {
+					log.Fatalf("写资产失败: %v", err)
+				}
 			}
 			sum, size := fileSHA256(path)
 			assets = append(assets, built{Name: name, Sum: sum, Size: size, Ext: ext})

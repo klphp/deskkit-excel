@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
@@ -42,6 +43,12 @@ func main() {
 	// 校验和对不对"。给开发期调试自更新用，避免每轮都要构建+发版+点按钮。
 	if wantsUpdateProbe(os.Args[1:]) {
 		os.Exit(runUpdateProbe())
+	}
+	// 演练模式：真的走一遍「下载 → 校验 → 解压 → 替换 → 重启」。
+	// 只在测试时用（配 DESKKIT_CONFIG 指向模拟源），不经过界面，
+	// 所以能在没有桌面会话的机器上验证自更新这条链。
+	if hasArg(os.Args[1:], "--install-update") {
+		os.Exit(runUpdateInstall())
 	}
 
 	// 装配全在 boot 里：每个工具（Excel / PDF / …）的 main.go 都长这样，
@@ -122,6 +129,16 @@ func main() {
 	}
 }
 
+// hasArg 判断命令行里有没有某个开关。
+func hasArg(args []string, want string) bool {
+	for _, a := range args {
+		if strings.TrimSpace(a) == want {
+			return true
+		}
+	}
+	return false
+}
+
 // wantsUpdateProbe 判断是否走自检模式。
 func wantsUpdateProbe(args []string) bool {
 	for _, a := range args {
@@ -190,4 +207,76 @@ func runUpdateProbe() int {
 		return 1
 	}
 	return 0
+}
+
+// runUpdateInstall 真的执行一次更新（下载、校验、替换、重启）。
+//
+// 为什么要有这个开关：自更新的最后一段（替换运行中的 exe、拉起新进程）只能
+// 在真机上验，而它又必须经过界面点一下。没有桌面会话的机器就永远验不了。
+// 有了它，配一个模拟源 + 一个真实安装包，就能在命令行里把整条链跑一遍。
+//
+// 返回 0 表示替换完成、helper 已接手；1 表示失败（详情在 stderr）。
+func runUpdateInstall() int {
+	cfg, err := loadConfigForCLI()
+	if err != nil {
+		slog.Error("配置加载失败", "err", err)
+		return 1
+	}
+	if !cfg.Update.Enabled {
+		slog.Error("自更新未启用（update.enabled=false）")
+		return 1
+	}
+
+	// 最小可用的 app：不建窗口、不注册服务，只要 Updater 能用。
+	app := application.New(application.Options{
+		Name: "DeskKit Excel",
+		Services: []application.Service{
+			application.NewService(&services.WindowService{}),
+		},
+	})
+
+	mgr := update.New(app, cfg.Update, cfg.App.Version, "")
+	if err := mgr.Setup(); err != nil {
+		slog.Error("初始化更新器失败", "err", err)
+		return 1
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	res, err := mgr.Check(ctx)
+	if err != nil {
+		slog.Error("检查更新失败", "err", err)
+		return 1
+	}
+	if res == nil || !res.Available {
+		slog.Info("没有可用更新，无需安装")
+		return 0
+	}
+	slog.Info("发现新版本，开始安装", "version", res.Version)
+
+	if err := mgr.Install(ctx); err != nil {
+		slog.Error("安装失败", "err", err)
+		return 1
+	}
+	slog.Info("安装已提交：helper 会替换文件并重新拉起应用")
+	return 0
+}
+
+// loadConfigForCLI 读配置：DESKKIT_CONFIG 优先，否则用内嵌的。
+func loadConfigForCLI() (*config.Config, error) {
+	raw, err := configFS.ReadFile("config/app.yaml")
+	if err != nil {
+		return nil, err
+	}
+	if p := os.Getenv("DESKKIT_CONFIG"); p != "" {
+		if b, e := os.ReadFile(p); e == nil {
+			raw = b
+			slog.Info("使用外部配置", "path", p)
+		} else {
+			return nil, e
+		}
+	}
+	win, _ := configFS.ReadFile("config/windows.yaml")
+	return config.Parse(raw, win)
 }
