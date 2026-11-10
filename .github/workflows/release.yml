@@ -177,12 +177,17 @@ jobs:
         timeout-minutes: 10
         run: |
           for a in amd64 arm64; do
+            # lipo 也按 Apple 的命名：Intel 是 x86_64，不是 Go 的 amd64
+            case "$a" in
+              amd64) LIPO_ARCH="x86_64" ;;
+              arm64) LIPO_ARCH="arm64" ;;
+            esac
             chmod +x "bin/deskkit-$a"
             codesign --force --sign - "bin/deskkit-$a"
             file "bin/deskkit-$a"
             lipo -archs "bin/deskkit-$a"
-            # 架构自检：编错了架构的包用户装了跑不起来
-            lipo -archs "bin/deskkit-$a" | grep -q "$a" || { echo "架构不对：期望 $a"; exit 1; }
+            # 架构自检：编错架构的包用户装了跑不起来
+            lipo -archs "bin/deskkit-$a" | grep -q "$LIPO_ARCH" || { echo "架构不对：期望 $LIPO_ARCH（Go 的 $a）"; exit 1; }
           done
 
       # macOS 用户拿裸二进制也能跑，但 .app 更像正常软件：双击即用、有图标。
