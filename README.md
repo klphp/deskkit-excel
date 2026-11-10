@@ -11,7 +11,7 @@ It:    reads 200 xlsx files → aligns headers → merges → groups → writes 
        all local, no upload, no account
 ```
 
-![DeskKit Excel on Windows](screenshots/index.png)
+![DeskKit Excel on Windows](docs/images/index.png)
 
 ## What it is for
 
@@ -101,7 +101,7 @@ SQLCipher, so `CGO_ENABLED=1` is required.
 wails3 dev                  # hot reload
 wails3 build                # build
 go test ./internal/...      # tests
-./build-app.sh              # macOS .app bundle
+./scripts/build-app.sh              # macOS .app bundle
 ```
 
 On Windows with MSYS2, `gcc` from `ucrt64` must be on `PATH`, and the binary should be

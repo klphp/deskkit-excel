@@ -31,3 +31,6 @@ rsrc_*.syso
 
 # 项目背景（Hermes 自动加载），不进仓库
 .hermes.md
+
+# 内部开发笔记与构建产物（规则 4 / 6）
+.local-notes/
