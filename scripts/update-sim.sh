@@ -13,15 +13,20 @@ cd "$(dirname "$0")/.."
 VERSION="${1:-9.9.9}"
 PORT="${PORT:-8790}"
 SIMDIR="${SIMDIR:-/tmp/deskkit-sim}"
+SIMBIN="${SIMBIN:-/tmp/mock-updater-sim}"
 DEVCFG="${DEVCFG:-/tmp/dev-app.yaml}"
 
 mkdir -p "$SIMDIR"
 
 echo "── ① 起模拟更新源（版本 $VERSION，端口 $PORT）──"
-go run ./tools/mock-updater --version "$VERSION" --port "$PORT" --dir "$SIMDIR" >/tmp/mock-updater.log 2>&1 &
+# 注意：不能用 `go run` —— 它会把真正的服务进程作为子进程拉起，
+# kill 掉 go run 的 PID 之后子进程还在，端口被占住（踩过一次）。
+# 先编译成固定路径的二进制，再直接跑，PID 就是服务本身。
+CGO_ENABLED=0 go build -o "$SIMBIN" ./tools/mock-updater
+"$SIMBIN" --version "$VERSION" --port "$PORT" --dir "$SIMDIR" >/tmp/mock-updater.log 2>&1 &
 MOCK_PID=$!
 # 退出时收好自己的进程，别留给下一轮占端口
-trap 'kill "$MOCK_PID" 2>/dev/null || true' EXIT
+trap 'kill "$MOCK_PID" 2>/dev/null || true; wait "$MOCK_PID" 2>/dev/null || true' EXIT
 for _ in $(seq 1 40); do
   curl -sf "http://127.0.0.1:$PORT/" >/dev/null 2>&1 && break
   sleep 0.25
