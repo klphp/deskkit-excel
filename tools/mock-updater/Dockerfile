@@ -3,7 +3,7 @@
 #   docker build -f tools/mock-updater/Dockerfile -t deskkit/mock-updater:dev .
 #   docker run -d --name deskkit-mock -p 8790:8790 \
 #     -e MOCK_VERSION=9.9.9 \
-#     -e MOCK_PUBLIC_URL=http://192.168.0.200:8790 \
+#     -e MOCK_PUBLIC_URL=http://<lan-host>:8790 \
 #     deskkit/mock-updater:dev
 #
 # 为什么必须有 PUBLIC_URL：容器里生成资产下载地址时用的是"我自己的地址"，
