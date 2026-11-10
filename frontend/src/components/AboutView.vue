@@ -136,12 +136,12 @@ async function installUpdate() {
   installing.value = true;
   try {
     const svc = await loadUpdateService();
-    if (result.value?.autoInstall) {
-      await svc.Install();
-    } else if (result.value?.releaseUrl) {
-      // 不能自动装就打开下载页，不让用户自己去找
-      window.open(result.value.releaseUrl, "_blank");
-    }
+    // 一律交给后端决定，前端不自己开窗口：
+    //   Windows → 下载、校验、替换运行中的 exe、重启
+    //   macOS   → 用系统浏览器打开 .dmg 直链（浏览器接管下载）
+    // 踩过：这里原来对 macOS 用 window.open()，而 Wails 的 WebView 不允许弹新窗口，
+    // 结果就是「点了下载一点反应也没有」，后端那段 dmg 逻辑永远走不到。
+    await svc.Install();
   } catch (e: any) {
     state.value = "error";
     errorMsg.value = friendlyError(e);

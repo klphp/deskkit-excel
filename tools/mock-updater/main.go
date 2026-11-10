@@ -62,6 +62,7 @@ func main() {
 		note      = flag.String("notes", "local simulation build", "release notes")
 		bind      = flag.String("bind", "0.0.0.0", "监听地址（容器里必须是 0.0.0.0，127.0.0.1 只在本机回环可见）")
 		publicURL = flag.String("public-url", "", "资产下载地址前缀（容器里要填 http://<局域网IP>:<端口>）")
+		appName   = flag.String("app", "deskkit", "产物文件名前缀（应用名）")
 		plats     = flag.String("platforms", "windows/amd64,darwin/amd64,darwin/arm64",
 			"要模拟产物的平台/架构，逗号分隔（容器里 GOOS 是 linux，不能靠 runtime 猜）")
 	)
@@ -108,7 +109,7 @@ func main() {
 			exts = append(exts, ".dmg")
 		}
 		for _, ext := range exts {
-			name := fmt.Sprintf("deskkit-%s-%s-%s%s", ver, parts[0], parts[1], ext)
+			name := fmt.Sprintf("%s-%s-%s-%s%s", *appName, ver, parts[0], parts[1], ext)
 			path := filepath.Join(*dir, name)
 			// 目录里已有同名文件就直接用它 —— 这是做「真升级演练」的方式：
 			// 放一个真的安装包进去（比如当前的 Windows zip），模拟源照它发，

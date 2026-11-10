@@ -17,11 +17,19 @@ package update
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -366,6 +374,20 @@ func (m *Manager) Install(ctx context.Context) error {
 	if url == "" {
 		return fmt.Errorf("update: 没有可用的下载地址（检查配置里是否填了 repository 或 manifestUrl）")
 	}
+
+	// macOS：自己下 dmg、校验、再交给系统打开（挂载）。
+	// 之后由用户把 app 拖进「应用程序」—— 这一步刻意不代劳，装完要重启的权限
+	// 和 Gatekeeper 的确认都该由用户自己做。
+	// 下载失败时才退回「用浏览器打开链接」，免得用户卡住。
+	if runtime.GOOS == "darwin" && strings.HasSuffix(strings.ToLower(url), ".dmg") {
+		if err := m.downloadAndOpenDMG(ctx, url); err == nil {
+			return nil
+		} else {
+			slog.Warn("下载 dmg 失败，改为用浏览器打开下载地址", "err", err, "url", url)
+		}
+	}
+
+	slog.Info("用浏览器打开下载地址", "url", url)
 	return m.app.Browser.OpenURL(url)
 }
 
@@ -434,4 +456,68 @@ func (m *Manager) releaseURL(rel *updater.Release) string {
 		}
 	}
 	return m.fallbackURL
+}
+
+// downloadAndOpenDMG 把 dmg 下载到本机、按 SHA256SUMS 校验，然后交给系统打开。
+//
+// 为什么不用 Wails 的 DownloadAndInstall：它只认 zip，替换的是运行中的可执行文件；
+// macOS 的惯例是 dmg + 用户自己拖进「应用程序」，签名链路也要求这样做。
+//
+// 校验和来自同一次发布里的 SHA256SUMS（update.checksumAsset）。拿不到就照下，
+// 只是少一道保险 —— 不能因为校验和资产缺失就让用户升不了级。
+func (m *Manager) downloadAndOpenDMG(ctx context.Context, url string) error {
+	name := path.Base(url)
+	if !strings.HasSuffix(strings.ToLower(name), ".dmg") {
+		name = "deskkit-update.dmg"
+	}
+	dir := filepath.Join(os.TempDir(), "deskkit-update")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("update: create dir: %w", err)
+	}
+	dst := filepath.Join(dir, name)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "deskkit-updater")
+	resp, err := httpClient().Do(req)
+	if err != nil {
+		return fmt.Errorf("update: download: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("update: download status %d", resp.StatusCode)
+	}
+
+	f, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("update: create file: %w", err)
+	}
+	h := sha256.New()
+	if _, err := io.Copy(io.MultiWriter(f, h), resp.Body); err != nil {
+		f.Close()
+		os.Remove(dst)
+		return fmt.Errorf("update: write: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("update: close: %w", err)
+	}
+
+	// 校验和（能拿到就核，拿不到不阻塞）
+	if want, err := fetchSiblingChecksum(ctx, m.cfg, name); err == nil && want != "" {
+		if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, want) {
+			os.Remove(dst)
+			return fmt.Errorf("update: checksum mismatch (want %s, got %s)", want, got)
+		}
+		slog.Info("dmg 校验通过", "file", name)
+	} else {
+		slog.Warn("拿不到校验和，跳过校验", "file", name, "err", err)
+	}
+
+	slog.Info("打开 dmg（系统会挂载，之后把应用拖进「应用程序」）", "path", dst)
+	if err := exec.Command("open", dst).Run(); err != nil {
+		return fmt.Errorf("update: open dmg: %w", err)
+	}
+	return nil
 }
