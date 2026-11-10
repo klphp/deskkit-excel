@@ -62,6 +62,7 @@ func main() {
 		note      = flag.String("notes", "local simulation build", "release notes")
 		bind      = flag.String("bind", "0.0.0.0", "Address to bind (in a container this must be 0.0.0.0; 127.0.0.1 is only reachable from the loopback)")
 		publicURL = flag.String("public-url", "", "URL prefix for asset downloads (in a container use http://<LAN-IP>:<port>)")
+		dmgOnly   = flag.Bool("dmg-only", false, "macOS 只发 dmg（模拟真实发布形态）")
 		appName   = flag.String("app", "deskkit", "Prefix for artifact file names (the app name)")
 		plats     = flag.String("platforms", "windows/amd64,darwin/amd64,darwin/arm64",
 			"Platforms/architectures to simulate artifacts for, comma separated (GOOS is linux inside a container, so runtime detection cannot be used)")
@@ -106,7 +107,13 @@ func main() {
 		//   .dmg  给 macOS 用户手动下载安装
 		exts := []string{".zip"}
 		if parts[0] == "darwin" {
-			exts = append(exts, ".dmg")
+			if *dmgOnly {
+				// macOS 的真实发布只发 dmg；模拟源必须能重现这一形态，
+				// 否则测不出「Wails 的匹配器不认 dmg」这类问题。
+				exts = []string{".dmg"}
+			} else {
+				exts = append(exts, ".dmg")
+			}
 		}
 		for _, ext := range exts {
 			name := fmt.Sprintf("%s-%s-%s-%s%s", *appName, ver, parts[0], parts[1], ext)

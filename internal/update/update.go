@@ -228,6 +228,17 @@ func (m *Manager) Check(ctx context.Context) (*Result, error) {
 		return &Result{}, nil
 	}
 
+	// macOS / Linux：用我们自己的查询，不走 Wails 的 Updater.Check。
+	//
+	// 原因（实测）：Wails 的资产匹配器只认它能解压替换的包（zip/tar.gz），
+	// 遇到只发 dmg 的 release 会报
+	//   "release v9.9.9 has no asset for darwin/amd64"
+	// —— 也就是 Mac 上只发 dmg 时，程序连"有没有新版本"都查不出来。
+	// 这两条路互相独立：Windows 走 Wails（要它替换 exe），其它平台自己查。
+	if runtime.GOOS != "windows" {
+		return m.checkManually(ctx)
+	}
+
 	rel, err := m.app.Updater.Check(ctx)
 	if err != nil {
 		// 网络不通就到此为止：不上报「无更新」、不提示「已是最新」，
@@ -520,4 +531,53 @@ func (m *Manager) downloadAndOpenDMG(ctx context.Context, url string) error {
 		return fmt.Errorf("update: open dmg: %w", err)
 	}
 	return nil
+}
+
+// checkManually 自己查最新版本：只依赖 GitHub（或 endpoint）的 release 数据，
+// 不碰 Wails 的资产匹配规则。给 macOS / Linux 用。
+func (m *Manager) checkManually(ctx context.Context) (*Result, error) {
+	if m.cfg.Provider != "github" && m.cfg.Provider != "" {
+		// endpoint 模式没有自己的实现，退回 Wails
+		rel, err := m.app.Updater.Check(ctx)
+		if err != nil {
+			return nil, classify(err)
+		}
+		if rel == nil {
+			return &Result{Available: false}, nil
+		}
+		res := &Result{
+			Available:   versionNewer(rel.Version, m.currentVersion),
+			Version:     rel.Version,
+			Notes:       rel.Notes,
+			ReleaseURL:  m.releaseURL(rel),
+			AutoInstall: false,
+		}
+		m.mu.Lock()
+		m.last = res
+		m.mu.Unlock()
+		return res, nil
+	}
+
+	rel, errMsg := fetchLatestRelease(ctx, m.cfg)
+	if errMsg != "" {
+		return nil, classify(errors.New(errMsg))
+	}
+	res := &Result{
+		Available:   versionNewer(rel.TagName, m.currentVersion),
+		Version:     strings.TrimPrefix(rel.TagName, "v"),
+		Notes:       rel.Body,
+		ReleaseURL:  rel.HTMLURL,
+		AutoInstall: false,
+	}
+	if res.Available {
+		if i := pickDMG(rel.Assets, runtime.GOOS, runtime.GOARCH); i >= 0 {
+			res.DownloadURL = rel.Assets[i].BrowserDownloadURL
+			res.ArtifactSize = rel.Assets[i].Size
+		}
+	}
+
+	m.mu.Lock()
+	m.last = res
+	m.mu.Unlock()
+	return res, nil
 }

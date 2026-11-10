@@ -128,6 +128,8 @@ type ghAsset struct {
 }
 type ghRelease struct {
 	TagName    string    `json:"tag_name"`
+	Body       string    `json:"body"`
+	HTMLURL    string    `json:"html_url"`
 	Draft      bool      `json:"draft"`
 	Prerelease bool      `json:"prerelease"`
 	Assets     []ghAsset `json:"assets"`
