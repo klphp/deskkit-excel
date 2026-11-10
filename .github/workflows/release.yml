@@ -128,11 +128,17 @@ jobs:
             LDFLAGS="-w -s -H windowsgui"
           fi
           if [ "${{ matrix.arch }}" = "both" ]; then
-            # 同一台 Intel runner 上交叉编两个架构，产物名字带架构，后面按名字打包
+            # 同一台 Intel runner 上交叉编两个架构，产物名字带架构，后面按名字打包。
+            # 注意：clang 的架构名与 Go 不同 —— Go 的 amd64 在 clang 里叫 x86_64，
+            # 直接传 -arch amd64 会报 "invalid arch name '-arch amd64'"（踩过）。
             for a in amd64 arm64; do
-              echo "=== build darwin/$a ==="
+              case "$a" in
+                amd64) CLANG_ARCH="x86_64" ;;
+                arm64) CLANG_ARCH="arm64" ;;
+              esac
+              echo "=== build darwin/$a (clang -arch $CLANG_ARCH) ==="
               CGO_ENABLED=1 GOARCH=$a CC=clang \
-                CGO_CFLAGS="-arch $a" CGO_LDFLAGS="-arch $a" \
+                CGO_CFLAGS="-arch $CLANG_ARCH" CGO_LDFLAGS="-arch $CLANG_ARCH" \
                 go build -tags production -trimpath -ldflags "$LDFLAGS" -o "bin/deskkit-$a" .
             done
           else
