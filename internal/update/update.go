@@ -163,7 +163,9 @@ func (m *Manager) Setup() error {
 		prov, err = github.New(github.Config{
 			Repository:    m.cfg.Repository,
 			ChecksumAsset: m.cfg.ChecksumAsset,
-			Prerelease:    m.cfg.Prerelease,
+			// 留空 = 官方 api.github.com；填本地地址即可对着模拟服务跑
+			BaseURL:    m.cfg.BaseURL,
+			Prerelease: m.cfg.Prerelease,
 		})
 	case "endpoint":
 		if m.cfg.ManifestURL == "" {

@@ -1,17 +1,24 @@
 package main
 
 import (
+	"context"
 	"embed"
+	"encoding/json"
 	"log/slog"
+	"os"
+	"runtime"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/klphp/deskkit-excel/internal/ai"
 	"github.com/klphp/deskkit-excel/internal/boot"
+	"github.com/klphp/deskkit-excel/internal/config"
 	"github.com/klphp/deskkit-excel/internal/packs"
 	"github.com/klphp/deskkit-excel/internal/prefs"
 	"github.com/klphp/deskkit-excel/internal/services"
 	"github.com/klphp/deskkit-excel/internal/session"
+	"github.com/klphp/deskkit-excel/internal/update"
 )
 
 // 内核要用的配置（app.yaml + windows.yaml）。
@@ -31,6 +38,12 @@ var assets embed.FS
 const appName = "deskkit"
 
 func main() {
+	// 自检模式：不打开窗口、不安装，只回答"能不能查到新版本、会挑哪个包、
+	// 校验和对不对"。给开发期调试自更新用，避免每轮都要构建+发版+点按钮。
+	if wantsUpdateProbe(os.Args[1:]) {
+		os.Exit(runUpdateProbe())
+	}
+
 	// 装配全在 boot 里：每个工具（Excel / PDF / …）的 main.go 都长这样，
 	// 只是 AppName、内嵌的配置和额外注册的服务不同。
 	// 工具服务：界面按钮走它；AI 走同一批函数（见下面的 excel.Register）
@@ -107,4 +120,74 @@ func main() {
 		slog.Error("启动失败", "err", err)
 		return
 	}
+}
+
+// wantsUpdateProbe 判断是否走自检模式。
+func wantsUpdateProbe(args []string) bool {
+	for _, a := range args {
+		if strings.TrimSpace(a) == "--check-update" {
+			return true
+		}
+	}
+	return false
+}
+
+// runUpdateProbe 打印一行 JSON 结果退出。0 = 检查成功（有无更新都算成功），
+// 1 = 检查失败（网络/限流/配置错），方便 CI 直接判成功失败。
+func runUpdateProbe() int {
+	// DESKKIT_CONFIG 指向外部 app.yaml 时优先用它：调自更新时不必重新构建，
+	// 改完配置文件直接再跑一次即可。只在自检模式下生效，不影响正常启动。
+	raw, err := configFS.ReadFile("config/app.yaml")
+	if p := os.Getenv("DESKKIT_CONFIG"); p != "" {
+		if b, e := os.ReadFile(p); e == nil {
+			raw = b
+			slog.Info("使用外部配置", "path", p)
+		} else {
+			slog.Warn("外部配置读不到，回退内嵌配置", "path", p, "err", e)
+		}
+	}
+	if err != nil {
+		slog.Error("读不到内嵌配置", "err", err)
+		return 1
+	}
+	win, _ := configFS.ReadFile("config/windows.yaml")
+	cfg, err := config.Parse(raw, win)
+	if err != nil {
+		slog.Error("配置解析失败", "err", err)
+		return 1
+	}
+
+	// 允许指定平台/版本：一台机器就能替所有目标平台验一遍（CI 里也这么用）
+	platform, arch, current := runtime.GOOS, runtime.GOARCH, cfg.App.Version
+	for i, a := range os.Args {
+		next := func() string {
+			if i+1 < len(os.Args) {
+				return os.Args[i+1]
+			}
+			return ""
+		}
+		switch a {
+		case "--platform":
+			if v := next(); v != "" {
+				platform = v
+			}
+		case "--arch":
+			if v := next(); v != "" {
+				arch = v
+			}
+		case "--current":
+			if v := next(); v != "" {
+				current = v
+			}
+		}
+	}
+
+	res := update.Probe(context.Background(), cfg.Update, current, platform, arch)
+	out, _ := json.MarshalIndent(res, "", "  ")
+	os.Stdout.Write(out)
+	os.Stdout.Write([]byte("\n"))
+	if res.Err != "" {
+		return 1
+	}
+	return 0
 }

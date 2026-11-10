@@ -79,6 +79,10 @@ type Update struct {
 	// Provider 是更新源类型："github" 或 "endpoint"。
 	Provider string `yaml:"provider"`
 
+	// BaseURL 覆盖 GitHub API 地址，默认 https://api.github.com。
+	// 用途：本地模拟服务（tools/mock-updater）与 GitHub Enterprise。
+	BaseURL string `yaml:"baseURL"`
+
 	// Repository 是 provider=github 时的 "owner/repo"。
 	Repository string `yaml:"repository"`
 
