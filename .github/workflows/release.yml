@@ -315,7 +315,8 @@ jobs:
             if [ "$ok" -ne 1 ]; then echo "could not build $OUTDMG"; exit 1; fi
           done
           cd ..
-          ls -lh deskkit-*-darwin-*.zip deskkit-*-darwin-*.dmg
+          # macOS 只出 dmg（zip 已经不再构建），列一下确认产物在
+          ls -lh deskkit-*-darwin-*.dmg
 
       - name: Checksums
         shell: bash
