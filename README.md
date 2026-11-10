@@ -45,9 +45,15 @@ companies won't upload their financial workbooks to somebody else's server.
 
 ## Status
 
-Early. This is version 0.1.0 and it is honest about that:
+Early. No version number worth quoting yet, and it is honest about that:
 
 - **Excel only.** That is the whole scope. One tool, one job.
+- **Keep it in a folder you can write to.** The updater stages the new build inside
+  the app's own directory (an atomic rename on the same volume is the only safe way
+  to swap a running executable). Installed under `C:\Program Files` or any read-only
+  location, the in-app update will fail — move the folder somewhere under your user
+  profile, or update by hand. Two builds worth of free disk space are needed while it
+  runs.
 - **Windows 10 and later.** The app refuses to start on older Windows. macOS builds
   exist and run, but are not polished.
 - **Unsigned binaries.** SmartScreen and Gatekeeper will warn about an unknown
