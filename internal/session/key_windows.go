@@ -38,7 +38,7 @@ func dpapiDir() (string, error) {
 		base = os.Getenv("LOCALAPPDATA")
 	}
 	if base == "" {
-		return "", errors.New("找不到用户数据目录")
+		return "", errors.New("Cannot find the user data directory")
 	}
 	dir := filepath.Join(base, "deskkit")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -59,7 +59,7 @@ func readKey() (string, error) {
 	}
 	blob, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(raw)))
 	if err != nil {
-		return "", fmt.Errorf("密钥文件损坏: %w", err)
+		return "", fmt.Errorf("Key file is corrupted: %w", err)
 	}
 	plain, err := dpapi.Unprotect(blob)
 	if err != nil {
@@ -68,11 +68,11 @@ func readKey() (string, error) {
 		// 但至少不会静默覆盖掉一份可能还有救的文件。
 		broken := filepath.Join(dir, fmt.Sprintf("%s.broken-%d", dpapiKeyFile, time.Now().Unix()))
 		_ = os.Rename(filepath.Join(dir, dpapiKeyFile), broken)
-		return "", fmt.Errorf("DPAPI 解密失败（已备份为 %s）: %w", filepath.Base(broken), err)
+		return "", fmt.Errorf("DPAPI decryption failed (backed up as %s): %w", filepath.Base(broken), err)
 	}
 	key := string(plain)
 	if len(key) != 64 {
-		return "", errors.New("密钥长度不合法")
+		return "", errors.New("Key length is not valid")
 	}
 	return key, nil
 }

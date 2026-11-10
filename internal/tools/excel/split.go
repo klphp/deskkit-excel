@@ -36,7 +36,7 @@ func SplitByColumn(t *Table, col, outDir, ext string, maxFiles int) ([]SplitOutp
 		ext = "." + ext
 	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return nil, fmt.Errorf("建输出目录失败: %w", err)
+		return nil, fmt.Errorf("Failed to create the output folder: %w", err)
 	}
 
 	order := []string{}
@@ -44,7 +44,7 @@ func SplitByColumn(t *Table, col, outDir, ext string, maxFiles int) ([]SplitOutp
 	for _, r := range t.Rows {
 		k := strings.TrimSpace(cellAt(r, ci))
 		if k == "" {
-			k = "(空)"
+			k = "(empty)"
 		}
 		if _, ok := groups[k]; !ok {
 			order = append(order, k)
@@ -52,8 +52,8 @@ func SplitByColumn(t *Table, col, outDir, ext string, maxFiles int) ([]SplitOutp
 		groups[k] = append(groups[k], r)
 	}
 	if maxFiles > 0 && len(order) > maxFiles {
-		return nil, fmt.Errorf("这一列有 %d 个不同值，会被拆成 %d 个文件；超过上限 %d。"+
-			"确认要拆的话请调大 maxFiles，或者先筛选出需要的值", len(order), len(order), maxFiles)
+		return nil, fmt.Errorf("This column has %d distinct values, which would split into %d files; that is over the limit of %d."+
+			"If you really want to split, raise maxFiles, or filter down to the values you need first", len(order), len(order), maxFiles)
 	}
 
 	var out []SplitOutput
@@ -79,13 +79,13 @@ func SplitByColumn(t *Table, col, outDir, ext string, maxFiles int) ([]SplitOutp
 func SplitSheets(path, outDir string) ([]SplitOutput, error) {
 	names, err := SheetNames(path)
 	if err != nil {
-		return nil, fmt.Errorf("打不开 %s: %w", filepath.Base(path), err)
+		return nil, fmt.Errorf("Cannot open %s: %w", filepath.Base(path), err)
 	}
 	if outDir == "" {
 		outDir = filepath.Join(filepath.Dir(path), "deskkit-out")
 	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return nil, fmt.Errorf("建输出目录失败: %w", err)
+		return nil, fmt.Errorf("Failed to create the output folder: %w", err)
 	}
 
 	var out []SplitOutput
@@ -122,7 +122,7 @@ func ReadAllSheets(path string) ([]*Table, error) {
 		out = append(out, t)
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("%s 里没有可读的工作表", filepath.Base(path))
+		return nil, fmt.Errorf("%s has no readable sheets", filepath.Base(path))
 	}
 	return out, nil
 }
@@ -167,7 +167,7 @@ func WriteMultiSheet(path string, tables []*Table, opt WriteOptions) (string, er
 	for i, t := range tables {
 		name := sanitizeFileName(t.Sheet)
 		if name == "" {
-			name = fmt.Sprintf("表%d", i+1)
+			name = fmt.Sprintf("Sheet%d", i+1)
 		}
 		name = uniqueSheetName(f, name)
 		if i == 0 {
@@ -184,7 +184,7 @@ func WriteMultiSheet(path string, tables []*Table, opt WriteOptions) (string, er
 		}
 	}
 	if err := f.SaveAs(path); err != nil {
-		return "", fmt.Errorf("写文件失败: %w", err)
+		return "", fmt.Errorf("Failed to write the file: %w", err)
 	}
 	return path, nil
 }

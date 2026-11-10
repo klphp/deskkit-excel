@@ -243,10 +243,10 @@ func Parse(appYAML, windowsYAML []byte) (*Config, error) {
 	cfg := &Config{}
 
 	if err := yaml.Unmarshal(appYAML, &cfg.AppConfig); err != nil {
-		return nil, fmt.Errorf("解析 app.yaml 失败: %w", err)
+		return nil, fmt.Errorf("Failed to parse app.yaml: %w", err)
 	}
 	if err := yaml.Unmarshal(windowsYAML, &cfg.Windows); err != nil {
-		return nil, fmt.Errorf("解析 windows.yaml 失败: %w", err)
+		return nil, fmt.Errorf("Failed to parse windows.yaml: %w", err)
 	}
 
 	// 端口 0 合法（系统分配），但 addr 不能空
@@ -265,7 +265,7 @@ func Parse(appYAML, windowsYAML []byte) (*Config, error) {
 
 	// 至少得有一个主窗口，否则应用起来是个空壳
 	if _, ok := cfg.MainWindow(); !ok {
-		return nil, fmt.Errorf("config/windows.yaml 里必须有一个标记 main: true 的窗口")
+		return nil, fmt.Errorf("config/windows.yaml must contain a window marked main: true")
 	}
 
 	return cfg, nil

@@ -60,7 +60,7 @@ func NewManager(app *application.App, cfg config.WindowsConfig) *Manager {
 func (m *Manager) Main() error {
 	name, ok := mainName(m.cfg)
 	if !ok {
-		return fmt.Errorf("没有配置主窗口（config/windows.yaml 里需要一个 main: true）")
+		return fmt.Errorf("No main window configured (config/windows.yaml needs one window with main: true)")
 	}
 	return m.Open(name)
 }
@@ -89,7 +89,7 @@ func (m *Manager) Open(name string) error {
 		for n := range m.cfg.Windows {
 			avail = append(avail, n)
 		}
-		return fmt.Errorf("窗口 %q 没有配置（可用: %v）", name, avail)
+		return fmt.Errorf("Window %q is not configured (available: %v)", name, avail)
 	}
 
 	m.mu.Lock()
@@ -425,7 +425,7 @@ func (m *Manager) CenterOnParent(name string) error {
 	def := m.cfg.Windows[name]
 	m.mu.Unlock()
 	if !ok {
-		return fmt.Errorf("窗口 %q 没打开", name)
+		return fmt.Errorf("Window %q is not open", name)
 	}
 	m.centerOnParent(win, def)
 	return nil
@@ -437,7 +437,7 @@ func (m *Manager) Close(name string) error {
 	win, ok := m.open[name]
 	m.mu.Unlock()
 	if !ok {
-		return fmt.Errorf("窗口 %q 没打开", name)
+		return fmt.Errorf("Window %q is not open", name)
 	}
 	win.Close()
 	return nil

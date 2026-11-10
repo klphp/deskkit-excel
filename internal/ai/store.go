@@ -41,7 +41,7 @@ func LoadSettings(dir string) (Settings, error) {
 	}
 	if err := json.Unmarshal(raw, &s); err != nil {
 		// 文件坏了就当没有，别让应用起不来。用户重填一次即可。
-		return Settings{}, fmt.Errorf("ai.json 解析失败（已忽略）: %w", err)
+		return Settings{}, fmt.Errorf("Failed to parse ai.json (ignored): %w", err)
 	}
 	return s, nil
 }
@@ -52,7 +52,7 @@ func LoadSettings(dir string) (Settings, error) {
 // 下次启动就变成「设置莫名丢失」。rename 在同一文件系统内是原子的。
 func SaveSettings(dir string, s Settings) error {
 	if dir == "" {
-		return errors.New("配置目录为空")
+		return errors.New("Config directory is empty")
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err

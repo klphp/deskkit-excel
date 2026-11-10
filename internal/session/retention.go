@@ -58,7 +58,7 @@ func (s *Store) SetRetentionDays(days int) error {
 		}
 	}
 	if !valid {
-		return fmt.Errorf("保留天数只支持 30 / 90 / 180 / 365 / 0（永久），收到 %d", days)
+		return fmt.Errorf("Retention days must be 30 / 90 / 180 / 365 / 0 (forever); got %d", days)
 	}
 	_, err := s.db.Exec(
 		`INSERT INTO meta(key, value) VALUES('retention_days', ?)
@@ -66,7 +66,7 @@ func (s *Store) SetRetentionDays(days int) error {
 		fmt.Sprintf("%d", days),
 	)
 	if err != nil {
-		return fmt.Errorf("保存保留天数失败: %w", err)
+		return fmt.Errorf("Failed to save retention days: %w", err)
 	}
 	return nil
 }
@@ -95,7 +95,7 @@ func (s *Store) Prune(days int) (int, error) {
 	// 但消息是第二次删除，会话数要在第一次拿到。
 	res, err := tx.ExecContext(ctx, `DELETE FROM sessions WHERE updated_at < ?`, cutoff)
 	if err != nil {
-		return 0, fmt.Errorf("清理旧会话失败: %w", err)
+		return 0, fmt.Errorf("Failed to clean up old sessions: %w", err)
 	}
 	n, _ := res.RowsAffected()
 
@@ -103,7 +103,7 @@ func (s *Store) Prune(days int) (int, error) {
 	// 万一历史上出现过孤儿消息，这一步顺手收干净。
 	if _, err := tx.ExecContext(ctx,
 		`DELETE FROM messages WHERE session_id NOT IN (SELECT id FROM sessions)`); err != nil {
-		return 0, fmt.Errorf("清理孤立消息失败: %w", err)
+		return 0, fmt.Errorf("Failed to clean up orphaned messages: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -131,11 +131,11 @@ func (s *Store) ClearAll() (int, error) {
 
 	res, err := tx.ExecContext(ctx, `DELETE FROM sessions`)
 	if err != nil {
-		return 0, fmt.Errorf("清空会话失败: %w", err)
+		return 0, fmt.Errorf("Failed to clear sessions: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if _, err := tx.ExecContext(ctx, `DELETE FROM messages`); err != nil {
-		return 0, fmt.Errorf("清空消息失败: %w", err)
+		return 0, fmt.Errorf("Failed to clear messages: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, err

@@ -62,7 +62,7 @@ type JoinResult struct {
 // Join 把右表按 key 接到左表右边。
 func Join(opt JoinOptions) (*JoinResult, error) {
 	if strings.TrimSpace(opt.LeftKey) == "" || strings.TrimSpace(opt.RightKey) == "" {
-		return nil, fmt.Errorf("两边都要给匹配列")
+		return nil, fmt.Errorf("Both sides need a matching column")
 	}
 	left, err := LoadTable(opt.LeftPath, opt.LeftSheet)
 	if err != nil {
@@ -75,11 +75,11 @@ func Join(opt JoinOptions) (*JoinResult, error) {
 
 	lk, err := left.Col(opt.LeftKey)
 	if err != nil {
-		return nil, fmt.Errorf("左表: %w", err)
+		return nil, fmt.Errorf("Left table: %w", err)
 	}
 	rk, err := right.Col(opt.RightKey)
 	if err != nil {
-		return nil, fmt.Errorf("右表: %w", err)
+		return nil, fmt.Errorf("Right table: %w", err)
 	}
 
 	bringIdx := []int{}
@@ -93,13 +93,13 @@ func Join(opt JoinOptions) (*JoinResult, error) {
 	} else {
 		bringIdx, err = right.Cols(opt.Bring)
 		if err != nil {
-			return nil, fmt.Errorf("右表: %w", err)
+			return nil, fmt.Errorf("Right table: %w", err)
 		}
 	}
 
 	prefix := opt.Prefix
 	if prefix == "" {
-		prefix = "右表."
+		prefix = "right."
 	}
 
 	out := &Table{Path: opt.LeftPath, Sheet: left.Sheet}
@@ -143,13 +143,13 @@ func Join(opt JoinOptions) (*JoinResult, error) {
 	switch policy {
 	case "error", "first", "sum", "all":
 	default:
-		return nil, fmt.Errorf("onDuplicate 只能是 error / first / sum / all，收到 %q", opt.OnDuplicate)
+		return nil, fmt.Errorf("onDuplicate must be error / first / sum / all; got %q", opt.OnDuplicate)
 	}
 	res.OnDuplicate = policy
 	if res.RightDupKeys > 0 && policy == "error" {
-		return nil, fmt.Errorf("右表有 %d 个 key 对应多行（示例: %s），直接取第一条会让金额出错。"+
-			"请先把右表 key 弄唯一，或在调用时明确 onDuplicate：first（取第一条）/ sum（数值列求和）/ all（行展开）",
-			res.RightDupKeys, strings.Join(res.DuplicateSamples, "、"))
+		return nil, fmt.Errorf("The right table has %d keys mapping to several rows (example: %s); taking the first row would get amounts wrong."+
+			"Make the right-hand keys unique first, or pass onDuplicate explicitly: first (take the first row) / sum (add up numeric columns) / all (expand to rows)",
+			res.RightDupKeys, strings.Join(res.DuplicateSamples, ", "))
 	}
 
 	usedRight := map[string]bool{}
@@ -182,19 +182,19 @@ func Join(opt JoinOptions) (*JoinResult, error) {
 		}
 		if len(firstCols) > 0 {
 			res.Warning = fmt.Sprintf(
-				"右表 %d 个 key 重复；列 %s 不是纯数值，已取第一条（这几列的值可能不完整）",
-				res.RightDupKeys, strings.Join(firstCols, "、"))
+				"%d right-hand keys repeat; column %s is not purely numeric, so the first row was taken (those values may be incomplete)",
+				res.RightDupKeys, strings.Join(firstCols, ", "))
 		} else {
-			res.Warning = fmt.Sprintf("右表 %d 个 key 重复；列 %s 已按 key 求和",
-				res.RightDupKeys, strings.Join(summedCols, "、"))
+			res.Warning = fmt.Sprintf("%d right-hand keys repeat; column %s was summed per key",
+				res.RightDupKeys, strings.Join(summedCols, ", "))
 		}
 	}
 	if res.RightDupKeys > 0 && policy == "first" {
-		res.Warning = fmt.Sprintf("右表有 %d 个 key 对应多行（示例: %s），按 onDuplicate=first 只取了第一条",
-			res.RightDupKeys, strings.Join(res.DuplicateSamples, "、"))
+		res.Warning = fmt.Sprintf("The right table has %d keys mapping to several rows (example: %s); with onDuplicate=first only the first row was taken",
+			res.RightDupKeys, strings.Join(res.DuplicateSamples, ", "))
 	}
 	if res.RightDupKeys > 0 && policy == "all" {
-		res.Warning = fmt.Sprintf("右表有 %d 个 key 对应多行，按 onDuplicate=all 已展开成多行（输出行数会变多）",
+		res.Warning = fmt.Sprintf("The right table has %d keys mapping to several rows; with onDuplicate=all they were expanded to several rows (the output has more rows)",
 			res.RightDupKeys)
 	}
 

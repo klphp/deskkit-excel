@@ -45,24 +45,24 @@ func All() []capability.Pack {
 // 继续调用模型，把回合交给用户。否则模型会在没有答案的情况下自己编一个。
 func registerAskTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("ask_user",
-		"向用户提问并给出可点选的选项。需要用户做决定时用它，而不是在正文里问「确定吗」："+
-			"删除/覆盖/移动等危险操作前确认、缺关键信息（按哪列去重、输出到哪）、"+
-			"或让用户在几种做法里选一种。调用后本轮结束，等用户点选。",
+		"Ask the user a question with clickable options. Use it whenever the user has to decide, instead of writing a yes/no question in the reply: "+
+			"confirm before destructive actions such as delete/overwrite/move, when key details are missing (which column to dedupe by, where to write the output), "+
+			"or when the user must pick one of several approaches. The round ends after the call and waits for the click.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"question": map[string]any{
 					"type":        "string",
-					"description": "问题本身，一句话。要具体，别问「继续吗」这种没有信息量的话",
+					"description": "The question itself, in one sentence. Be specific; do not ask uninformative questions such as continue?",
 				},
 				"options": map[string]any{
 					"type":        "array",
 					"items":       map[string]any{"type": "string"},
-					"description": "2 到 4 个可选项，按推荐顺序排列。用户点了哪个，哪个就是他的回答",
+					"description": "2 to 4 options, in recommended order. Whatever the user clicks is the answer",
 				},
 				"detail": map[string]any{
 					"type":        "string",
-					"description": "可选的补充说明，例如将被影响的文件清单、风险提示。",
+					"description": "Optional extra detail, such as the list of files that will be affected or a risk note.",
 				},
 			},
 			"required": []string{"question", "options"},
@@ -84,7 +84,7 @@ func registerAskTool(r *ai.Registry) error {
 			return "", err
 		}
 		if strings.TrimSpace(in.Question) == "" {
-			return "", fmt.Errorf("question 不能为空")
+			return "", fmt.Errorf("question must not be empty")
 		}
 		// 选项数量收口：0 个就是普通文本提问（没有可点的东西），
 		// 超过 4 个界面会挤成一团，而且用户选择反而变慢。
@@ -108,14 +108,14 @@ func registerAskTool(r *ai.Registry) error {
 // 而不是全局设置里。写进去之后，后面每轮的系统提示都会带上它。
 func registerRememberTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("remember_instructions",
-		"把用户对工作方式的偏好记到这个会话里（比如文件保存到哪个目录、命名规则）。"+
-			"只记用户明确说过的内容，不要自己编；同一会话再记会整体覆盖。",
+		"Record the user's working preferences for this session (for example which folder results go to, and the naming rules)."+
+			"Only record what the user actually said, never make things up. Recording again in the same session replaces the previous text.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"text": map[string]any{
 					"type":        "string",
-					"description": "要记住的完整描述，用用户的原话整理成一句或几句，例如「处理结果存到 D:\\报表\\，文件名加日期」",
+					"description": "The full text to remember, phrased in the user's own words as one or a few sentences, e.g. save results to D:\\reports\\ with the date in the file name",
 				},
 			},
 			"required": []string{"text"},
@@ -132,7 +132,7 @@ func registerRememberTool(r *ai.Registry) error {
 			return "", err
 		}
 		if strings.TrimSpace(in.Text) == "" {
-			return "", fmt.Errorf("text 不能为空")
+			return "", fmt.Errorf("text must not be empty")
 		}
 		if err := ai.SaveSessionInstructions(ctx, in.Text); err != nil {
 			return "", err
@@ -150,13 +150,13 @@ func registerRememberTool(r *ai.Registry) error {
 // 同一个数据源 —— 人和模型看到的是同一份东西。
 func registerMetaTools(r *ai.Registry, packs []capability.Pack) error {
 	def, err := ai.FunctionTool("describe_capability",
-		"查看某个能力包的完整用法：所有工具名、参数 JSON Schema、调用示例。不确定某个工具怎么用、或用户问「你能做什么」时先调用它。",
+		"Read the full usage of a capability pack: every tool name, parameter JSON Schema and example call. Call it first when unsure how a tool works, or when the user asks what you can do.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"id": map[string]any{
 					"type":        "string",
-					"description": "能力包 id（如 excel / files）。留空则返回全部",
+					"description": "Capability pack id (for example excel / files). Leave empty to return all of them",
 				},
 			},
 		})
@@ -188,7 +188,7 @@ func registerMetaTools(r *ai.Registry, packs []capability.Pack) error {
 			for _, d := range docs {
 				names = append(names, d.ID)
 			}
-			return fmt.Sprintf("没有能力包 %q。可用：%s", in.ID, strings.Join(names, "、")), nil
+			return fmt.Sprintf("No capability pack %q. Available: %s", in.ID, strings.Join(names, ", ")), nil
 		}
 		return b.String(), nil
 	})

@@ -36,18 +36,18 @@ type CompareResult struct {
 // Compare 按 key 列比对两张表。
 func Compare(oldT, newT *Table, keys []string, compareCols []string, limit int) (*CompareResult, error) {
 	if len(keys) == 0 {
-		return nil, fmt.Errorf("比对要指定 key 列（比如工号或订单号）")
+		return nil, fmt.Errorf("A comparison needs a key column (an employee id or order number, for example)")
 	}
 	if limit <= 0 {
 		limit = 20
 	}
 	ok, err := oldT.Cols(keys)
 	if err != nil {
-		return nil, fmt.Errorf("旧表: %w", err)
+		return nil, fmt.Errorf("Old table: %w", err)
 	}
 	nk, err := newT.Cols(keys)
 	if err != nil {
-		return nil, fmt.Errorf("新表: %w", err)
+		return nil, fmt.Errorf("New table: %w", err)
 	}
 
 	// 要比对的列：默认取两表共有且不在 key 里的列
@@ -65,11 +65,11 @@ func Compare(oldT, newT *Table, keys []string, compareCols []string, limit int) 
 	} else {
 		cmpOld, err = oldT.Cols(compareCols)
 		if err != nil {
-			return nil, fmt.Errorf("旧表: %w", err)
+			return nil, fmt.Errorf("Old table: %w", err)
 		}
 		cmpNew, err = newT.Cols(compareCols)
 		if err != nil {
-			return nil, fmt.Errorf("新表: %w", err)
+			return nil, fmt.Errorf("New table: %w", err)
 		}
 	}
 
@@ -93,7 +93,7 @@ func Compare(oldT, newT *Table, keys []string, compareCols []string, limit int) 
 	res := &CompareResult{
 		AddedTable:   &Table{Path: newT.Path, Sheet: newT.Sheet, Headers: append([]string(nil), newT.Headers...)},
 		RemovedTable: &Table{Path: oldT.Path, Sheet: oldT.Sheet, Headers: append([]string(nil), oldT.Headers...)},
-		ChangedTable: &Table{Path: newT.Path, Sheet: newT.Sheet, Headers: []string{"key", "列", "原值", "新值"}},
+		ChangedTable: &Table{Path: newT.Path, Sheet: newT.Sheet, Headers: []string{"key", "Column", "Old value", "New value"}},
 	}
 
 	for _, r := range newT.Rows {

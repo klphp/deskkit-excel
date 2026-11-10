@@ -93,7 +93,7 @@ func Clean(ctx context.Context, opt CleanOptions) (CleanResult, error) {
 		return res, err
 	}
 	if len(scan.Files) == 0 {
-		return res, fmt.Errorf("目录里没有可处理的表格")
+		return res, fmt.Errorf("There are no tables to process in this folder")
 	}
 
 	outDir := opt.OutputDir
@@ -104,7 +104,7 @@ func Clean(ctx context.Context, opt CleanOptions) (CleanResult, error) {
 
 	if !opt.DryRun {
 		if err := os.MkdirAll(outDir, 0o755); err != nil {
-			return res, fmt.Errorf("创建输出目录失败: %w", err)
+			return res, fmt.Errorf("Failed to create the output folder: %w", err)
 		}
 	}
 
@@ -135,7 +135,7 @@ func Clean(ctx context.Context, opt CleanOptions) (CleanResult, error) {
 				for _, k := range opt.DedupKey {
 					i, ok := colIdx[k]
 					if !ok {
-						res.Warnings = append(res.Warnings, fmt.Sprintf("%s 没有列 %q，本次按整行去重", info.Name, k))
+						res.Warnings = append(res.Warnings, fmt.Sprintf("%s has no column %q; this run dedupes whole rows", info.Name, k))
 						keyIdx = []int{}
 						break
 					}
@@ -227,7 +227,7 @@ func Clean(ctx context.Context, opt CleanOptions) (CleanResult, error) {
 func readRaw(info SheetInfo) ([]string, [][]string, error) {
 	f, err := openWorkbook(info.Path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("打开失败: %w", err)
+		return nil, nil, fmt.Errorf("Failed to open: %w", err)
 	}
 	defer f.Close()
 
@@ -235,14 +235,14 @@ func readRaw(info SheetInfo) ([]string, [][]string, error) {
 	if sheet == "" {
 		sheets := f.GetSheetList()
 		if len(sheets) == 0 {
-			return nil, nil, fmt.Errorf("没有工作表")
+			return nil, nil, fmt.Errorf("No sheets")
 		}
 		sheet = sheets[0]
 	}
 
 	rows, err := f.Rows(sheet)
 	if err != nil {
-		return nil, nil, fmt.Errorf("读取行失败: %w", err)
+		return nil, nil, fmt.Errorf("Failed to read rows: %w", err)
 	}
 	defer rows.Close()
 
@@ -251,7 +251,7 @@ func readRaw(info SheetInfo) ([]string, [][]string, error) {
 	for rows.Next() {
 		cells, err := rows.Columns()
 		if err != nil {
-			return nil, nil, fmt.Errorf("读取行内容失败: %w", err)
+			return nil, nil, fmt.Errorf("Failed to read row contents: %w", err)
 		}
 		if headers == nil {
 			headers = normalizeHeaders(cells)
@@ -264,7 +264,7 @@ func readRaw(info SheetInfo) ([]string, [][]string, error) {
 		out = append(out, cells)
 	}
 	if err := rows.Error(); err != nil {
-		return nil, nil, fmt.Errorf("遍历行失败: %w", err)
+		return nil, nil, fmt.Errorf("Failed to iterate rows: %w", err)
 	}
 	return headers, out, nil
 }
@@ -285,8 +285,8 @@ func writeCleaned(outDir, srcName string, headers []string, rows [][]string) (st
 		AutoWidth:        true,
 		NumbersAsNumbers: true,
 		Meta: []string{
-			"操作：清洗（去空行 / 去重 / 去空白 / 统一日期 / 文本数字转数值）",
-			"来源：" + srcName,
+			"Operation: clean (drop empty rows / dedupe / trim spaces / unify dates / text numbers to numeric)",
+			"Source: " + srcName,
 		},
 	})
 	if err != nil {

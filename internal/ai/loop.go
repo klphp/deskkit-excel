@@ -54,13 +54,13 @@ func (r *Registry) IsDestructive(name string) bool {
 
 func (r *Registry) Add(def Tool, fn ToolFunc) error {
 	if def.Function.Name == "" {
-		return fmt.Errorf("工具名为空")
+		return fmt.Errorf("Tool name is empty")
 	}
 	if fn == nil {
-		return fmt.Errorf("工具 %s 没有实现函数", def.Function.Name)
+		return fmt.Errorf("Tool %s has no implementation", def.Function.Name)
 	}
 	if len(def.Function.Parameters) > 0 && !json.Valid(def.Function.Parameters) {
-		return fmt.Errorf("工具 %s 的 Parameters 不是合法 JSON", def.Function.Name)
+		return fmt.Errorf("Parameters for tool %s is not valid JSON", def.Function.Name)
 	}
 	if def.Type == "" {
 		def.Type = "function"
@@ -69,7 +69,7 @@ func (r *Registry) Add(def Tool, fn ToolFunc) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, dup := r.fns[def.Function.Name]; dup {
-		return fmt.Errorf("工具 %s 重复注册", def.Function.Name)
+		return fmt.Errorf("Tool %s is registered twice", def.Function.Name)
 	}
 	r.defs = append(r.defs, def)
 	r.fns[def.Function.Name] = fn
@@ -104,7 +104,7 @@ func (r *Registry) Execute(ctx context.Context, name, args string) (string, erro
 	fn, ok := r.fns[name]
 	r.mu.RUnlock()
 	if !ok {
-		return "", fmt.Errorf("模型要求调用未注册的工具: %s", name)
+		return "", fmt.Errorf("Model asked to call an unregistered tool: %s", name)
 	}
 	raw := json.RawMessage(args)
 	if len(raw) == 0 {
@@ -124,7 +124,7 @@ func (r *Registry) Execute(ctx context.Context, name, args string) (string, erro
 func FunctionTool(name, description string, params any) (Tool, error) {
 	raw, err := json.Marshal(params)
 	if err != nil {
-		return Tool{}, fmt.Errorf("工具 %s 的 Parameters 序列化失败: %w", name, err)
+		return Tool{}, fmt.Errorf("Failed to serialize Parameters for tool %s: %w", name, err)
 	}
 	return Tool{
 		Type: "function",
@@ -215,7 +215,7 @@ func (l *Loop) MaxRounds(n int) *Loop {
 // msgs 不会被修改（内部复制一份再追加），调用方可以放心复用历史。
 func (l *Loop) Run(ctx context.Context, msgs []Message, emit func(Event)) (*Response, *Error) {
 	if l.client == nil {
-		return nil, &Error{Kind: KindConfig, Message: "AI 客户端未初始化"}
+		return nil, &Error{Kind: KindConfig, Message: "AI client is not initialized"}
 	}
 
 	history := make([]Message, 0, len(msgs)+l.maxRounds*2)
@@ -296,7 +296,7 @@ func (l *Loop) Run(ctx context.Context, msgs []Message, emit func(Event)) (*Resp
 			}
 			if err != nil {
 				// 工具失败也回灌，让模型自己决定换个做法还是如实告诉用户
-				out = "错误: " + err.Error()
+				out = "Error: " + err.Error()
 				if emit != nil {
 					emit(Event{Type: EventToolResult, Tool: call.Function.Name, Err: err.Error(), Round: round})
 				}
@@ -314,11 +314,11 @@ func (l *Loop) Run(ctx context.Context, msgs []Message, emit func(Event)) (*Resp
 	}
 
 	if emit != nil {
-		emit(Event{Type: EventDone, Text: "已达到最大工具调用轮次，先停在这里。", Round: l.maxRounds})
+		emit(Event{Type: EventDone, Text: "Reached the maximum number of tool rounds; stopping here.", Round: l.maxRounds})
 	}
 	return last, &Error{
 		Kind:    KindUpstream,
-		Message: fmt.Sprintf("工具调用超过 %d 轮仍未结束", l.maxRounds),
-		Hint:    "任务可能过于发散；或者工具一直报错导致模型反复重试。",
+		Message: fmt.Sprintf("Tool calls still not finished after %d rounds", l.maxRounds),
+		Hint:    "The task may be too broad, or a tool keeps failing so the model keeps retrying.",
 	}
 }

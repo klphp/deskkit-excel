@@ -188,11 +188,11 @@ func SaveSessionInstructions(ctx context.Context, text string) error {
 	fn := saverFn
 	saverMu.RUnlock()
 	if fn == nil {
-		return fmt.Errorf("指令保存未就绪")
+		return fmt.Errorf("Instruction storage is not ready")
 	}
 	id := SessionIDFrom(ctx)
 	if id == "" {
-		return fmt.Errorf("拿不到当前会话 id")
+		return fmt.Errorf("Cannot get the current session id")
 	}
 	return fn(id, text)
 }

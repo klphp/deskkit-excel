@@ -58,7 +58,7 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 	out.DryRun = opt.DryRun
 
 	if strings.TrimSpace(opt.Dir) == "" {
-		return out, fmt.Errorf("目录为空")
+		return out, fmt.Errorf("The folder is empty")
 	}
 
 	scan, err := Scan(ctx, opt.Dir)
@@ -66,7 +66,7 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 		return out, err
 	}
 	if len(scan.Files) == 0 {
-		return out, fmt.Errorf("目录里没有可处理的表格")
+		return out, fmt.Errorf("There are no tables to process in this folder")
 	}
 
 	// ── 定表头：所有文件列名的并集，顺序按首次出现 ──
@@ -98,14 +98,14 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 	}
 	var first string
 	if len(columns) > 0 {
-		first = fmt.Sprintf("%d 个文件的列名并集", len(scan.Files))
+		first = fmt.Sprintf("Union of the column names of %d files", len(scan.Files))
 	}
 	if len(columns) == 0 {
-		return out, fmt.Errorf("所有文件都读不出表头")
+		return out, fmt.Errorf("No header could be read from any file")
 	}
 	out.Columns = columns
 	if first != "" {
-		out.Warnings = append(out.Warnings, fmt.Sprintf("表头取 %s（缺列留空，不丢列）", first))
+		out.Warnings = append(out.Warnings, fmt.Sprintf("Header taken from %s (missing columns are left empty, no column is dropped)", first))
 	}
 
 	dedup := len(opt.DedupKey) > 0
@@ -132,7 +132,7 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 		}
 		if len(missing) > 0 {
 			out.Warnings = append(out.Warnings,
-				fmt.Sprintf("%s 缺少列 %s（留空处理）", f.Name, strings.Join(missing, "、")))
+				fmt.Sprintf("%s is missing column %s (left empty)", f.Name, strings.Join(missing, ", ")))
 		}
 
 		out.Files++
@@ -146,7 +146,7 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 				i, ok := colIdx[k]
 				if !ok {
 					valid = false
-					out.Warnings = append(out.Warnings, fmt.Sprintf("去重键 %q 不在表头里，已忽略去重", k))
+					out.Warnings = append(out.Warnings, fmt.Sprintf("Dedupe key %q is not in the header; dedupe was skipped", k))
 					break
 				}
 				keyIdx = append(keyIdx, i)
@@ -171,15 +171,15 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 			// 硬线：再攒下去用户机器可能被系统杀掉进程，直接停并说明怎么办
 			if approxBytes > mergeHardLimitBytes {
 				return out, fmt.Errorf(
-					"合并结果太大：已读取 %d 行、约 %s，超过安全上限 %s，继续下去可能占满内存导致软件被系统关闭。"+
-						"请分批处理：先按条件拆成几个子集分别合并，再把结果合起来；或先筛掉不需要的列再合并",
+					"The merge result is too large: %d rows read so far, about %s, past the safe limit of %s. Continuing could fill memory and get the app killed by the system."+
+						"Work in batches: split by some condition, merge each subset, then combine the results; or drop the columns you do not need before merging",
 					len(rows), humanMB(approxBytes), humanMB(mergeHardLimitBytes))
 			}
 			// 软线：只提醒一次，用户可以选择继续
 			if approxBytes > mergeSoftLimitBytes && !warnedMemory {
 				warnedMemory = true
 				out.Warnings = append(out.Warnings, fmt.Sprintf(
-					"合并数据已占约 %s 内存（%d 行），大文件建议分批合并", humanMB(approxBytes), len(rows)))
+					"The merged data already takes about %s of memory (%d rows); for large files, merge in batches", humanMB(approxBytes), len(rows)))
 			}
 		}
 	}
@@ -197,7 +197,7 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 		outDir = filepath.Join(opt.Dir, "deskkit-out")
 	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return out, fmt.Errorf("创建输出目录失败: %w", err)
+		return out, fmt.Errorf("Failed to create the output folder: %w", err)
 	}
 	name := strings.TrimSpace(opt.OutputName)
 	if name == "" {
@@ -239,9 +239,9 @@ func Merge(ctx context.Context, opt MergeOptions) (MergeResult, error) {
 		AutoWidth:        true,
 		NumbersAsNumbers: true,
 		Meta: []string{
-			fmt.Sprintf("操作：纵向合并 %d 个文件", out.Files),
-			fmt.Sprintf("行数：%d → %d（去重 %d 行）", out.RowsIn, out.RowsOut, out.Duplicates),
-			"列：" + strings.Join(columns, " / "),
+			fmt.Sprintf("Operation: stack %d files vertically", out.Files),
+			fmt.Sprintf("Rows: %d to %d (%d duplicate rows removed)", out.RowsIn, out.RowsOut, out.Duplicates),
+			"Columns: " + strings.Join(columns, " / "),
 		},
 	})
 	if err != nil {
@@ -285,7 +285,7 @@ func humanMB(n int64) string {
 func readAligned(ctx context.Context, info SheetInfo, columns []string) ([][]string, []string, error) {
 	f, err := openWorkbook(info.Path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("打开失败: %w", err)
+		return nil, nil, fmt.Errorf("Failed to open: %w", err)
 	}
 	defer f.Close()
 
@@ -293,14 +293,14 @@ func readAligned(ctx context.Context, info SheetInfo, columns []string) ([][]str
 	if sheet == "" {
 		sheets := f.GetSheetList()
 		if len(sheets) == 0 {
-			return nil, nil, fmt.Errorf("没有工作表")
+			return nil, nil, fmt.Errorf("No sheets")
 		}
 		sheet = sheets[0]
 	}
 
 	rows, err := f.Rows(sheet)
 	if err != nil {
-		return nil, nil, fmt.Errorf("读取行失败: %w", err)
+		return nil, nil, fmt.Errorf("Failed to read rows: %w", err)
 	}
 	defer rows.Close()
 
@@ -319,7 +319,7 @@ func readAligned(ctx context.Context, info SheetInfo, columns []string) ([][]str
 		}
 		cells, err := rows.Columns()
 		if err != nil {
-			return nil, nil, fmt.Errorf("读取行内容失败: %w", err)
+			return nil, nil, fmt.Errorf("Failed to read row contents: %w", err)
 		}
 		if !seenHeader {
 			header = normalizeHeaders(cells)
@@ -345,7 +345,7 @@ func readAligned(ctx context.Context, info SheetInfo, columns []string) ([][]str
 		out = append(out, aligned)
 	}
 	if err := rows.Error(); err != nil {
-		return nil, nil, fmt.Errorf("遍历行失败: %w", err)
+		return nil, nil, fmt.Errorf("Failed to iterate rows: %w", err)
 	}
 	return out, missing, nil
 }

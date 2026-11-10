@@ -137,7 +137,7 @@ func (m *Manager) Providers(ctx context.Context) []ProviderInfo {
 			// 本地服务不需要密钥，但必须真的探测到
 			info.Ready = probed[endpointOf(info.BaseURL)]
 			if !info.Ready {
-				info.Error = "本地服务未响应"
+				info.Error = "Local service did not respond"
 			}
 		}
 		out = append(out, info)
@@ -199,7 +199,7 @@ func (m *Manager) Models(ctx context.Context, name string) ([]string, *Error) {
 				return r.Models, nil
 			}
 		}
-		return nil, &Error{Kind: KindConfig, Message: "本地服务没有可用模型", Hint: "先 ollama pull 一个模型。"}
+		return nil, &Error{Kind: KindConfig, Message: "Local service has no available models", Hint: "Pull a model first with ollama pull."}
 	}
 	c, e := m.Client(ctx, name)
 	if e != nil {
@@ -214,8 +214,8 @@ func (m *Manager) Client(ctx context.Context, name string) (*Client, *Error) {
 	if name == "" {
 		return nil, &Error{
 			Kind:    KindConfig,
-			Message: "没有可用的 AI 服务商",
-			Hint:    "在 config/app.yaml 的 ai.providers 里配一个，或在设置里填入地址与密钥。",
+			Message: "No AI provider available",
+			Hint:    "Configure one under ai.providers in config/app.yaml, or enter the address and key in Settings.",
 		}
 	}
 
@@ -233,17 +233,17 @@ func (m *Manager) Client(ctx context.Context, name string) (*Client, *Error) {
 		if base == "" {
 			return nil, &Error{
 				Kind:    KindConfig,
-				Message: "自定义服务商还没填地址",
-				Hint:    "填形如 https://example.com/v1 的地址（不含 /chat/completions）。",
+				Message: "Custom provider has no address",
+				Hint:    "Enter an address like https://example.com/v1 (without /chat/completions).",
 			}
 		}
 		key := strings.TrimSpace(st.APIKey)
 		if key == "" && !isLocalURL(base) {
-			return nil, &Error{Kind: KindConfig, Message: "自定义服务商还没填 API Key", Hint: "填上对方的密钥；本地地址可以留空。"}
+			return nil, &Error{Kind: KindConfig, Message: "Custom provider has no API Key", Hint: "Enter the provider key; it can be empty for local addresses."}
 		}
 		return NewClient(name, config.Provider{
 			Kind:    "openai",
-			Label:   "自定义",
+			Label:   "Custom",
 			BaseURL: base,
 			Model:   st.Model,
 		}, key), nil
@@ -251,7 +251,7 @@ func (m *Manager) Client(ctx context.Context, name string) (*Client, *Error) {
 
 	p, ok := m.cfg.Providers[name]
 	if !ok {
-		return nil, &Error{Kind: KindConfig, Message: "未知的服务商: " + name, Hint: "检查设置里选中的服务商是否还存在。"}
+		return nil, &Error{Kind: KindConfig, Message: "Unknown provider: " + name, Hint: "Check whether the provider selected in Settings still exists."}
 	}
 
 	// 用户设置覆盖配置文件：填了就用填的，没填沿用配置
@@ -269,12 +269,12 @@ func (m *Manager) Client(ctx context.Context, name string) (*Client, *Error) {
 	if key == "" && !isLocalURL(p.BaseURL) {
 		envHint := ""
 		if p.APIKeyEnv != "" {
-			envHint = "，或设置环境变量 " + p.APIKeyEnv
+			envHint = ", or set the environment variable " + p.APIKeyEnv
 		}
 		return nil, &Error{
 			Kind:    KindConfig,
-			Message: "服务商 " + name + " 还没有 API Key",
-			Hint:    "在设置里填入密钥" + envHint + "。",
+			Message: "Provider " + name + " has no API Key yet",
+			Hint:    "Enter the key in Settings" + envHint + "。",
 		}
 	}
 	return NewClient(name, p, key), nil
@@ -324,7 +324,7 @@ func (m *Manager) localClient(ctx context.Context, endpoint string) (*Client, *E
 		}
 	}
 	if found == nil || len(found.Models) == 0 {
-		return nil, &Error{Kind: KindConfig, Message: "本地服务不可用: " + endpoint, Hint: "确认 Ollama / LM Studio 已启动，并已拉取模型。"}
+		return nil, &Error{Kind: KindConfig, Message: "Local service unavailable: " + endpoint, Hint: "Make sure Ollama / LM Studio is running and a model has been pulled."}
 	}
 
 	base := endpoint
@@ -335,7 +335,7 @@ func (m *Manager) localClient(ctx context.Context, endpoint string) (*Client, *E
 		Kind:    found.Kind,
 		BaseURL: base,
 		Model:   found.Models[0],
-		Label:   "本地",
+		Label:   "Local",
 	}, ""), nil
 }
 

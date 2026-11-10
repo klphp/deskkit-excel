@@ -58,12 +58,12 @@ func BuildUsage(p Pack) (UsageDoc, error) {
 		Missing:     p.Missing(),
 	}
 	if p.Register == nil {
-		return doc, fmt.Errorf("能力包 %s 没有注册函数", p.ID)
+		return doc, fmt.Errorf("Capability pack %s has no registered function", p.ID)
 	}
 
 	reg := ai.NewRegistry()
 	if err := p.Register(reg); err != nil {
-		return doc, fmt.Errorf("注册能力包 %s 失败: %w", p.ID, err)
+		return doc, fmt.Errorf("Failed to register capability pack %s: %w", p.ID, err)
 	}
 
 	defs := reg.Definitions()
@@ -96,7 +96,7 @@ func BuildAllUsage(all []Pack, enabled []string) ([]UsageDoc, error) {
 		doc, err := BuildUsage(p)
 		if err != nil {
 			// 一个包坏掉不该让整份说明拿不到
-			doc = UsageDoc{ID: p.ID, Name: p.Name, Markdown: "（这个能力包暂时不可用：" + err.Error() + "）"}
+			doc = UsageDoc{ID: p.ID, Name: p.Name, Markdown: "(This capability pack is temporarily unavailable: " + err.Error() + ")"}
 		}
 		out = append(out, doc)
 	}
@@ -150,27 +150,27 @@ func renderMarkdown(doc UsageDoc) string {
 		fmt.Fprintf(&b, "%s\n\n", doc.Description)
 	}
 	if !doc.Bundled {
-		fmt.Fprintf(&b, "> 依赖外部组件：%s", strings.Join(doc.Requires, "、"))
+		fmt.Fprintf(&b, "> Requires external components: %s", strings.Join(doc.Requires, ", "))
 		if len(doc.Missing) > 0 {
-			fmt.Fprintf(&b, "（本机缺少：%s）", strings.Join(doc.Missing, "、"))
+			fmt.Fprintf(&b, "(missing on this machine: %s)", strings.Join(doc.Missing, ", "))
 		}
 		b.WriteString("\n\n")
 	}
 
-	b.WriteString("可用工具：\n\n")
+	b.WriteString("Available tools:\n\n")
 	for _, t := range doc.Tools {
 		fmt.Fprintf(&b, "### `%s`\n\n%s\n\n", t.Name, t.Description)
 		if len(t.Parameters) > 0 {
 			var pretty any
 			if err := json.Unmarshal(t.Parameters, &pretty); err == nil {
 				raw, _ := json.MarshalIndent(pretty, "", "  ")
-				b.WriteString("参数：\n\n```json\n")
+				b.WriteString("Parameters:\n\n```json\n")
 				b.Write(append(raw, '\n'))
 				b.WriteString("```\n\n")
 			}
 		}
 		if t.Example != "" {
-			fmt.Fprintf(&b, "调用示例：`%s`\n\n", t.Example)
+			fmt.Fprintf(&b, "Example call: `%s`\n\n", t.Example)
 		}
 	}
 	return b.String()

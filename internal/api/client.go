@@ -28,10 +28,10 @@ import (
 )
 
 // ErrNotFound 资源不存在（404）。
-var ErrNotFound = errors.New("资源不存在")
+var ErrNotFound = errors.New("Resource not found")
 
 // ErrUnauthorized 认证失败（401/403）。
-var ErrUnauthorized = errors.New("认证失败，检查 API 密钥")
+var ErrUnauthorized = errors.New("Authentication failed; check the API key")
 
 // Client 单个外部 API 的客户端。
 type Client struct {
@@ -73,7 +73,7 @@ func NewManager(cfg interface {
 func (m *Manager) Get(name string) (*Client, error) {
 	c, ok := m.clients[name]
 	if !ok {
-		return nil, fmt.Errorf("API %q 没有配置（config/app.yaml 的 apis 下加一段）", name)
+		return nil, fmt.Errorf("API %q is not configured (add a section under apis in config/app.yaml)", name)
 	}
 	return c, nil
 }
@@ -90,7 +90,7 @@ func (c *Client) PostJSON(ctx context.Context, path string, body, out any) error
 		var err error
 		buf, err = json.Marshal(body)
 		if err != nil {
-			return fmt.Errorf("编码请求体失败: %w", err)
+			return fmt.Errorf("Failed to encode request body: %w", err)
 		}
 	}
 	return c.do(ctx, http.MethodPost, path, buf, out)
@@ -129,7 +129,7 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte, out a
 			return err
 		}
 	}
-	return fmt.Errorf("%s 请求失败（重试 %d 次）: %w", c.name, attempts, lastErr)
+	return fmt.Errorf("%s request failed (after %d retries): %w", c.name, attempts, lastErr)
 }
 
 // once 单次请求。第二个返回值表示是否值得重试。
@@ -146,7 +146,7 @@ func (c *Client) once(ctx context.Context, method, path string, body []byte, out
 
 	req, err := http.NewRequestWithContext(ctx, method, url, rdr)
 	if err != nil {
-		return fmt.Errorf("构造请求失败: %w", err), false
+		return fmt.Errorf("Failed to build request: %w", err), false
 	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
@@ -159,13 +159,13 @@ func (c *Client) once(ctx context.Context, method, path string, body []byte, out
 	resp, err := c.http.Do(req)
 	if err != nil {
 		// 网络层错误：可能是一过性的，值得重试
-		return fmt.Errorf("请求 %s 失败: %w", url, err), true
+		return fmt.Errorf("Request to %s failed: %w", url, err), true
 	}
 	defer resp.Body.Close()
 
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20)) // 上限 32MB，防超大响应打爆内存
 	if err != nil {
-		return fmt.Errorf("读响应失败: %w", err), true
+		return fmt.Errorf("Failed to read response: %w", err), true
 	}
 
 	switch {
@@ -174,16 +174,16 @@ func (c *Client) once(ctx context.Context, method, path string, body []byte, out
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
 		return fmt.Errorf("%w（HTTP %d）", ErrUnauthorized, resp.StatusCode), false
 	case resp.StatusCode == http.StatusTooManyRequests:
-		return fmt.Errorf("%s 限流（HTTP 429）", c.name), true
+		return fmt.Errorf("%s is rate limited (HTTP 429)", c.name), true
 	case resp.StatusCode >= 500:
-		return fmt.Errorf("%s 服务端错误（HTTP %d）: %s", c.name, resp.StatusCode, snippet(data)), true
+		return fmt.Errorf("%s server error (HTTP %d): %s", c.name, resp.StatusCode, snippet(data)), true
 	case resp.StatusCode >= 400:
-		return fmt.Errorf("%s 请求被拒（HTTP %d）: %s", c.name, resp.StatusCode, snippet(data)), false
+		return fmt.Errorf("%s request rejected (HTTP %d): %s", c.name, resp.StatusCode, snippet(data)), false
 	}
 
 	if out != nil && len(data) > 0 {
 		if err := json.Unmarshal(data, out); err != nil {
-			return fmt.Errorf("解析响应失败: %w（原文: %s）", err, snippet(data)), false
+			return fmt.Errorf("Failed to parse response: %w (raw: %s)", err, snippet(data)), false
 		}
 	}
 	return nil, false

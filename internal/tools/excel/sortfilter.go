@@ -21,7 +21,7 @@ type SortKey struct {
 // Sort 多列排序。
 func Sort(t *Table, keys []SortKey) (*Table, error) {
 	if len(keys) == 0 {
-		return nil, fmt.Errorf("没给排序依据")
+		return nil, fmt.Errorf("No sort keys given")
 	}
 	type keyInfo struct {
 		col  int

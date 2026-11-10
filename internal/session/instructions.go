@@ -25,7 +25,7 @@ func (s *Store) Instructions(id string) (string, error) {
 		return "", nil
 	}
 	if err != nil {
-		return "", fmt.Errorf("读会话指令失败: %w", err)
+		return "", fmt.Errorf("Failed to read session instructions: %w", err)
 	}
 	return out, nil
 }
@@ -33,7 +33,7 @@ func (s *Store) Instructions(id string) (string, error) {
 // SetInstructions 写某个会话的自定义指令。
 func (s *Store) SetInstructions(id, text string) error {
 	if len([]rune(text)) > MaxInstructions {
-		return fmt.Errorf("自定义指令太长（上限 %d 字）", MaxInstructions)
+		return fmt.Errorf("Custom instructions are too long (limit is %d characters)", MaxInstructions)
 	}
 	// 会话不存在时顺手建一个：模型可能在第一轮就写入指令，
 	// 而这时前端可能还没来得及 Upsert。
@@ -47,7 +47,7 @@ func (s *Store) SetInstructions(id, text string) error {
 		 ON CONFLICT(id) DO UPDATE SET instructions = excluded.instructions`,
 		id, now, now, text,
 	); err != nil {
-		return fmt.Errorf("保存会话指令失败: %w", err)
+		return fmt.Errorf("Failed to save session instructions: %w", err)
 	}
 	return nil
 }

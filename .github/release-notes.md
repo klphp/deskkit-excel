@@ -4,24 +4,22 @@ An AI-driven batch processor for Excel files that runs entirely on your machine.
 Describe the job in one sentence, point it at a folder, and it works through the
 files locally — no account, and the files never leave your computer.
 
-## What's new in 0.2.0
+## What's new in 0.2.1
 
-First release meant to be installed by someone other than me. What changed:
+Fixes to the update path, which is the one thing that has to work:
 
-- **Windows updates itself.** One click on "download and install": fetch, verify the
-  checksum, swap the running executable and relaunch. No unzipping, no manual replace.
-- **macOS ships a disk image.** Download the `.dmg`, drag the app to Applications and
-  run it. The in-app update opens the `.dmg` download and stops there — installing is
-  yours to do.
-- **Fixed: the app would not start at all on Windows.** The embedded manifest declared
-  a three-part assembly version, which Windows rejects, so the process was killed by
-  the loader before it could draw anything. Doubled-clicking did nothing and left no
-  message behind.
-- **Fixed: closing the main window left a windowless process running**, and the next
-  double-click was swallowed by the single-instance check — it looked like the app was
-  dead. Closing the main window now exits.
-- **Fixed macOS arm64 builds were never produced**, so Apple Silicon users had nothing
-  to download. Both architectures are now built from one job.
+- **macOS: the update button now does something.** It used to call a web API that
+  Wails' webview blocks, so clicking it produced no reaction at all. The app now
+  downloads the `.dmg` itself, verifies it against the release checksums and hands
+  it to the system to open. Dragging the app into Applications stays your step.
+- **Windows: the download archive is valid for the updater.** The zip used to carry
+  the readme and the disclaimer next to the executable; the updater requires exactly
+  one top-level entry, so it refused to install and said nothing. The zip now holds
+  `deskkit.exe` alone.
+- **Error messages are English.** Anything the app can show you was a mix of Chinese
+  and English. It is English throughout now.
+
+Nothing else changed: same operations, same behaviour, same data handling.
 
 ## What it does
 

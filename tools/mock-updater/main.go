@@ -56,15 +56,15 @@ type release struct {
 
 func main() {
 	var (
-		version   = flag.String("version", "9.9.9", "要模拟的最新版本号（不带 v 也行）")
-		dir       = flag.String("dir", filepath.Join(os.TempDir(), "deskkit-sim"), "资产与清单目录")
-		port      = flag.Int("port", 8790, "监听端口")
+		version   = flag.String("version", "9.9.9", "Latest version to simulate (with or without the v prefix)")
+		dir       = flag.String("dir", filepath.Join(os.TempDir(), "deskkit-sim"), "Folder for assets and the manifest")
+		port      = flag.Int("port", 8790, "Port to listen on")
 		note      = flag.String("notes", "local simulation build", "release notes")
-		bind      = flag.String("bind", "0.0.0.0", "监听地址（容器里必须是 0.0.0.0，127.0.0.1 只在本机回环可见）")
-		publicURL = flag.String("public-url", "", "资产下载地址前缀（容器里要填 http://<局域网IP>:<端口>）")
-		appName   = flag.String("app", "deskkit", "产物文件名前缀（应用名）")
+		bind      = flag.String("bind", "0.0.0.0", "Address to bind (in a container this must be 0.0.0.0; 127.0.0.1 is only reachable from the loopback)")
+		publicURL = flag.String("public-url", "", "URL prefix for asset downloads (in a container use http://<LAN-IP>:<port>)")
+		appName   = flag.String("app", "deskkit", "Prefix for artifact file names (the app name)")
 		plats     = flag.String("platforms", "windows/amd64,darwin/amd64,darwin/arm64",
-			"要模拟产物的平台/架构，逗号分隔（容器里 GOOS 是 linux，不能靠 runtime 猜）")
+			"Platforms/architectures to simulate artifacts for, comma separated (GOOS is linux inside a container, so runtime detection cannot be used)")
 	)
 	flag.Parse()
 
@@ -75,7 +75,7 @@ func main() {
 	ver := strings.TrimPrefix(tag, "v")
 
 	if err := os.MkdirAll(*dir, 0o755); err != nil {
-		log.Fatalf("建目录失败: %v", err)
+		log.Fatalf("Failed to create the folder: %v", err)
 	}
 
 	// 每个平台一个真的 zip：内容随意，但文件名与校验和必须对得上
@@ -99,7 +99,7 @@ func main() {
 		}
 		parts := strings.Split(spec, "/")
 		if len(parts) != 2 {
-			log.Fatalf("--platforms 里 %q 格式应为 平台/架构", spec)
+			log.Fatalf("%q in --platforms must be formatted as platform/arch", spec)
 		}
 		// 每个平台出两种包装，和真实发布保持一致：
 		//   .zip  给自更新（Wails updater 只认 zip/tar.gz）
@@ -117,7 +117,7 @@ func main() {
 			if _, statErr := os.Stat(path); statErr != nil {
 				payload := []byte("mock artifact " + name + " generated " + time.Now().Format(time.RFC3339))
 				if err := os.WriteFile(path, payload, 0o644); err != nil {
-					log.Fatalf("写资产失败: %v", err)
+					log.Fatalf("Failed to write the asset: %v", err)
 				}
 			}
 			sum, size := fileSHA256(path)
@@ -126,7 +126,7 @@ func main() {
 		}
 	}
 	if len(assets) == 0 {
-		log.Fatal("没有可用资产，检查 --platforms")
+		log.Fatal("No usable assets; check --platforms")
 	}
 	sumsBody := strings.Join(sums, "\n") + "\n"
 
@@ -189,8 +189,8 @@ func main() {
 			}(), "\n    "), base)
 	})
 
-	log.Printf("mock updater: %s @ %s（%d 个平台资产）", tag, base, len(assets))
-	log.Printf("客户端配置： update.baseURL: %q , update.repository: \"klphp/deskkit-excel\"", base)
+	log.Printf("mock updater: %s @ %s (%d platform assets)", tag, base, len(assets))
+	log.Printf("client config: update.baseURL: %q , update.repository: \"klphp/deskkit-excel\"", base)
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	log.Printf("listening on %s", addr)
 	if err := r.Run(addr); err != nil {

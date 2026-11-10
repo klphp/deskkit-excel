@@ -72,19 +72,19 @@ type ScanResult struct {
 func Scan(ctx context.Context, dir string) (ScanResult, error) {
 	out := ScanResult{Dir: dir}
 	if strings.TrimSpace(dir) == "" {
-		return out, fmt.Errorf("目录为空")
+		return out, fmt.Errorf("The folder is empty")
 	}
 	info, err := os.Stat(dir)
 	if err != nil {
-		return out, fmt.Errorf("打不开目录: %w", err)
+		return out, fmt.Errorf("Cannot open the folder: %w", err)
 	}
 	if !info.IsDir() {
-		return out, fmt.Errorf("不是目录: %s", dir)
+		return out, fmt.Errorf("Not a folder: %s", dir)
 	}
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return out, fmt.Errorf("读取目录失败: %w", err)
+		return out, fmt.Errorf("Failed to read the folder: %w", err)
 	}
 
 	for _, entry := range entries {
@@ -143,19 +143,19 @@ func Scan(ctx context.Context, dir string) (ScanResult, error) {
 func inspect(path string) (*excelize.File, string, []string, int, []string, error) {
 	f, err := openWorkbook(path)
 	if err != nil {
-		return nil, "", nil, 0, nil, fmt.Errorf("打开失败: %w", err)
+		return nil, "", nil, 0, nil, fmt.Errorf("Failed to open: %w", err)
 	}
 	defer f.Close()
 
 	sheets := f.GetSheetList()
 	if len(sheets) == 0 {
-		return f, "", nil, 0, nil, fmt.Errorf("没有工作表")
+		return f, "", nil, 0, nil, fmt.Errorf("No sheets")
 	}
 	sheet := sheets[0]
 
 	rows, err := f.Rows(sheet)
 	if err != nil {
-		return f, sheet, nil, 0, nil, fmt.Errorf("读取行失败: %w", err)
+		return f, sheet, nil, 0, nil, fmt.Errorf("Failed to read rows: %w", err)
 	}
 	defer rows.Close()
 
@@ -164,7 +164,7 @@ func inspect(path string) (*excelize.File, string, []string, int, []string, erro
 	for rows.Next() {
 		row, err := rows.Columns()
 		if err != nil {
-			return f, sheet, headers, dataRows, warns, fmt.Errorf("读取行内容失败: %w", err)
+			return f, sheet, headers, dataRows, warns, fmt.Errorf("Failed to read row contents: %w", err)
 		}
 		if headers == nil {
 			// 第一行当表头；全空的第一行说明表不是从 A1 开始的，也照样用它
@@ -204,8 +204,8 @@ func normalizeHeadersWarn(row []string) ([]string, []string) {
 	var warns []string
 	for i, h := range out {
 		if h == "" {
-			out[i] = fmt.Sprintf("列%d", i+1)
-			warns = append(warns, fmt.Sprintf("第 %d 列没有表头，已命名为「%s」", i+1, out[i]))
+			out[i] = fmt.Sprintf("Column %d", i+1)
+			warns = append(warns, fmt.Sprintf("Column %d has no header; named it %s", i+1, out[i]))
 		}
 	}
 
@@ -225,7 +225,7 @@ func normalizeHeadersWarn(row []string) ([]string, []string) {
 			}
 			out[i] = cand
 			seen[cand] = true
-			warns = append(warns, fmt.Sprintf("列名「%s」重复，第 %d 列已改名为「%s」", base, i+1, cand))
+			warns = append(warns, fmt.Sprintf("The column name %s repeats; column %d was renamed to %s", base, i+1, cand))
 			break
 		}
 	}

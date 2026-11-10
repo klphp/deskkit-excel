@@ -56,12 +56,12 @@ func (s *Store) Load() Prefs {
 // Save 写偏好。0600：内容可能包含用户本机的目录结构，不必给同机其他用户看。
 func (s *Store) Save(p Prefs) error {
 	if len([]rune(p.CustomInstructions)) > MaxInstructionsLen {
-		return fmt.Errorf("自定义指令太长（上限 %d 字）", MaxInstructionsLen)
+		return fmt.Errorf("Custom instructions are too long (limit is %d characters)", MaxInstructionsLen)
 	}
 	p.CustomInstructions = strings.TrimSpace(p.CustomInstructions)
 
 	if err := os.MkdirAll(s.dir, 0o700); err != nil {
-		return fmt.Errorf("建目录失败: %w", err)
+		return fmt.Errorf("Failed to create directory: %w", err)
 	}
 	raw, err := json.MarshalIndent(p, "", "  ")
 	if err != nil {
@@ -69,7 +69,7 @@ func (s *Store) Save(p Prefs) error {
 	}
 	tmp := s.path() + ".tmp"
 	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
-		return fmt.Errorf("写偏好失败: %w", err)
+		return fmt.Errorf("Failed to write preferences: %w", err)
 	}
 	// 先写临时文件再改名：写一半被打断不会留下半个坏文件
 	return os.Rename(tmp, s.path())

@@ -78,7 +78,7 @@ func (s *WindowService) ResizeToContent(width, height int) error {
 
 	// 下限：低于这个尺寸标题栏加几个按钮就挤成一团了
 	if width < 320 || height < 200 {
-		return fmt.Errorf("尺寸过小（%dx%d），至少 320x200", width, height)
+		return fmt.Errorf("Size too small (%dx%d); at least 320x200", width, height)
 	}
 
 	// 上限：留出屏幕可用区域，别让窗口超出屏幕

@@ -25,7 +25,7 @@ type ConvertOptions struct {
 // Convert 把文件转成另一种格式（按 outputPath 的扩展名决定）。
 func Convert(opt ConvertOptions) (string, int, error) {
 	if strings.TrimSpace(opt.OutputPath) == "" {
-		return "", 0, fmt.Errorf("要给输出文件路径")
+		return "", 0, fmt.Errorf("An output file path is required")
 	}
 	// outputPath 可能是用户随手给的相对路径：相对源文件所在目录解析，
 	// 且不许用 ../ 跳出该目录（绝对路径照常放行）。

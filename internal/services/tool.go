@@ -47,10 +47,10 @@ func (s *ToolService) application() *application.App {
 func (s *ToolService) PickFolder(title string) (string, error) {
 	app := s.application()
 	if app == nil || app.Dialog == nil {
-		return "", errors.New("对话框不可用")
+		return "", errors.New("Dialog is not available")
 	}
 	if title == "" {
-		title = "选择存放 Excel 的文件夹"
+		title = "Choose the folder that holds the Excel files"
 	}
 	dialog := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
 		Title:                   title,
@@ -88,7 +88,7 @@ func (s *ToolService) RevealPath(path string) error {
 		return err
 	}
 	if _, err := os.Stat(abs); err != nil {
-		return fmt.Errorf("这个路径不存在: %w", err)
+		return fmt.Errorf("This path does not exist: %w", err)
 	}
 	switch runtime.GOOS {
 	case "windows":
@@ -109,10 +109,10 @@ func (s *ToolService) RevealPath(path string) error {
 func (s *ToolService) PickPaths(title string) ([]string, error) {
 	app := s.application()
 	if app == nil || app.Dialog == nil {
-		return nil, errors.New("对话框不可用")
+		return nil, errors.New("Dialog is not available")
 	}
 	if title == "" {
-		title = "选择文件或文件夹"
+		title = "Choose a file or folder"
 	}
 	dialog := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
 		Title:                   title,
@@ -134,10 +134,10 @@ func (s *ToolService) PickPaths(title string) ([]string, error) {
 func (s *ToolService) PickFiles(title string) ([]string, error) {
 	app := s.application()
 	if app == nil || app.Dialog == nil {
-		return nil, errors.New("对话框不可用")
+		return nil, errors.New("Dialog is not available")
 	}
 	if title == "" {
-		title = "选择文件"
+		title = "Choose a file"
 	}
 	dialog := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
 		Title:                   title,
@@ -152,10 +152,10 @@ func (s *ToolService) PickFiles(title string) ([]string, error) {
 func (s *ToolService) PickDirs(title string) ([]string, error) {
 	app := s.application()
 	if app == nil || app.Dialog == nil {
-		return nil, errors.New("对话框不可用")
+		return nil, errors.New("Dialog is not available")
 	}
 	if title == "" {
-		title = "选择文件夹"
+		title = "Choose a folder"
 	}
 	dialog := app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
 		Title:                   title,
@@ -193,7 +193,7 @@ func (s *ToolService) CapabilityUsage(id string) (string, error) {
 		}
 		return doc.Markdown, nil
 	}
-	return "", errors.New("没有这个能力包: " + id)
+	return "", errors.New("No such capability pack: " + id)
 }
 func (s *ToolService) MakeSample() (excel.SampleInfo, error) {
 	base := ""

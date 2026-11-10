@@ -7,7 +7,7 @@ app:
   # 不用抽象的品牌名当产品名 —— 用户搜的是「怎么批量合并 excel」，
   # 不是品牌词。品牌（DeskKit）放在标题里，品类词放在副标题和 topics 里。
   name: DeskKit Excel
-  version: 0.2.0
+  version: 0.2.1
   # 打包后的 bundle identifier，Windows 上用作 AppUserModelID
   identifier: com.klphp.deskkit
 

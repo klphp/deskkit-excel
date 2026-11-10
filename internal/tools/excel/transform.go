@@ -119,7 +119,7 @@ func SplitColumn(t *Table, col, sep string, into []string, limit int) (*Table, e
 		return nil, err
 	}
 	if sep == "" {
-		return nil, fmt.Errorf("分隔符不能为空")
+		return nil, fmt.Errorf("The separator must not be empty")
 	}
 	out := t.Clone()
 	if limit <= 0 {
@@ -360,7 +360,7 @@ func toHalfWidth(s string) string {
 // ComputedColumn 新增一列，值来自表达式（语法 [列名]*2、round([金额]/3, 2)）。
 func ComputedColumn(t *Table, exprText, newName string) (*Table, error) {
 	if strings.TrimSpace(exprText) == "" {
-		return nil, fmt.Errorf("表达式不能为空")
+		return nil, fmt.Errorf("The expression must not be empty")
 	}
 	if newName == "" {
 		newName = exprText
@@ -374,7 +374,7 @@ func ComputedColumn(t *Table, exprText, newName string) (*Table, error) {
 	for ri := range out.Rows {
 		v, err := prog.eval(t.Rows[ri], t, refs)
 		if err != nil {
-			return nil, fmt.Errorf("第 %d 行算不了: %w", ri+1, err)
+			return nil, fmt.Errorf("Cannot calculate row %d: %w", ri+1, err)
 		}
 		out.Rows[ri] = append(out.Rows[ri], v)
 	}
@@ -476,7 +476,7 @@ func compileCalc(src string, t *Table) (*calcProgram, map[string]int, error) {
 		return nil, nil, firstErr
 	}
 	if len(refs) == 0 {
-		return nil, nil, fmt.Errorf("表达式里没有引用任何列，写成 [列名] 的形式")
+		return nil, nil, fmt.Errorf("The expression references no columns; write them as [column name]")
 	}
 
 	cellMap := make(map[string]float64, len(refs))
@@ -500,7 +500,7 @@ func compileCalc(src string, t *Table) (*calcProgram, map[string]int, error) {
 
 	prog, err := expr.Compile(translated, expr.Env(env), expr.AsFloat64())
 	if err != nil {
-		return nil, nil, fmt.Errorf("表达式写错了（%s）: %w", translated, err)
+		return nil, nil, fmt.Errorf("The expression is invalid (%s): %w", translated, err)
 	}
 	return &calcProgram{prog: prog, env: env, cells: cellMap}, refs, nil
 }
@@ -516,7 +516,7 @@ func (p *calcProgram) eval(row []string, t *Table, refs map[string]int) (string,
 		}
 		n, ok := asNumber(raw)
 		if !ok {
-			return "", fmt.Errorf("列 %q 的值 %q 不是数字", name, raw)
+			return "", fmt.Errorf("The value %q in column %q is not a number", name, raw)
 		}
 		p.cells[name] = n
 	}
@@ -526,7 +526,7 @@ func (p *calcProgram) eval(row []string, t *Table, refs map[string]int) (string,
 	}
 	f, ok := out.(float64)
 	if !ok {
-		return "", fmt.Errorf("算出来不是数字: %v", out)
+		return "", fmt.Errorf("The result is not a number: %v", out)
 	}
 	return trimNum(round(f*1e6) / 1e6), nil
 }

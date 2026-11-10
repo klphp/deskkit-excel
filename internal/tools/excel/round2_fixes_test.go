@@ -45,8 +45,8 @@ func TestLoadCatalogKeepsExtraColumnsWithWarning(t *testing.T) {
 	if len(ti.Columns) != 4 {
 		t.Fatalf("SQL 表应建 4 列（源数据 4 列），实际 %q", ti.Columns)
 	}
-	if ti.Columns[2] != "列3" || ti.Columns[3] != "列4" {
-		t.Errorf("补出来的列名应为 列3/列4，实际 %q", ti.Columns)
+	if ti.Columns[2] != "Column_3" || ti.Columns[3] != "Column_4" {
+		t.Errorf("the added columns must be named Column_3/Column_4, actual %q", ti.Columns)
 	}
 	if len(ti.Warnings) == 0 {
 		t.Error("补表头必须给 warning")
@@ -65,8 +65,8 @@ func TestLoadCatalogKeepsExtraColumnsWithWarning(t *testing.T) {
 	}
 
 	// warning 必须出现在 Catalog.Note 里（只留在 TableInfo 内部字段等于没说）
-	if !strings.Contains(cat.Note, "列3") || !strings.Contains(cat.Note, "列4") {
-		t.Errorf("Catalog.Note 应说明补了 列3/列4，实际: %q", cat.Note)
+	if !strings.Contains(cat.Note, "Column 3") || !strings.Contains(cat.Note, "Column 4") {
+		t.Errorf("Catalog.Note must mention the added Column 3/Column 4, actual: %q", cat.Note)
 	}
 }
 
@@ -99,8 +99,8 @@ func TestQuerySheetsToolReturnsLoadWarnings(t *testing.T) {
 	if len(catalog.Tables) != 1 {
 		t.Fatalf("应列出 1 张表，实际 %d", len(catalog.Tables))
 	}
-	if !strings.Contains(catalog.Note, "列3") {
-		t.Errorf("list_tables 的 note 应说明补了 列3，实际: %q", catalog.Note)
+	if !strings.Contains(catalog.Note, "Column 3") {
+		t.Errorf("the list_tables note must mention the added Column 3, actual: %q", catalog.Note)
 	}
 
 	// query_sheets 的返回体里也要能看到这条说明
@@ -118,8 +118,8 @@ func TestQuerySheetsToolReturnsLoadWarnings(t *testing.T) {
 	if len(res.Columns) != 4 {
 		t.Fatalf("query_sheets 应返回 4 列，实际 %q", res.Columns)
 	}
-	if !strings.Contains(res.Note, "列3") {
-		t.Errorf("query_sheets 的 note 应说明补了 列3，实际: %q", res.Note)
+	if !strings.Contains(res.Note, "Column 3") {
+		t.Errorf("the query_sheets note must mention the added Column 3, actual: %q", res.Note)
 	}
 }
 

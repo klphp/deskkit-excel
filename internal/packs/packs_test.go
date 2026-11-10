@@ -75,7 +75,7 @@ func TestMetaToolDescribesUsage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("执行失败: %v", err)
 	}
-	for _, want := range []string{"表格处理", "inspect_file", "参数"} {
+	for _, want := range []string{"Spreadsheets", "inspect_file", "Parameters"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("用法说明缺少 %q", want)
 		}

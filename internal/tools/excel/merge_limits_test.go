@@ -50,7 +50,7 @@ func TestMergeRefusesOverHardLimit(t *testing.T) {
 		t.Fatal("超过硬线应返回错误")
 	}
 	msg := err.Error()
-	for _, want := range []string{"合并结果太大", "分批", "MB"} {
+	for _, want := range []string{"too large", "batches", "MB"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("报错里缺少 %q：%s", want, msg)
 		}
@@ -80,7 +80,7 @@ func TestMergeWarnsOverSoftLimit(t *testing.T) {
 	}
 	found := false
 	for _, w := range out.Warnings {
-		if strings.Contains(w, "内存") && strings.Contains(w, "分批") {
+		if strings.Contains(w, "memory") && strings.Contains(w, "batches") {
 			found = true
 		}
 	}

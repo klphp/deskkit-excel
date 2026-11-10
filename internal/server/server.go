@@ -91,7 +91,7 @@ func (s *Server) Start() error {
 
 	ln, err := net.Listen("tcp", s.cfg.Addr)
 	if err != nil {
-		return fmt.Errorf("本地服务监听 %s 失败: %w", s.cfg.Addr, err)
+		return fmt.Errorf("Failed to listen on %s for the local service: %w", s.cfg.Addr, err)
 	}
 	s.ln = ln
 	s.addr = ln.Addr().String()
@@ -211,8 +211,8 @@ func (s *Server) registerRoutes(r *gin.Engine) {
 				return
 			}
 			var b strings.Builder
-			b.WriteString("# DeskKit 能力说明\n\n")
-			b.WriteString("本机可用的文件/表格处理能力，全部在本机执行，数据不上传。\n\n")
+			b.WriteString("# DeskKit capabilities\n\n")
+			b.WriteString("File and spreadsheet capabilities available on this machine. Everything runs locally; no data is uploaded.\n\n")
 			for _, d := range docs {
 				b.WriteString(d.Markdown)
 				b.WriteString("\n")
@@ -239,7 +239,7 @@ func (s *Server) registerRoutes(r *gin.Engine) {
 				c.JSON(http.StatusOK, doc)
 				return
 			}
-			c.JSON(http.StatusNotFound, gin.H{"error": "没有这个能力包: " + id})
+			c.JSON(http.StatusNotFound, gin.H{"error": "No such capability pack: " + id})
 		})
 
 		api.GET("/ping", func(c *gin.Context) {

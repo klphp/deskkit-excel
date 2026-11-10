@@ -167,11 +167,11 @@ func (a AI) Validate() error {
 		return nil
 	}
 	if len(a.Providers) == 0 && !a.Local.Enabled {
-		return fmt.Errorf("ai.enabled 为 true，但既没有配置 providers，也没有开本地探测")
+		return fmt.Errorf("ai.enabled is true, but no providers are configured and local detection is off")
 	}
 	if a.Default != "" {
 		if _, ok := a.Providers[a.Default]; !ok {
-			return fmt.Errorf("ai.default 指向不存在的 provider: %s", a.Default)
+			return fmt.Errorf("ai.default points to a provider that does not exist: %s", a.Default)
 		}
 	}
 	return nil

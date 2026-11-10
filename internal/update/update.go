@@ -170,7 +170,7 @@ func (m *Manager) Setup() error {
 	switch m.cfg.Provider {
 	case "github", "":
 		if m.cfg.Repository == "" {
-			return fmt.Errorf("update: provider=github 但 repository 为空")
+			return fmt.Errorf("update: provider=github but repository is empty")
 		}
 		prov, err = github.New(github.Config{
 			Repository:    m.cfg.Repository,
@@ -181,14 +181,14 @@ func (m *Manager) Setup() error {
 		})
 	case "endpoint":
 		if m.cfg.ManifestURL == "" {
-			return fmt.Errorf("update: provider=endpoint 但 manifestUrl 为空")
+			return fmt.Errorf("update: provider=endpoint but manifestUrl is empty")
 		}
 		prov, err = endpoint.New(endpoint.Config{URL: m.cfg.ManifestURL})
 	default:
-		return fmt.Errorf("update: 未知 provider %q（只支持 github / endpoint）", m.cfg.Provider)
+		return fmt.Errorf("update: unknown provider %q (only github / endpoint are supported)", m.cfg.Provider)
 	}
 	if err != nil {
-		return fmt.Errorf("update: 构造 provider 失败: %w", err)
+		return fmt.Errorf("update: failed to build provider: %w", err)
 	}
 
 	ucfg := updater.Config{
@@ -202,7 +202,7 @@ func (m *Manager) Setup() error {
 	}
 
 	if err := m.app.Updater.Init(ucfg); err != nil {
-		return fmt.Errorf("update: 初始化 Updater 失败: %w", err)
+		return fmt.Errorf("update: failed to initialize the updater: %w", err)
 	}
 
 	slog.Info("自更新已启用",
@@ -316,7 +316,7 @@ func downloadTimeout(size int64) time.Duration {
 
 func (m *Manager) Install(ctx context.Context) error {
 	if !m.cfg.Enabled {
-		return fmt.Errorf("update: 自更新未启用")
+		return fmt.Errorf("update: self-update is not enabled")
 	}
 
 	// 下载预算按包大小推算，不写死。
@@ -350,7 +350,7 @@ func (m *Manager) Install(ctx context.Context) error {
 				msg := err.Error()
 				if errors.Is(err, context.DeadlineExceeded) || strings.Contains(msg, "deadline exceeded") {
 					slog.Warn("下载更新包超时", "err", err)
-					return fmt.Errorf("下载超时。安装包通常 5~10 MB，网络较慢时可稍后重试，或手动到发布页下载：%s", m.fallbackURL)
+					return fmt.Errorf("Download timed out. The package is usually 5-10 MB; retry later on a slow network, or download it manually from the release page: %s", m.fallbackURL)
 				}
 				slog.Warn("下载更新包失败：网络不通", "err", err)
 				return ErrNetwork
@@ -362,7 +362,7 @@ func (m *Manager) Install(ctx context.Context) error {
 		slog.Info("下载与替换完成，准备重启")
 		if err := m.app.Updater.Restart(ctx); err != nil {
 			slog.Warn("重启失败", "err", err)
-			return fmt.Errorf("更新包已就位但重启失败，请手动关闭程序后再打开：%w", err)
+			return fmt.Errorf("The update package is in place but the restart failed; close the app manually and open it again: %w", err)
 		}
 		slog.Info("重启指令已发出")
 		return nil
@@ -372,7 +372,7 @@ func (m *Manager) Install(ctx context.Context) error {
 	// 没有就退回配置里的固定地址。
 	url := manualDownloadURL(m.Last(), m.fallbackURL)
 	if url == "" {
-		return fmt.Errorf("update: 没有可用的下载地址（检查配置里是否填了 repository 或 manifestUrl）")
+		return fmt.Errorf("update: no download URL available (check whether repository or manifestUrl is set in the config)")
 	}
 
 	// macOS：自己下 dmg、校验、再交给系统打开（挂载）。

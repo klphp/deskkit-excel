@@ -9,8 +9,8 @@ import "github.com/klphp/deskkit-excel/internal/capability"
 func Pack() capability.Pack {
 	return capability.Pack{
 		ID:          "excel",
-		Name:        "表格处理",
-		Description: "Excel / CSV 的合并、清洗、筛选、分组汇总、按 SQL 任意查询，本地读写，不上传。",
+		Name:        "Spreadsheets",
+		Description: "Merge, clean, filter, group and summarize Excel / CSV files, or query them with SQL. Everything is read and written locally; nothing is uploaded.",
 		Register:    Register,
 	}
 }

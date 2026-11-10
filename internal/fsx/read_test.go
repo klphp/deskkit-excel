@@ -94,8 +94,8 @@ func TestReadGBK(t *testing.T) {
 	if got := strings.Join(res.Lines, "|"); got != "第一行|第二行中文|第三行" {
 		t.Errorf("GBK 转码内容不对: %q", got)
 	}
-	if !strings.Contains(res.Hint, "国标编码") {
-		t.Errorf("提示里应说明这是国标编码: %s", res.Hint)
+	if !strings.Contains(res.Hint, "national-standard encoding") {
+		t.Errorf("the hint must say this is a national-standard encoding: %s", res.Hint)
 	}
 }
 
@@ -153,8 +153,8 @@ func TestReadRejectsBinary(t *testing.T) {
 	if err == nil {
 		t.Fatal("二进制文件必须拒绝")
 	}
-	if !strings.Contains(err.Error(), "二进制") {
-		t.Errorf("错误信息应说明是二进制: %v", err)
+	if !strings.Contains(err.Error(), "binary") {
+		t.Errorf("the error must say the file is binary: %v", err)
 	}
 }
 

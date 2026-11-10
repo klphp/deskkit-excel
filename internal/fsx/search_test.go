@@ -96,8 +96,8 @@ func TestSearchSkipsBinaryAndBig(t *testing.T) {
 	if len(res.Matches) != 1 || filepath.Base(res.Matches[0].Path) != "small.txt" {
 		t.Fatalf("只应命中 small.txt，实际 %+v", res.Matches)
 	}
-	if !strings.Contains(res.Hint, "超大文件") && !strings.Contains(res.Hint, "二进制") {
-		t.Errorf("提示里应说明跳过了什么: %s", res.Hint)
+	if !strings.Contains(res.Hint, "oversized files") && !strings.Contains(res.Hint, "binary files") {
+		t.Errorf("the hint must say what was skipped: %s", res.Hint)
 	}
 }
 
@@ -345,7 +345,7 @@ func TestSearchRegexInvalidPattern(t *testing.T) {
 	if err == nil {
 		t.Fatal("非法正则应当报错，而不是静默不命中")
 	}
-	if !strings.Contains(err.Error(), "正则不合法") {
+	if !strings.Contains(err.Error(), "Invalid regular expression") {
 		t.Fatalf("错误信息应说明正则不合法: %v", err)
 	}
 }

@@ -141,12 +141,12 @@ func LoadCatalog(ctx context.Context, dir string) (*sql.DB, Catalog, error) {
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, cat, fmt.Errorf("读目录失败: %w", err)
+		return nil, cat, fmt.Errorf("Failed to read the folder: %w", err)
 	}
 
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
-		return nil, cat, fmt.Errorf("打开内存库失败: %w", err)
+		return nil, cat, fmt.Errorf("Failed to open the in-memory database: %w", err)
 	}
 	// 单连接：内存库是 per-connection 的，多连接会各自看到一个空库
 	db.SetMaxOpenConns(1)
@@ -181,7 +181,7 @@ func LoadCatalog(ctx context.Context, dir string) (*sql.DB, Catalog, error) {
 	}
 
 	if len(cat.Tables) == 0 {
-		cat.Note = strings.Join(nonEmpty(cat.Note, "目录里没有可读的表格"), "；")
+		cat.Note = strings.Join(nonEmpty(cat.Note, "There are no readable tables in this folder"), "；")
 	}
 	return db, cat, nil
 }
@@ -202,7 +202,7 @@ func noteWarnings(note string, tables []TableInfo) string {
 func loadWorkbook(ctx context.Context, db *sql.DB, path, file string) ([]TableInfo, error) {
 	f, err := openWorkbook(path)
 	if err != nil {
-		return nil, fmt.Errorf("打不开: %w", err)
+		return nil, fmt.Errorf("Cannot open: %w", err)
 	}
 	defer f.Close()
 
@@ -273,7 +273,7 @@ func loadWorkbook(ctx context.Context, db *sql.DB, path, file string) ([]TableIn
 		}
 		ddl := fmt.Sprintf("CREATE TABLE %q (%s)", table, strings.Join(defs, ", "))
 		if _, err := db.Exec(ddl); err != nil {
-			return out, fmt.Errorf("建表 %s 失败: %w", table, err)
+			return out, fmt.Errorf("Failed to create table %s: %w", table, err)
 		}
 
 		placeholder := "(" + strings.TrimSuffix(strings.Repeat("?,", len(cols)), ",") + ")"
@@ -316,7 +316,7 @@ func loadWorkbook(ctx context.Context, db *sql.DB, path, file string) ([]TableIn
 			if _, err := stmt.Exec(args...); err != nil {
 				stmt.Close()
 				tx.Rollback()
-				return out, fmt.Errorf("写入 %s 失败: %w", table, err)
+				return out, fmt.Errorf("Failed to write %s: %w", table, err)
 			}
 			count++
 		}
@@ -352,10 +352,10 @@ func queryAll(ctx context.Context, db *sql.DB, query string, limit int) (QueryRe
 func runQuery(ctx context.Context, db *sql.DB, query string, limit, maxRows int) (QueryResult, error) {
 	var res QueryResult
 	if strings.TrimSpace(query) == "" {
-		return res, fmt.Errorf("SQL 不能为空")
+		return res, fmt.Errorf("SQL must not be empty")
 	}
 	if !readOnlyQuery.MatchString(query) {
-		return res, fmt.Errorf("只支持 SELECT / WITH 查询")
+		return res, fmt.Errorf("Only SELECT / WITH queries are supported")
 	}
 	if limit <= 0 {
 		limit = 200
@@ -376,7 +376,7 @@ func runQuery(ctx context.Context, db *sql.DB, query string, limit, maxRows int)
 	wrapped := fmt.Sprintf("SELECT * FROM (%s) LIMIT %d", strings.TrimSuffix(strings.TrimSpace(query), ";"), probe)
 	rows, err := db.QueryContext(ctx, wrapped)
 	if err != nil {
-		return res, fmt.Errorf("查询失败: %w", err)
+		return res, fmt.Errorf("Query failed: %w", err)
 	}
 	defer rows.Close()
 
@@ -410,7 +410,7 @@ func runQuery(ctx context.Context, db *sql.DB, query string, limit, maxRows int)
 	}
 	if res.Truncated {
 		res.Note = fmt.Sprintf(
-			"结果超过 %d 行，只返回了前 %d 行。要看/要全部结果请用 write_query_result 落盘成文件。",
+			"The result has more than %d rows; only the first %d were returned. To see or keep the whole result, use write_query_result to save it to a file.",
 			limit, limit)
 	}
 	res.Count = len(res.Rows)
@@ -450,11 +450,11 @@ func WriteQuery(ctx context.Context, db *sql.DB, query, outputDir, fileName stri
 		return "", 0, err
 	}
 	if len(res.Columns) == 0 {
-		return "", 0, fmt.Errorf("查询没有返回任何列")
+		return "", 0, fmt.Errorf("The query returned no columns")
 	}
 
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
-		return "", 0, fmt.Errorf("创建输出目录失败: %w", err)
+		return "", 0, fmt.Errorf("Failed to create the output folder: %w", err)
 	}
 
 	// 输出格式由文件名决定：.csv 写 CSV，其余写 xlsx。
@@ -481,7 +481,7 @@ func WriteQuery(ctx context.Context, db *sql.DB, query, outputDir, fileName stri
 	for _, src := range protect {
 		if sameFile(raw, src) {
 			return "", 0, fmt.Errorf(
-				"拒绝写入源文件 %s：这会直接覆盖你的原始文件。请换一个文件名，或让它输出到 %s",
+				"Refusing to write to the source file %s: that would overwrite your original file. Use a different file name, or write it to %s",
 				filepath.Base(raw), filepath.Join(outputDir, "deskkit-out"))
 		}
 	}
@@ -551,7 +551,7 @@ func WriteQuery(ctx context.Context, db *sql.DB, query, outputDir, fileName stri
 	}
 
 	if err := f.SaveAs(path); err != nil {
-		return "", 0, fmt.Errorf("保存失败: %w", err)
+		return "", 0, fmt.Errorf("Failed to save: %w", err)
 	}
 	return path, res.Count, nil
 }

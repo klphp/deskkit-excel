@@ -30,7 +30,7 @@ var allDigitsRe = regexp.MustCompile(`^-?\d+(\.\d+)?$`)
 func parseDate(s string) (time.Time, error) {
 	v := strings.TrimSpace(s)
 	if v == "" {
-		return time.Time{}, fmt.Errorf("空")
+		return time.Time{}, fmt.Errorf("empty")
 	}
 
 	// ① 纯数字：只有 8 位（20261001）或 Excel 序列号才算日期。
@@ -46,7 +46,7 @@ func parseDate(s string) (time.Time, error) {
 			// Excel 把日期存成从 1899-12-30 起的天数
 			return time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(n)), nil
 		}
-		return time.Time{}, fmt.Errorf("不是日期: %s", s)
+		return time.Time{}, fmt.Errorf("Not a date: %s", s)
 	}
 
 	// ② 中文写法先归一成 2026-10-01
@@ -57,7 +57,7 @@ func parseDate(s string) (time.Time, error) {
 	// ③ 其余交给 dateparse
 	t, err := dateparse.ParseAny(v)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("不是日期: %s", s)
+		return time.Time{}, fmt.Errorf("Not a date: %s", s)
 	}
 	return t, nil
 }
@@ -81,5 +81,5 @@ func datePart(t time.Time, part string) (string, error) {
 	case "ym", "年月":
 		return t.Format("2006-01"), nil
 	}
-	return "", fmt.Errorf("不认识的时间部分 %q（可用 year/month/day/quarter/weekday/week/ym）", part)
+	return "", fmt.Errorf("Unknown date part %q (use year/month/day/quarter/weekday/week/ym)", part)
 }

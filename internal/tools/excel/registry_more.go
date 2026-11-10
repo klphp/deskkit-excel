@@ -43,14 +43,14 @@ func registerTableTools(r *ai.Registry) error {
 
 func registerProfileTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("profile_table",
-		"给一张表做「体检」：每列是什么类型、有多少空值、有多少不重复的值、"+
-			"数值列的合计/平均/中位数、以及值得警惕的问题（前导零、货币符号、全角数字、类型混杂）。"+
-			"用户问「这表数据怎么样」「能不能直接算」时先调它。",
+		"Health check a single table: the type of each column, how many empty values and how many distinct values it has, "+
+			"sum/average/median of numeric columns, and problems worth flagging (leading zeros, currency symbols, full-width digits, mixed types)."+
+			"Call it first when the user asks how the data looks or whether it can be calculated directly.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path":  map[string]any{"type": "string", "description": "文件绝对路径（xlsx 或 csv）"},
-				"sheet": map[string]any{"type": "string", "description": "工作表名，留空取第一个"},
+				"path":  map[string]any{"type": "string", "description": "Absolute path of the file (xlsx or csv)"},
+				"sheet": map[string]any{"type": "string", "description": "Sheet name; empty means the first sheet"},
 			},
 			"required": []string{"path"},
 		})
@@ -84,23 +84,23 @@ func registerProfileTool(r *ai.Registry) error {
 
 func registerValidateTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("validate_table",
-		"按规则检查一张表：必填为空、该唯一的有重复、不是数字、不是日期、出现负数、不符合正则。"+
-			"每条问题都带行号和原值，用户能一条条去改。用户说「检查一下有没有问题」时用它。",
+		"Check a table against rules: required but empty, should be unique but duplicated, not a number, not a date, negative values, regex mismatch."+
+			"Every issue carries the row number and the original value, so the user can fix them one by one. Use it when the user asks to check the data for problems.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path":        map[string]any{"type": "string", "description": "文件绝对路径"},
-				"sheet":       map[string]any{"type": "string", "description": "工作表名，留空取第一个"},
-				"required":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "必须填的列"},
-				"unique":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "不允许重复的列（多个列合起来判重）"},
-				"numeric":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "必须是数字的列"},
-				"dates":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "必须是日期的列"},
-				"notNegative": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "不允许负数的列"},
+				"path":        map[string]any{"type": "string", "description": "Absolute path of the file"},
+				"sheet":       map[string]any{"type": "string", "description": "Sheet name; empty means the first sheet"},
+				"required":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Columns that must be filled in"},
+				"unique":      map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Columns that must not repeat (several columns are judged together)"},
+				"numeric":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Columns that must be numbers"},
+				"dates":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Columns that must be dates"},
+				"notNegative": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Columns that must not be negative"},
 				"pattern": map[string]any{
-					"type": "object", "description": "正则校验：列名 → 正则表达式",
+					"type": "object", "description": "Regex checks: column name to regular expression",
 					"additionalProperties": map[string]any{"type": "string"},
 				},
-				"maxIssues": map[string]any{"type": "integer", "description": "最多返回多少条，默认 50"},
+				"maxIssues": map[string]any{"type": "integer", "description": "Maximum issues to return, 50 by default"},
 			},
 			"required": []string{"path"},
 		})
@@ -142,15 +142,15 @@ func registerValidateTool(r *ai.Registry) error {
 
 func registerDuplicatesTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("find_duplicates",
-		"找出重复行。可以按指定列判重（比如只看工号），留空则整行比较。"+
-			"返回重复了多少行以及前若干条样本。用户问「有没有重复的」时用它，不要自己写 SQL 猜。",
+		"Find duplicate rows. You can dedupe on specific columns (an employee id, for example); empty compares whole rows."+
+			"Returns how many rows are duplicated plus the first few samples. Use it when the user asks whether anything repeats; do not guess with SQL.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path":    map[string]any{"type": "string", "description": "文件绝对路径"},
+				"path":    map[string]any{"type": "string", "description": "Absolute path of the file"},
 				"sheet":   map[string]any{"type": "string"},
-				"columns": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "判重依据的列；留空则整行比较"},
-				"limit":   map[string]any{"type": "integer", "description": "返回多少条样本，默认 20"},
+				"columns": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Columns to dedupe on; empty compares whole rows"},
+				"limit":   map[string]any{"type": "integer", "description": "How many samples to return, 20 by default"},
 			},
 			"required": []string{"path"},
 		})
@@ -180,7 +180,7 @@ func registerDuplicatesTool(r *ai.Registry) error {
 			"totalRows":     len(t.Rows),
 			"duplicateRows": total,
 			"samples":       rows,
-			"sampleNote":    "样本是每组重复里的第一条，可用来判断是不是真的重复",
+			"sampleNote":    "Each sample is the first row of a duplicate group, which shows whether it really is a duplicate",
 		})
 	})
 }
@@ -189,20 +189,20 @@ func registerDuplicatesTool(r *ai.Registry) error {
 
 func registerCompareTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("compare_tables",
-		"按 key 列比对两张表，给出新增、删除、修改（哪一行哪一列从什么变成什么）。"+
-			"用户说「这个月和上个月有什么变化」「这两份有什么区别」时用它。"+
-			"给了 outputDir 会把三份差异各写一个文件。",
+		"Compare two tables on a key column and report additions, deletions and changes (which row, which column, from what to what)."+
+			"Use it when the user asks what changed since last month or how these two files differ."+
+			"Given an outputDir, each of the three differences is written to its own file.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"oldPath":        map[string]any{"type": "string", "description": "旧表路径"},
-				"newPath":        map[string]any{"type": "string", "description": "新表路径"},
+				"oldPath":        map[string]any{"type": "string", "description": "Path of the old table"},
+				"newPath":        map[string]any{"type": "string", "description": "Path of the new table"},
 				"oldSheet":       map[string]any{"type": "string"},
 				"newSheet":       map[string]any{"type": "string"},
-				"keys":           map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "用来对齐行的列（两边同名），如工号"},
-				"compareColumns": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "要比对的列；留空则比两表共有的所有列"},
-				"outputDir":      map[string]any{"type": "string", "description": "把差异导出到这个目录；留空只返回统计和样本"},
-				"limit":          map[string]any{"type": "integer", "description": "返回多少条样本，默认 20"},
+				"keys":           map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Column used to line up rows (same name on both sides), such as an employee id"},
+				"compareColumns": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Columns to compare; empty compares every column the two tables share"},
+				"outputDir":      map[string]any{"type": "string", "description": "Export the differences to this folder; empty only returns statistics and samples"},
+				"limit":          map[string]any{"type": "integer", "description": "How many samples to return, 20 by default"},
 			},
 			"required": []string{"oldPath", "newPath", "keys"},
 		})
@@ -254,13 +254,13 @@ func registerCompareTool(r *ai.Registry) error {
 				files = append(files, p)
 				return nil
 			}
-			if err := write(res.AddedTable, "新增.xlsx"); err != nil {
+			if err := write(res.AddedTable, "added.xlsx"); err != nil {
 				return "", err
 			}
-			if err := write(res.RemovedTable, "删除.xlsx"); err != nil {
+			if err := write(res.RemovedTable, "removed.xlsx"); err != nil {
 				return "", err
 			}
-			if err := write(res.ChangedTable, "修改明细.xlsx"); err != nil {
+			if err := write(res.ChangedTable, "changed.xlsx"); err != nil {
 				return "", err
 			}
 			out["files"] = files
@@ -295,27 +295,27 @@ type transformStep struct {
 }
 
 func registerTransformTool(r *ai.Registry) error {
-	actionNames := "select(只保留列) / drop(去掉列) / rename(改名,配 mapping) / reorder(重排列) / " +
-		"split(一列按分隔符拆成多列,配 column+sep+into) / concat(多列拼一列,配 columns+sep+as) / " +
-		"fillDown(向下填充空值,配 columns) / transpose(行列转置) / " +
-		"normalize(文本规范化,配 trim/toHalfWidth/collapseSpaces/stripCurrency/lower/upper) / " +
-		"dateParts(从日期取年月日,配 column+parts) / computed(新增计算列,配 expr+as,例如 [单价]*[数量] 或 round([金额]/3,2)) / " +
-		"sort(排序,配 keys) / filter(筛选,配 conditions+matchAll) / dedup(按 columns 去重) / dropEmptyRows(删空行)"
+	actionNames := "select (keep columns) / drop (remove columns) / rename (with mapping) / reorder (reorder columns) / " +
+		"split (one column into several by a separator, with column+sep+into) / concat (several columns into one, with columns+sep+as) / " +
+		"fillDown (fill empty cells downward, with columns) / transpose (swap rows and columns) / " +
+		"normalize (text cleanup, with trim/toHalfWidth/collapseSpaces/stripCurrency/lower/upper) / " +
+		"dateParts (year/month/day out of a date, with column+parts) / computed (new calculated column, with expr+as, for example [unit price]*[qty] or round([amount]/3,2)) / " +
+		"sort (with keys) / filter (with conditions+matchAll) / dedup (by columns) / dropEmptyRows (delete empty rows)"
 
 	def, err := ai.FunctionTool("transform_table",
-		"对一张表做变形：选列、丢列、改名、重排、拆列、合列、向下填充、转置、文本规范化、"+
-			"日期拆分、计算列、排序、筛选、去重、删空行。steps 按顺序依次执行。"+
-			"不给 outputPath 时只预览（返回前几行和行数列数），给了才写文件。"+
-			"动作清单："+actionNames,
+		"Reshape one table: keep columns, drop columns, rename, reorder, split a column, join columns, fill down, transpose, normalize text, "+
+			"split dates, calculated columns, sort, filter, dedupe and delete empty rows. The steps run in order."+
+			"Without an outputPath it only previews (returns the first rows plus row and column counts); a file is written only when it is given."+
+			"List of actions:"+actionNames,
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path":       map[string]any{"type": "string", "description": "源文件绝对路径（不会被修改）"},
+				"path":       map[string]any{"type": "string", "description": "Absolute path of the source file (never modified)"},
 				"sheet":      map[string]any{"type": "string"},
-				"outputPath": map[string]any{"type": "string", "description": "输出文件路径；.csv 结尾输出 CSV，否则 xlsx。留空=只预览不写"},
-				"sheetName":  map[string]any{"type": "string", "description": "输出工作簿里的表名，默认「结果」"},
+				"outputPath": map[string]any{"type": "string", "description": "Output file path; .csv writes CSV, otherwise xlsx. Empty means preview only, no file"},
+				"sheetName":  map[string]any{"type": "string", "description": "Sheet name in the output workbook, Result by default"},
 				"steps": map[string]any{
-					"type": "array", "description": "变形步骤，按顺序执行",
+					"type": "array", "description": "Reshape steps, run in order",
 					"items": map[string]any{
 						"type": "object",
 						"properties": map[string]any{
@@ -384,7 +384,7 @@ func registerTransformTool(r *ai.Registry) error {
 		for i, st := range in.Steps {
 			beforeRows, beforeCols := len(t.Rows), len(t.Headers)
 			if err := applyStep(&t, st); err != nil {
-				return "", fmt.Errorf("第 %d 步 %s 失败: %w", i+1, st.Action, err)
+				return "", fmt.Errorf("Step %d (%s) failed: %w", i+1, st.Action, err)
 			}
 			log = append(log, map[string]any{
 				"step": i + 1, "action": st.Action,
@@ -400,7 +400,7 @@ func registerTransformTool(r *ai.Registry) error {
 		}
 		if in.OutputPath == "" {
 			out["preview"] = OffsetPaging(t, 0, 10).Rows
-			out["note"] = "只预览，没有写文件。确认后给 outputPath 再调一次。"
+			out["note"] = "Preview only, no file was written. Call it again with outputPath once the user confirms."
 			return jsonOut(out)
 		}
 		path, err := resolveOutputPath(filepath.Dir(in.Path), in.OutputPath, in.Path)
@@ -459,7 +459,7 @@ func applyStep(t **Table, st transformStep) error {
 	case "dropemptyrows":
 		*t, _ = DropEmptyRows(cur)
 	default:
-		return fmt.Errorf("不认识的动作 %q", st.Action)
+		return fmt.Errorf("Unknown action %q", st.Action)
 	}
 	return err
 }
@@ -468,29 +468,29 @@ func applyStep(t **Table, st transformStep) error {
 
 func registerGroupTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("group_summary",
-		"按列分组做汇总（不用写 SQL）：合计、平均、最大、最小、计数、去重计数、合并去重文本。"+
-			"用户说「按部门汇总金额」「每个月多少单」「谁的单最多」时用它，比拼 SQL 更不容易出错。"+
-			"给了 outputPath 会写文件。",
+		"Group by columns and aggregate without writing SQL: sum, average, max, min, count, distinct count and merged distinct text."+
+			"Use it when the user asks to total amounts by department, to count orders per month, or who has the most orders; it is less error-prone than writing SQL."+
+			"Given an outputPath it writes a file.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"path":    map[string]any{"type": "string"},
 				"sheet":   map[string]any{"type": "string"},
-				"groupBy": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "分组列，可以多个"},
+				"groupBy": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Grouping columns, can be several"},
 				"aggregations": map[string]any{
-					"type": "array", "description": "聚合规则",
+					"type": "array", "description": "Aggregation rules",
 					"items": map[string]any{
 						"type": "object",
 						"properties": map[string]any{
-							"column": map[string]any{"type": "string", "description": "要聚合的列（count 可留空）"},
+							"column": map[string]any{"type": "string", "description": "Column to aggregate (may be empty for count)"},
 							"func":   map[string]any{"type": "string", "description": "sum/avg/min/max/count/countDistinct/first/last/join"},
-							"as":     map[string]any{"type": "string", "description": "输出列名"},
-							"sep":    map[string]any{"type": "string", "description": "join 用的分隔符"},
+							"as":     map[string]any{"type": "string", "description": "Output column name"},
+							"sep":    map[string]any{"type": "string", "description": "Separator used by join"},
 						},
 						"required": []string{"func"},
 					},
 				},
-				"outputPath": map[string]any{"type": "string", "description": "输出路径；留空只返回结果（最多 50 行）"},
+				"outputPath": map[string]any{"type": "string", "description": "Output path; empty only returns the result (at most 50 rows)"},
 			},
 			"required": []string{"path", "groupBy"},
 		})
@@ -540,25 +540,25 @@ func registerGroupTool(r *ai.Registry) error {
 
 func registerJoinTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("join_tables",
-		"横向合并两张表：按 key 列把另一张表的列带到这张表右边（就是 VLOOKUP）。"+
-			"会明确告诉你匹配上多少行、没匹配上多少、右表 key 有没有重复。"+
-			"右表 key 重复时默认直接报错（不会静默取第一条，那会把金额算少）；"+
-			"确实需要取值时显式给 onDuplicate。"+
-			"给了 outputPath 就写文件，否则只返回统计和预览。",
+		"Join two tables horizontally: bring the columns of the other table onto the right of this one, matched on a key column (this is VLOOKUP)."+
+			"It reports how many rows matched, how many did not, and whether the right-hand keys repeat."+
+			"When the right-hand keys repeat it errors out by default (it will not silently take the first one, which would undercount money); "+
+			"if you really need a value, pass onDuplicate explicitly."+
+			"Given an outputPath it writes a file; otherwise it only returns statistics and a preview.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"leftPath":    map[string]any{"type": "string", "description": "主表（保留它的行）"},
-				"rightPath":   map[string]any{"type": "string", "description": "要带列进来的表"},
+				"leftPath":    map[string]any{"type": "string", "description": "Main table (its rows are kept)"},
+				"rightPath":   map[string]any{"type": "string", "description": "Table whose columns are brought in"},
 				"leftSheet":   map[string]any{"type": "string"},
 				"rightSheet":  map[string]any{"type": "string"},
-				"leftKey":     map[string]any{"type": "string", "description": "主表的匹配列"},
-				"rightKey":    map[string]any{"type": "string", "description": "另一张表的匹配列（可与 leftKey 不同名）"},
-				"bring":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "带哪些列；留空=除 key 外全部"},
-				"how":         map[string]any{"type": "string", "description": "left(默认,保留主表全部) / inner(只要匹配上的) / right(还要没匹配上的)"},
-				"prefix":      map[string]any{"type": "string", "description": "带过来的列名前缀，默认「右表.」"},
-				"onDuplicate": map[string]any{"type": "string", "description": "右表 key 重复时怎么取值：error(默认，直接报错要求先弄唯一) / first(取第一条) / sum(数值列求和) / all(行展开)。带金额时不要用 first，用 sum 或 all"},
-				"outputPath":  map[string]any{"type": "string", "description": "输出路径；留空只预览"},
+				"leftKey":     map[string]any{"type": "string", "description": "Matching column in the main table"},
+				"rightKey":    map[string]any{"type": "string", "description": "Matching column in the other table (may have a different name from leftKey)"},
+				"bring":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Which columns to bring in; empty means everything except the key"},
+				"how":         map[string]any{"type": "string", "description": "left (default, keep every main-table row) / inner (matched rows only) / right (also keep unmatched rows)"},
+				"prefix":      map[string]any{"type": "string", "description": "Prefix for the brought-in column names, right. by default"},
+				"onDuplicate": map[string]any{"type": "string", "description": "What to do when right-hand keys repeat: error (default, report it and require unique keys first) / first (take the first row) / sum (add up numeric columns) / all (expand to rows). With money involved never use first; use sum or all"},
+				"outputPath":  map[string]any{"type": "string", "description": "Output path; empty previews only"},
 			},
 			"required": []string{"leftPath", "rightPath", "leftKey", "rightKey"},
 		})
@@ -608,20 +608,20 @@ func registerJoinTool(r *ai.Registry) error {
 
 func registerSplitTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("split_table",
-		"拆分或合并工作表：按某列的每个值拆成多个文件（每个部门一个）、"+
-			"把一个文件里的每个 sheet 拆成独立文件、把多个 sheet 纵向合并成一张。"+
-			"用户说「按部门拆开发给我」「这几个 sheet 合成一张」时用它。",
+		"Split or combine sheets: one file per distinct value of a column (one file per department), "+
+			"one file per sheet inside a workbook, or several sheets stacked vertically into one table."+
+			"Use it when the user asks to split by department or to combine these sheets into one.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path":       map[string]any{"type": "string", "description": "文件绝对路径"},
+				"path":       map[string]any{"type": "string", "description": "Absolute path of the file"},
 				"sheet":      map[string]any{"type": "string"},
-				"mode":       map[string]any{"type": "string", "description": "byColumn(按列值拆) / bySheet(每个 sheet 拆一个文件) / stack(多个 sheet 合成一张)"},
-				"column":     map[string]any{"type": "string", "description": "mode=byColumn 时按这列拆"},
-				"outputDir":  map[string]any{"type": "string", "description": "输出目录"},
-				"outputPath": map[string]any{"type": "string", "description": "mode=stack 时的输出文件路径"},
-				"ext":        map[string]any{"type": "string", "description": "拆出来的扩展名，默认 .xlsx，可给 .csv"},
-				"maxFiles":   map[string]any{"type": "integer", "description": "最多拆几个文件，默认 100；超过会拒绝并报告"},
+				"mode":       map[string]any{"type": "string", "description": "byColumn (split by column value) / bySheet (one file per sheet) / stack (stack several sheets into one)"},
+				"column":     map[string]any{"type": "string", "description": "Column to split on when mode=byColumn"},
+				"outputDir":  map[string]any{"type": "string", "description": "Output folder"},
+				"outputPath": map[string]any{"type": "string", "description": "Output file path when mode=stack"},
+				"ext":        map[string]any{"type": "string", "description": "Extension for the split files, .xlsx by default, .csv is allowed"},
+				"maxFiles":   map[string]any{"type": "integer", "description": "Maximum number of files to split into, 100 by default; above that it refuses and reports"},
 			},
 			"required": []string{"path", "mode"},
 		})
@@ -645,7 +645,7 @@ func registerSplitTool(r *ai.Registry) error {
 		switch strings.ToLower(strings.TrimSpace(in.Mode)) {
 		case "bycolumn":
 			if in.Column == "" {
-				return "", fmt.Errorf("按列拆要给 column")
+				return "", fmt.Errorf("Splitting by column requires column")
 			}
 			t, err := LoadTable(in.Path, in.Sheet)
 			if err != nil {
@@ -693,7 +693,7 @@ func registerSplitTool(r *ai.Registry) error {
 				"headers": merged.Headers, "output": p,
 			})
 		}
-		return "", fmt.Errorf("mode 只能是 byColumn / bySheet / stack")
+		return "", fmt.Errorf("mode must be byColumn / bySheet / stack")
 	})
 }
 
@@ -701,15 +701,15 @@ func registerSplitTool(r *ai.Registry) error {
 
 func registerConvertTool(r *ai.Registry) error {
 	def, err := ai.FunctionTool("convert_table",
-		"转换表格格式：xlsx 转 csv、csv 转 xlsx、把某个 sheet 单独导出。"+
-			"CSV 输出可选 GBK 编码（老系统导入只认这个，验证码/乱码问题多半就是编码不对）。",
+		"Convert table formats: xlsx to csv, csv to xlsx, or export one sheet on its own."+
+			"CSV output can use GBK encoding (older systems only accept it, and garbled text is usually a wrong encoding).",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path":       map[string]any{"type": "string", "description": "源文件绝对路径"},
+				"path":       map[string]any{"type": "string", "description": "Absolute path of the source file"},
 				"sheet":      map[string]any{"type": "string"},
-				"outputPath": map[string]any{"type": "string", "description": "输出文件路径，扩展名决定格式（.csv 或 .xlsx）"},
-				"encoding":   map[string]any{"type": "string", "description": "仅 CSV 输出：utf8(默认,带BOM) 或 gbk"},
+				"outputPath": map[string]any{"type": "string", "description": "Output file path; the extension decides the format (.csv or .xlsx)"},
+				"encoding":   map[string]any{"type": "string", "description": "CSV output only: utf8 (default, with BOM) or gbk"},
 			},
 			"required": []string{"path", "outputPath"},
 		})

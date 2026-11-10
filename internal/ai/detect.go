@@ -53,7 +53,7 @@ func ProbeLocal(ctx context.Context, endpoints []string, timeout time.Duration) 
 func probeOne(ctx context.Context, endpoint string, timeout time.Duration) LocalEndpoint {
 	out := LocalEndpoint{Endpoint: endpoint}
 	if endpoint == "" {
-		out.Error = "地址为空"
+		out.Error = "Address is empty"
 		return out
 	}
 
@@ -75,7 +75,7 @@ func probeOne(ctx context.Context, endpoint string, timeout time.Duration) Local
 		return out
 	}
 
-	out.Error = "没有响应 /api/tags 或 /v1/models"
+	out.Error = "No response from /api/tags or /v1/models"
 	return out
 }
 
@@ -139,4 +139,4 @@ func (e simpleErr) Error() string { return string(e) }
 
 func errStatus(code int) error { return simpleErr("HTTP " + strconv.Itoa(code)) }
 
-const errNoModels = simpleErr("服务在但没有可用模型")
+const errNoModels = simpleErr("Service is up but has no available models")

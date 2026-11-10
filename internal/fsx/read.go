@@ -84,10 +84,10 @@ func (g Guard) Read(ctx context.Context, opt ReadOptions) (ReadResult, error) {
 	}
 	info, err := os.Stat(abs)
 	if err != nil {
-		return ReadResult{}, fmt.Errorf("读不到这个文件: %w", err)
+		return ReadResult{}, fmt.Errorf("Cannot read this file: %w", err)
 	}
 	if info.IsDir() {
-		return ReadResult{}, fmt.Errorf("%s 是个目录，fs_read 只用于文件；列目录请用 fs_list", abs)
+		return ReadResult{}, fmt.Errorf("%s is a folder; fs_read only works on files. Use fs_list to list a folder", abs)
 	}
 
 	offset := opt.Offset
@@ -113,7 +113,7 @@ func (g Guard) Read(ctx context.Context, opt ReadOptions) (ReadResult, error) {
 	if info.Size() == 0 {
 		out.Encoding = xtext.EncUTF8
 		out.TotalLinesExact = true
-		out.Hint = "这是一个空文件（0 字节）。"
+		out.Hint = "This is an empty file (0 bytes)."
 		return out, nil
 	}
 
@@ -123,7 +123,7 @@ func (g Guard) Read(ctx context.Context, opt ReadOptions) (ReadResult, error) {
 	}
 	if !isText {
 		// 二进制不猜：乱码读出来模型会当成真内容用，比报错糟糕得多。
-		return ReadResult{}, fmt.Errorf("这是二进制文件（识别为 %s），不能按文本读取；想知道它是什么请用 fs_peek", enc)
+		return ReadResult{}, fmt.Errorf("This is a binary file (detected as %s) and cannot be read as text; use fs_peek to see what it is", enc)
 	}
 	out.Encoding = enc
 	out.BytesRead = int64(len(buf))
@@ -135,10 +135,10 @@ func (g Guard) Read(ctx context.Context, opt ReadOptions) (ReadResult, error) {
 	if offset > len(lines) {
 		switch {
 		case !out.TotalLinesExact:
-			return out, fmt.Errorf("offset=%d 超出已读范围（文件 %d 字节，只读了前 %d 字节，共 %d 行）；请调大 maxBytes 再试",
+			return out, fmt.Errorf("offset=%d is past what was read (the file is %d bytes, only the first %d bytes were read, %d lines in total); raise maxBytes and try again",
 				offset, info.Size(), out.BytesRead, out.TotalLines)
 		default:
-			return out, fmt.Errorf("offset=%d 超出总行数 %d", offset, out.TotalLines)
+			return out, fmt.Errorf("offset=%d is past the total of %d lines", offset, out.TotalLines)
 		}
 	}
 
@@ -150,7 +150,7 @@ func (g Guard) Read(ctx context.Context, opt ReadOptions) (ReadResult, error) {
 	out.Lines = make([]string, 0, end-offset+1)
 	for _, line := range lines[offset-1 : end] {
 		if utf8.RuneCountInString(line) > readLineCap {
-			line = truncateRunes(line, readLineCap) + "…（本行超长已截断）"
+			line = truncateRunes(line, readLineCap) + "… (truncated)"
 			out.LongLinesCut++
 		}
 		out.Lines = append(out.Lines, line)
@@ -162,21 +162,21 @@ func (g Guard) Read(ctx context.Context, opt ReadOptions) (ReadResult, error) {
 }
 
 func readHint(r ReadResult, limit int) string {
-	parts := []string{fmt.Sprintf("%s 编码，第 %d–%d 行，共 %d 行", r.Encoding, r.StartLine, r.EndLine, r.TotalLines)}
+	parts := []string{fmt.Sprintf("%s encoding, lines %d-%d of %d", r.Encoding, r.StartLine, r.EndLine, r.TotalLines)}
 	if r.Encoding == xtext.EncGB18030 {
-		parts = append(parts, "原文件是国标编码（GBK/GB18030），返回内容已转成 UTF-8，写回时不要当成 UTF-8 存")
+		parts = append(parts, "The original file uses a Chinese national-standard encoding (GBK/GB18030); the content returned is converted to UTF-8, so do not save it back as UTF-8")
 	}
 	if !r.TotalLinesExact {
-		parts = append(parts, fmt.Sprintf("文件 %d 字节，只读了前 %d 字节，后面的行没数；要看更后面请调大 maxBytes", r.FileSize, r.BytesRead))
+		parts = append(parts, fmt.Sprintf("The file is %d bytes but only the first %d were read, so later lines were not counted; raise maxBytes to look further", r.FileSize, r.BytesRead))
 	}
 	if r.EndLine < r.TotalLines {
-		parts = append(parts, fmt.Sprintf("还有 %d 行没读，接着读用 offset=%d", r.TotalLines-r.EndLine, r.EndLine+1))
+		parts = append(parts, fmt.Sprintf("%d lines were not read; continue with offset=%d", r.TotalLines-r.EndLine, r.EndLine+1))
 	}
 	if r.LongLinesCut > 0 {
-		parts = append(parts, fmt.Sprintf("有 %d 行超长已截断", r.LongLinesCut))
+		parts = append(parts, fmt.Sprintf("%d over-long lines were truncated", r.LongLinesCut))
 	}
 	if r.Truncated && r.EndLine >= r.TotalLines && r.TotalLinesExact {
-		parts = append(parts, "已到文件末尾")
+		parts = append(parts, "End of file reached")
 	}
 	return strings.Join(parts, "；") + "。"
 }
@@ -185,7 +185,7 @@ func readHint(r ReadResult, limit int) string {
 func readHead(ctx context.Context, path string, maxBytes int64) ([]byte, string, bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, "", false, fmt.Errorf("打不开这个文件: %w", err)
+		return nil, "", false, fmt.Errorf("Cannot open this file: %w", err)
 	}
 	defer f.Close()
 	if err := ctx.Err(); err != nil {
@@ -194,7 +194,7 @@ func readHead(ctx context.Context, path string, maxBytes int64) ([]byte, string,
 	buf := make([]byte, maxBytes)
 	n, rerr := io.ReadFull(f, buf)
 	if rerr != nil && !errors.Is(rerr, io.EOF) && !errors.Is(rerr, io.ErrUnexpectedEOF) {
-		return nil, "", false, fmt.Errorf("读取失败: %w", rerr)
+		return nil, "", false, fmt.Errorf("Read failed: %w", rerr)
 	}
 	buf = buf[:n]
 	text, enc, isText := xtext.Detect(buf)
@@ -246,7 +246,7 @@ type ReadFile struct {
 // 一个没权限的文件不该让另外 39 个白读。
 func (g Guard) ReadMany(ctx context.Context, paths []string, opt ReadOptions) ([]ReadFile, error) {
 	if len(paths) == 0 {
-		return nil, errors.New("paths 为空：请给出要读的文件")
+		return nil, errors.New("paths is empty: give the files to read")
 	}
 	out := make([]ReadFile, len(paths))
 	workers := resolveWorkers(opt.Concurrency, len(paths))

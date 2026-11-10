@@ -78,7 +78,7 @@ func TestCapabilityUsageMarkdown(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("状态码 %d: %s", code, body)
 	}
-	for _, want := range []string{"inspect_file", "query_file", "write_file_result", "clean_file", "参数", "调用示例"} {
+	for _, want := range []string{"inspect_file", "query_file", "write_file_result", "clean_file", "Parameters", "Example call"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("用法说明里缺少 %q", want)
 		}
@@ -135,7 +135,7 @@ func TestUsageAllEndpoint(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("状态码 %d", code)
 	}
-	for _, want := range []string{"# DeskKit 能力说明", "表格处理", "文件操作", "fs_list", "inspect_file"} {
+	for _, want := range []string{"# DeskKit capabilities", "Spreadsheets", "Files", "fs_list", "inspect_file"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("整本说明里缺少 %q", want)
 		}

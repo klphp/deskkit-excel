@@ -26,7 +26,7 @@ type Version struct {
 
 func (v Version) String() string {
 	if v.Major == 0 {
-		return "未知"
+		return "unknown"
 	}
 	return fmt.Sprintf("%d.%d (build %d)", v.Major, v.Minor, v.Build)
 }
@@ -45,8 +45,8 @@ func UnsupportedError(v Version, supported bool) error {
 		return nil
 	}
 	return fmt.Errorf(
-		"需要 Windows %d 或更高版本，当前系统是 Windows %s。\n\n"+
-			"请升级系统后再运行本程序。",
+		"Windows %d or later is required; this system is Windows %s.\n\n"+
+			"Upgrade Windows and run the app again.",
 		MinWindowsMajor, v.String(),
 	)
 }

@@ -32,13 +32,13 @@ func readXLS(path string) ([]sheetData, error) {
 	// 处理完 .xls 之后用户删不掉、改不了那个文件，测试里连临时目录都清理失败。
 	fi, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("读不了这个文件: %w", err)
+		return nil, fmt.Errorf("Cannot read this file: %w", err)
 	}
 	defer fi.Close()
 
 	wb, err := xls.OpenReader(fi, "utf-8")
 	if err != nil {
-		return nil, fmt.Errorf("这个 .xls 读不了（可能是加密文件或格式损坏）: %w", err)
+		return nil, fmt.Errorf("This .xls cannot be read (it may be encrypted or damaged): %w", err)
 	}
 
 	var out []sheetData
@@ -81,7 +81,7 @@ func readXLS(path string) ([]sheetData, error) {
 		out = append(out, sheetData{Name: name, Rows: rows})
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("%s 里没有可读的工作表", filepath.Base(path))
+		return nil, fmt.Errorf("%s has no readable sheets", filepath.Base(path))
 	}
 	return out, nil
 }

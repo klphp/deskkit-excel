@@ -82,7 +82,7 @@ func buildWorkbook(sheets []sheetData) (*excelize.File, error) {
 		} else {
 			name = uniqueSheetName(f, name)
 			if _, err := f.NewSheet(name); err != nil {
-				return nil, fmt.Errorf("建工作表失败: %w", err)
+				return nil, fmt.Errorf("Failed to create sheet: %w", err)
 			}
 		}
 		for ri, row := range sd.Rows {
@@ -95,7 +95,7 @@ func buildWorkbook(sheets []sheetData) (*excelize.File, error) {
 					continue
 				}
 				if err := f.SetCellStr(name, cellName, cell); err != nil {
-					return nil, fmt.Errorf("写入内存工作簿失败: %w", err)
+					return nil, fmt.Errorf("Failed to write the in-memory workbook: %w", err)
 				}
 			}
 		}
@@ -143,15 +143,15 @@ func readCSVRows(path string) ([][]string, error) {
 func readCSVWithDelim(path string) ([][]string, string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, "", fmt.Errorf("读不了这个文件: %w", err)
+		return nil, "", fmt.Errorf("Cannot read this file: %w", err)
 	}
 	if len(raw) == 0 {
-		return nil, "", fmt.Errorf("文件是空的")
+		return nil, "", fmt.Errorf("The file is empty")
 	}
 
 	text, enc, isText := xtext.Detect(raw)
 	if !isText {
-		return nil, "", fmt.Errorf("这不是文本文件，没法按 CSV 读（识别为 %s）", enc)
+		return nil, "", fmt.Errorf("This is not a text file, so it cannot be read as CSV (detected as %s)", enc)
 	}
 
 	// 分隔符交给 csvd：它按「切出来的列数分布」判断，比数逗号出现次数可靠 ——
@@ -162,7 +162,7 @@ func readCSVWithDelim(path string) ([][]string, string, error) {
 
 	rows, err := r.ReadAll()
 	if err != nil {
-		return nil, "", fmt.Errorf("解析 CSV 失败（编码 %s，分隔符 %q）: %w", enc, string(r.Comma), err)
+		return nil, "", fmt.Errorf("Failed to parse CSV (encoding %s, separator %q): %w", enc, string(r.Comma), err)
 	}
 	return rows, string(r.Comma), nil
 }
@@ -224,21 +224,21 @@ func writeCSVGBK(path string, rows [][]string) error {
 	var buf strings.Builder
 	w := csv.NewWriter(&buf)
 	if err := w.WriteAll(sanitizeCSVRows(rows)); err != nil {
-		return fmt.Errorf("生成 CSV 失败: %w", err)
+		return fmt.Errorf("Failed to generate CSV: %w", err)
 	}
 	w.Flush()
 	if err := w.Error(); err != nil {
-		return fmt.Errorf("生成 CSV 失败: %w", err)
+		return fmt.Errorf("Failed to generate CSV: %w", err)
 	}
 	encoded, err := xtext.UTF8ToGB18030(buf.String())
 	if err != nil {
-		return fmt.Errorf("转成 GBK 失败: %w", err)
+		return fmt.Errorf("Failed to convert to GBK: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("建输出目录失败: %w", err)
+		return fmt.Errorf("Failed to create the output folder: %w", err)
 	}
 	if err := os.WriteFile(path, encoded, 0o644); err != nil {
-		return fmt.Errorf("写文件失败: %w", err)
+		return fmt.Errorf("Failed to write the file: %w", err)
 	}
 	return nil
 }
@@ -256,18 +256,18 @@ func WriteCSV(path string, rows [][]string) error {
 
 	w := csv.NewWriter(&buf)
 	if err := w.WriteAll(sanitizeCSVRows(rows)); err != nil {
-		return fmt.Errorf("生成 CSV 失败: %w", err)
+		return fmt.Errorf("Failed to generate CSV: %w", err)
 	}
 	w.Flush()
 	if err := w.Error(); err != nil {
-		return fmt.Errorf("生成 CSV 失败: %w", err)
+		return fmt.Errorf("Failed to generate CSV: %w", err)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("建输出目录失败: %w", err)
+		return fmt.Errorf("Failed to create the output folder: %w", err)
 	}
 	if err := os.WriteFile(path, []byte(buf.String()), 0o644); err != nil {
-		return fmt.Errorf("写文件失败: %w", err)
+		return fmt.Errorf("Failed to write the file: %w", err)
 	}
 	return nil
 }

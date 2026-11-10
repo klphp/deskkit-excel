@@ -140,7 +140,7 @@ func UTF8ToGB18030(s string) ([]byte, error) {
 func htmlindexMust(name string) encoding.Encoding {
 	e, err := htmlindex.Get(name)
 	if err != nil {
-		panic("x/text 缺编码 " + name + ": " + err.Error())
+		panic("x/text is missing encoding " + name + ": " + err.Error())
 	}
 	return e
 }

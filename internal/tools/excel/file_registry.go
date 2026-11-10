@@ -16,11 +16,11 @@ import (
 func registerFileTools(r *ai.Registry) error {
 	// ── 看结构 ──
 	inspectDef, err := ai.FunctionTool("inspect_file",
-		"打开一个 Excel 文件，返回里面每张工作表的表名、列名、行数，以及输出会写到哪里。做任何处理前先调用它。",
+		"Open one Excel file and return the name, columns and row count of every sheet, plus where the output would be written. Call it before any processing.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path": map[string]any{"type": "string", "description": "文件的绝对路径（.xlsx / .xlsm）"},
+				"path": map[string]any{"type": "string", "description": "Absolute path of the file (.xlsx / .xlsm)"},
 			},
 			"required": []string{"path"},
 		})
@@ -61,7 +61,7 @@ func registerFileTools(r *ai.Registry) error {
 			"tables": samples,
 			"note":   info.Note,
 			"output": info.Output,
-			"hint":   "列名按原表头保留，写 SQL 时用双引号包住；金额列已转成数字，可直接 SUM。结果写到 output 指定的路径（原文件不会改）。",
+			"hint":   "Column names keep the original headers; wrap them in double quotes in SQL. Money columns are already numeric, so SUM works. Results are written to the path given by output (the original file is never changed).",
 		})
 		return string(raw), nil
 	}); err != nil {
@@ -72,14 +72,14 @@ func registerFileTools(r *ai.Registry) error {
 	queryParams := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"path":  map[string]any{"type": "string", "description": "文件绝对路径"},
-			"sql":   map[string]any{"type": "string", "description": "只读 SQL（SELECT / WITH）"},
-			"limit": map[string]any{"type": "integer", "description": "最多返回多少行，默认 100"},
+			"path":  map[string]any{"type": "string", "description": "Absolute path of the file"},
+			"sql":   map[string]any{"type": "string", "description": "Read-only SQL (SELECT / WITH)"},
+			"limit": map[string]any{"type": "integer", "description": "Maximum rows to return, 100 by default"},
 		},
 		"required": []string{"path", "sql"},
 	}
 	queryDef, err := ai.FunctionTool("query_file",
-		"对文件执行只读 SQL 并返回结果，用来验证「我要的汇总长什么样」。不写任何文件。",
+		"Run read-only SQL against the file and return the result, to check what the summary the user wants looks like. It writes no files.",
 		queryParams)
 	if err != nil {
 		return err
@@ -112,15 +112,15 @@ func registerFileTools(r *ai.Registry) error {
 
 	// ── 写结果（原文件旁边、同名带时间戳）──
 	writeDef, err := ai.FunctionTool("write_file_result",
-		"把 SQL 结果写成新文件：与原文件同目录、同名、带时间戳，原文件不动。用户看过 query_file 的结果并同意后调用。",
+		"Write the SQL result to a new file in the same folder as the original, with the same name plus a timestamp; the original is untouched. Call it after the user has seen the query_file result and agreed.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path": map[string]any{"type": "string", "description": "源文件绝对路径"},
-				"sql":  map[string]any{"type": "string", "description": "只读 SQL（SELECT / WITH）"},
+				"path": map[string]any{"type": "string", "description": "Absolute path of the source file"},
+				"sql":  map[string]any{"type": "string", "description": "Read-only SQL (SELECT / WITH)"},
 				"suffix": map[string]any{
 					"type":        "string",
-					"description": "文件名中间那段（可选）。默认用当前时间戳；需要表达处理内容时可以写「部门汇总」之类。",
+					"description": "The middle part of the file name (optional). Defaults to the current timestamp; use something like department-summary to describe what was done.",
 				},
 			},
 			"required": []string{"path", "sql"},
@@ -156,18 +156,18 @@ func registerFileTools(r *ai.Registry) error {
 
 	// ── 清洗（单文件）──
 	cleanDef, err := ai.FunctionTool("clean_file",
-		"清洗单个文件：去空行、去重、去首尾空白、统一日期、文本数字转数值。结果写到原文件旁边的同名带时间戳文件。",
+		"Clean one file: drop empty rows, dedupe, trim spaces, unify dates, convert text numbers to numeric. The result goes next to the original in a file with the same name plus a timestamp.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path":           map[string]any{"type": "string", "description": "源文件绝对路径"},
+				"path":           map[string]any{"type": "string", "description": "Absolute path of the source file"},
 				"dropBlankRows":  map[string]any{"type": "boolean"},
 				"dropDuplicates": map[string]any{"type": "boolean"},
-				"dedupKey":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "按哪些列判重；留空按整行"},
+				"dedupKey":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Columns to dedupe on; empty means whole rows"},
 				"trimSpaces":     map[string]any{"type": "boolean"},
 				"normalizeDates": map[string]any{"type": "boolean"},
 				"numbersAsText":  map[string]any{"type": "boolean"},
-				"dryRun":         map[string]any{"type": "boolean", "description": "true 只统计不写文件"},
+				"dryRun":         map[string]any{"type": "boolean", "description": "true counts only and writes no file"},
 			},
 			"required": []string{"path"},
 		})

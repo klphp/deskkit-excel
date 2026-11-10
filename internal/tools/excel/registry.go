@@ -17,11 +17,11 @@ import (
 // 而这个顺序也正好是界面上按钮的顺序（先看变更，再执行）。
 func Register(r *ai.Registry) error {
 	scanDef, err := ai.FunctionTool("scan_excel_folder",
-		"扫描一个目录，列出里面的 Excel 文件、每个文件的表头与行数。在合并或清洗之前先調用它了解数据。",
+		"Scan a folder and list the Excel files in it, with each file's headers and row count. Call it before merging or cleaning so you know what the data looks like.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"dir": map[string]any{"type": "string", "description": "目录的绝对路径"},
+				"dir": map[string]any{"type": "string", "description": "Absolute path of the folder"},
 			},
 			"required": []string{"dir"},
 		})
@@ -69,12 +69,12 @@ func Register(r *ai.Registry) error {
 	}
 
 	previewDef, err := ai.FunctionTool("preview_merge",
-		"预览合并结果：只统计会得到多少行、会丢掉哪些列、有多少重复，不写任何文件。合并前必须先调用它，并把结论告诉用户。",
+		"Preview a merge: only reports how many rows the result would have, which columns would be dropped and how many duplicates there are. Writes nothing. You must call it before merging, and tell the user the result.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"dir":      map[string]any{"type": "string", "description": "目录的绝对路径"},
-				"dedupKey": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "去重用的列名，可选"},
+				"dir":      map[string]any{"type": "string", "description": "Absolute path of the folder"},
+				"dedupKey": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Column names to dedupe by, optional"},
 			},
 			"required": []string{"dir"},
 		})
@@ -108,11 +108,11 @@ func Register(r *ai.Registry) error {
 	}
 
 	runDef, err := ai.FunctionTool("run_merge",
-		"执行合并并写出一个新文件（不会覆盖原文件）。只在用户明确同意后调用，且必须先调用过 preview_merge。",
+		"Run the merge and write a new file (the original files are never overwritten). Only call it after the user explicitly agrees, and only after preview_merge.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"dir":      map[string]any{"type": "string", "description": "目录的绝对路径"},
+				"dir":      map[string]any{"type": "string", "description": "Absolute path of the folder"},
 				"dedupKey": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 			},
 			"required": []string{"dir"},
@@ -148,20 +148,20 @@ func Register(r *ai.Registry) error {
 	cleanParams := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"dir":            map[string]any{"type": "string", "description": "目录的绝对路径"},
-			"dropBlankRows":  map[string]any{"type": "boolean", "description": "删除整行为空的行"},
-			"dropDuplicates": map[string]any{"type": "boolean", "description": "删除重复行"},
-			"dedupKey":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "按哪些列判断重复；留空按整行"},
-			"trimSpaces":     map[string]any{"type": "boolean", "description": "去掉单元格首尾空白"},
-			"normalizeDates": map[string]any{"type": "boolean", "description": "统一日期格式"},
-			"dateFormat":     map[string]any{"type": "string", "description": "YYYY-MM-DD 或 YYYY/MM/DD"},
-			"numbersAsText":  map[string]any{"type": "boolean", "description": "把被存成文本的数字转成数值（跳前导零）"},
+			"dir":            map[string]any{"type": "string", "description": "Absolute path of the folder"},
+			"dropBlankRows":  map[string]any{"type": "boolean", "description": "Delete rows that are entirely empty"},
+			"dropDuplicates": map[string]any{"type": "boolean", "description": "Delete duplicate rows"},
+			"dedupKey":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Columns used to decide duplicates; empty means compare whole rows"},
+			"trimSpaces":     map[string]any{"type": "boolean", "description": "Trim leading and trailing spaces in cells"},
+			"normalizeDates": map[string]any{"type": "boolean", "description": "Normalize date formats"},
+			"dateFormat":     map[string]any{"type": "string", "description": "YYYY-MM-DD or YYYY/MM/DD"},
+			"numbersAsText":  map[string]any{"type": "boolean", "description": "Convert numbers stored as text into numeric values (leading zeros are left alone)"},
 		},
 		"required": []string{"dir"},
 	}
 
 	previewClean, err := ai.FunctionTool("preview_clean",
-		"预览清洗：只统计会删掉多少空行、多少重复行、修正多少日期与数字，不写文件。清洗前必须先调用并汇报给用户。",
+		"Preview a clean: only counts how many empty rows and duplicates would be deleted and how many dates and numbers would be fixed. Writes no file. You must call it before cleaning and report the result to the user.",
 		cleanParams)
 	if err != nil {
 		return err
@@ -188,7 +188,7 @@ func Register(r *ai.Registry) error {
 	}
 
 	runClean, err := ai.FunctionTool("run_clean",
-		"执行清洗并写出新文件（每个输入生成一个 -clean.xlsx，不覆盖原文件）。只在用户同意后调用，且必须先调用过 preview_clean。",
+		"Run the clean and write new files (one -clean.xlsx per input, originals are not overwritten). Only call it after the user agrees, and only after preview_clean.",
 		cleanParams)
 	if err != nil {
 		return err
@@ -234,11 +234,11 @@ func Register(r *ai.Registry) error {
 
 func registerQueryTools(r *ai.Registry) error {
 	listDef, err := ai.FunctionTool("list_tables",
-		"把目录里的每个工作表载入内存数据库，返回可查询的表名、列名与行数。做任何 SQL 查询之前先调用它拿到表名。",
+		"Load every sheet in the folder into an in-memory database and return the queryable table names, column names and row counts. Call it before any SQL query to get the table names.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"dir": map[string]any{"type": "string", "description": "目录的绝对路径"},
+				"dir": map[string]any{"type": "string", "description": "Absolute path of the folder"},
 			},
 			"required": []string{"dir"},
 		})
@@ -260,7 +260,7 @@ func registerQueryTools(r *ai.Registry) error {
 		raw, _ := json.Marshal(map[string]any{
 			"tables": cat.Tables,
 			"note":   cat.Note,
-			"hint":   "列名按原表头保留（中文可用，写 SQL 时用双引号包住）。金额列已转成数字，可直接 SUM/AVG。",
+			"hint":   "Column names keep the original headers (any language works; wrap them in double quotes in SQL). Money columns are already numeric, so SUM/AVG work directly.",
 		})
 		return string(raw), nil
 	}); err != nil {
@@ -270,15 +270,15 @@ func registerQueryTools(r *ai.Registry) error {
 	queryParams := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"dir":   map[string]any{"type": "string", "description": "目录的绝对路径"},
-			"sql":   map[string]any{"type": "string", "description": "只读 SQL（SELECT / WITH）。表名和中文列名用双引号包住。"},
-			"limit": map[string]any{"type": "integer", "description": "最多返回多少行，默认 200"},
+			"dir":   map[string]any{"type": "string", "description": "Absolute path of the folder"},
+			"sql":   map[string]any{"type": "string", "description": "Read-only SQL (SELECT / WITH). Wrap table names and non-ASCII column names in double quotes."},
+			"limit": map[string]any{"type": "integer", "description": "Maximum rows to return, 200 by default"},
 		},
 		"required": []string{"dir", "sql"},
 	}
 
 	queryDef, err := ai.FunctionTool("query_sheets",
-		"对目录里的表格执行只读 SQL 并返回结果。用来回答「哪个部门花得最多」「有几条重复的凭证号」这类问题。不会写任何文件。",
+		"Run read-only SQL against the tables in the folder and return the result. Use it for questions like which department spent the most, or how many duplicate voucher numbers there are. It writes no files.",
 		queryParams)
 	if err != nil {
 		return err
@@ -310,14 +310,14 @@ func registerQueryTools(r *ai.Registry) error {
 	}
 
 	writeDef, err := ai.FunctionTool("write_query_result",
-		"把 SQL 结果写成新的文件（原文件不动）。只在用户看过 query_sheets 的结果并同意后调用。文件名用 .csv 结尾就输出 CSV，否则输出 xlsx。",
+		"Write the SQL result to a new file (the originals are untouched). Only call it after the user has seen the query_sheets result and agreed. A name ending in .csv writes CSV, anything else writes xlsx.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"dir":       map[string]any{"type": "string", "description": "输入目录的绝对路径"},
-				"sql":       map[string]any{"type": "string", "description": "只读 SQL（SELECT / WITH）"},
-				"outputDir": map[string]any{"type": "string", "description": "输出目录；留空用 <dir>/deskkit-out"},
-				"fileName":  map[string]any{"type": "string", "description": "输出文件名，只给名字、不能带路径（要换目录请用 outputDir），如「部门汇总.xlsx」"},
+				"dir":       map[string]any{"type": "string", "description": "Absolute path of the input folder"},
+				"sql":       map[string]any{"type": "string", "description": "Read-only SQL (SELECT / WITH)"},
+				"outputDir": map[string]any{"type": "string", "description": "Output folder; empty means <dir>/deskkit-out"},
+				"fileName":  map[string]any{"type": "string", "description": "Output file name, name only with no path (use outputDir to change folders), for example department-summary.xlsx"},
 			},
 			"required": []string{"dir", "sql"},
 		})

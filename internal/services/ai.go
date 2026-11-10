@@ -149,7 +149,7 @@ type SaveSettingsInput struct {
 func (s *AIService) SaveSettings(in SaveSettingsInput) error {
 	m := s.manager()
 	if m == nil {
-		return errors.New("AI 未初始化")
+		return errors.New("AI is not initialized")
 	}
 	st := m.Settings()
 	st.Provider = in.Provider
@@ -169,7 +169,7 @@ func (s *AIService) SaveSettings(in SaveSettingsInput) error {
 func (s *AIService) Models(ctx context.Context, provider string) ([]string, error) {
 	m := s.manager()
 	if m == nil {
-		return nil, errors.New("AI 未初始化")
+		return nil, errors.New("AI is not initialized")
 	}
 	models, e := m.Models(ctx, provider)
 	if e != nil {
@@ -196,7 +196,7 @@ type TestResult struct {
 func (s *AIService) Test(ctx context.Context, provider string) (TestResult, error) {
 	m := s.manager()
 	if m == nil {
-		return TestResult{Error: "AI 未初始化"}, nil
+		return TestResult{Error: "AI is not initialized"}, nil
 	}
 	client, e := m.Client(ctx, provider)
 	if e != nil {
@@ -205,7 +205,7 @@ func (s *AIService) Test(ctx context.Context, provider string) (TestResult, erro
 
 	start := time.Now()
 	resp, e := client.Chat(ctx, ai.Request{
-		Messages:    []ai.Message{{Role: ai.RoleUser, Content: "回复 ok 两个字符，不要任何其它内容。"}},
+		Messages:    []ai.Message{{Role: ai.RoleUser, Content: "Reply with exactly two characters: ok. Nothing else."}},
 		MaxTokens:   8,
 		Temperature: floatPtr(0),
 	})
@@ -327,7 +327,7 @@ func (s *AIService) ChatAgent(ctx context.Context, in ChatInput) (ChatResult, er
 		case ai.EventConfirm:
 			var cf map[string]any
 			if err := json.Unmarshal([]byte(ev.Text), &cf); err != nil {
-				cf = map[string]any{"title": "需要确认", "items": []string{ev.Text}}
+				cf = map[string]any{"title": "Needs confirmation", "items": []string{ev.Text}}
 			}
 			s.emit(EventAIConfirm, cf)
 		case ai.EventAwaiting:
@@ -355,7 +355,7 @@ func (s *AIService) ChatAgent(ctx context.Context, in ChatInput) (ChatResult, er
 func (s *AIService) client(ctx context.Context, provider string) (*ai.Client, *ai.Error) {
 	m := s.manager()
 	if m == nil {
-		return nil, &ai.Error{Kind: ai.KindConfig, Message: "AI 未初始化"}
+		return nil, &ai.Error{Kind: ai.KindConfig, Message: "AI is not initialized"}
 	}
 	return m.Client(ctx, provider)
 }

@@ -52,7 +52,7 @@ func TestProfileKindsAndWarnings(t *testing.T) {
 	// 工号是 001 这种，必须提醒前导零
 	found := false
 	for _, w := range byName["工号"].Warnings {
-		if strings.Contains(w, "前导零") || strings.Contains(w, "写成数值") {
+		if strings.Contains(w, "leading zeros") || strings.Contains(w, "treating it as a number") {
 			found = true
 		}
 	}
@@ -78,7 +78,7 @@ func TestValidateRules(t *testing.T) {
 	var missing, dup int
 	for _, is := range res.Issues {
 		switch {
-		case is.Column == "金额" && strings.Contains(is.Reason, "必填"):
+		case is.Column == "金额" && strings.Contains(is.Reason, "Required"):
 			missing++
 		case is.Column == "工号" && strings.Contains(is.Reason, "重复"):
 			dup++

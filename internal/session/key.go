@@ -52,7 +52,7 @@ func loadOrCreateKey(dir string) (string, error) {
 
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("生成密钥失败: %w", err)
+		return "", fmt.Errorf("Failed to generate key: %w", err)
 	}
 	key := hex.EncodeToString(buf) // 64 位 hex，SQLCipher 的 raw key 格式
 
@@ -60,7 +60,7 @@ func loadOrCreateKey(dir string) (string, error) {
 		// 钥匙串不可用（无桌面会话、CI、容器、Windows）时退化成本地文件。
 		// 这不是理想状态，但总比「应用起不来」好，而且文件是 0600。
 		if ferr := writeKeyFile(dir, key); ferr != nil {
-			return "", fmt.Errorf("保存密钥失败（钥匙串: %v；文件: %v）", err, ferr)
+			return "", fmt.Errorf("Failed to save key (keychain: %v; file: %v)", err, ferr)
 		}
 	}
 	return key, nil
@@ -82,7 +82,7 @@ func readKeyFile(dir string) (string, error) {
 		return "", err
 	}
 	if len(string(b)) != 64 {
-		return "", errors.New("密钥文件内容不合法")
+		return "", errors.New("Key file content is not valid")
 	}
 	return string(b), nil
 }

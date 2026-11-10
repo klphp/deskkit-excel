@@ -77,7 +77,7 @@ func Open(dir string) (*Store, error) {
 	}
 
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("创建数据目录失败: %w", err)
+		return nil, fmt.Errorf("Failed to create data directory: %w", err)
 	}
 	path := filepath.Join(dir, "sessions.db")
 
@@ -85,7 +85,7 @@ func Open(dir string) (*Store, error) {
 	dsn := fmt.Sprintf("%s?_pragma_key=x'%s'&_pragma_cipher_page_size=4096", path, key)
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("打开会话库失败: %w", err)
+		return nil, fmt.Errorf("Failed to open the session store: %w", err)
 	}
 	db.SetMaxOpenConns(1) // 桌面场景并发极低，单连接最简单也最稳
 
@@ -128,7 +128,7 @@ func (s *Store) migrate() error {
 	}
 	for _, q := range stmts {
 		if _, err := s.db.Exec(q); err != nil {
-			return fmt.Errorf("建表失败: %w", err)
+			return fmt.Errorf("Failed to create tables: %w", err)
 		}
 	}
 
@@ -138,7 +138,7 @@ func (s *Store) migrate() error {
 		return err
 	}
 	if _, err := s.db.Exec(`UPDATE sessions SET seq = rowid WHERE seq = 0`); err != nil {
-		return fmt.Errorf("回填 seq 失败: %w", err)
+		return fmt.Errorf("Failed to backfill seq: %w", err)
 	}
 
 	// 老库补列（幂等）：instructions 是后加的，老库的 sessions 表没有这一列。
@@ -153,7 +153,7 @@ func (s *Store) migrate() error {
 		`UPDATE messages SET created_at = created_at/1000 WHERE created_at > 100000000000`,
 	} {
 		if _, err := s.db.Exec(q); err != nil {
-			return fmt.Errorf("时间戳归一失败: %w", err)
+			return fmt.Errorf("Failed to normalize timestamps: %w", err)
 		}
 	}
 	return nil
@@ -162,14 +162,14 @@ func (s *Store) migrate() error {
 // Create 新建会话。已存在则返回错误（id 由前端生成，重复说明有 bug）。
 func (s *Store) Create(id, title string) error {
 	if id == "" {
-		return errors.New("会话 id 不能为空")
+		return errors.New("Session id must not be empty")
 	}
 	now := time.Now().Unix()
 	_, err := s.db.Exec(
 		`INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
 		id, title, now, now)
 	if err != nil {
-		return fmt.Errorf("新建会话失败: %w", err)
+		return fmt.Errorf("Failed to create session: %w", err)
 	}
 	return nil
 }
@@ -184,7 +184,7 @@ func (s *Store) Upsert(id, title string) error {
 		        updated_at = excluded.updated_at, seq = excluded.seq`,
 		id, title, now, now)
 	if err != nil {
-		return fmt.Errorf("写入会话失败: %w", err)
+		return fmt.Errorf("Failed to write session: %w", err)
 	}
 	return nil
 }
@@ -194,7 +194,7 @@ func (s *Store) Upsert(id, title string) error {
 // 一条一条写而不是整段重写：崩溃时已写入的都在，只有最后一条可能丢。
 func (s *Store) Append(sessionID string, role Role, content string) error {
 	if sessionID == "" {
-		return errors.New("会话 id 不能为空")
+		return errors.New("Session id must not be empty")
 	}
 	now := time.Now().Unix()
 	tx, err := s.db.Begin()
@@ -206,7 +206,7 @@ func (s *Store) Append(sessionID string, role Role, content string) error {
 	if _, err := tx.Exec(
 		`INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)`,
 		sessionID, string(role), content, now); err != nil {
-		return fmt.Errorf("写入消息失败: %w", err)
+		return fmt.Errorf("Failed to write message: %w", err)
 	}
 	// 会话可能还没建（前端先发消息后建会话），这里补一条
 	if _, err := tx.Exec(
@@ -214,7 +214,7 @@ func (s *Store) Append(sessionID string, role Role, content string) error {
 		 VALUES (?, '', ?, ?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM sessions))
 		 ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, seq = excluded.seq`,
 		sessionID, now, now); err != nil {
-		return fmt.Errorf("更新会话时间失败: %w", err)
+		return fmt.Errorf("Failed to update session time: %w", err)
 	}
 	return tx.Commit()
 }
@@ -243,7 +243,7 @@ func (s *Store) ListPage(limit, offset int) ([]Summary, bool, error) {
 	}
 	rows, err := s.db.Query(q, args...)
 	if err != nil {
-		return nil, false, fmt.Errorf("读取会话列表失败: %w", err)
+		return nil, false, fmt.Errorf("Failed to read the session list: %w", err)
 	}
 	defer rows.Close()
 
@@ -274,7 +274,7 @@ func (s *Store) Load(id string) (Session, error) {
 		`SELECT id, title, created_at, updated_at FROM sessions WHERE id = ?`, id).
 		Scan(&out.ID, &out.Title, &out.CreatedAt, &out.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return out, fmt.Errorf("会话不存在: %s", id)
+		return out, fmt.Errorf("Session does not exist: %s", id)
 	}
 	if err != nil {
 		return out, err
@@ -431,7 +431,7 @@ func (s *Store) Import(items []Session) (int, error) {
 func (s *Store) ensureColumn(table, column, decl string) error {
 	rows, err := s.db.Query(`SELECT name FROM pragma_table_info(?)`, table)
 	if err != nil {
-		return fmt.Errorf("读取表结构失败: %w", err)
+		return fmt.Errorf("Failed to read table schema: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -444,7 +444,7 @@ func (s *Store) ensureColumn(table, column, decl string) error {
 		}
 	}
 	if _, err := s.db.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s`, table, column, decl)); err != nil {
-		return fmt.Errorf("补列 %s.%s 失败: %w", table, column, err)
+		return fmt.Errorf("Failed to add column %s.%s: %w", table, column, err)
 	}
 	return nil
 }

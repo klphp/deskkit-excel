@@ -47,8 +47,8 @@ func RegisterWithGuard(r *ai.Registry, g fsx.Guard) error {
 func Pack() capability.Pack {
 	return capability.Pack{
 		ID:          "files",
-		Name:        "文件操作",
-		Description: "遍历、创建、移动、复制、删除本地文件与目录。删除默认进废纸篓，可恢复。",
+		Name:        "Files",
+		Description: "Walk, create, move, copy and delete local files and folders. Deletes go to the trash by default and can be restored.",
 		Register:    Register,
 	}
 }

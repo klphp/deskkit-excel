@@ -20,7 +20,7 @@ func readKey() (string, error) {
 	}
 	key := strings.TrimSpace(string(out))
 	if len(key) != 64 {
-		return "", errors.New("钥匙串里的密钥格式不对")
+		return "", errors.New("The key stored in the keychain has a wrong format")
 	}
 	return key, nil
 }

@@ -99,7 +99,7 @@ func TestWriteTableKeepsLongIdsExact(t *testing.T) {
 	for _, r := range meta {
 		joined += strings.Join(r, " ")
 	}
-	for _, want := range []string{"身份证", "卡号", "按文本写出"} {
+	for _, want := range []string{"身份证", "卡号", "written as text"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("处理说明里没提到 %q:\n%s", want, joined)
 		}
@@ -201,8 +201,8 @@ func TestLoadTableNamesBlankHeaderAndKeepsData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("读表失败: %v", err)
 	}
-	if len(tb.Headers) != 3 || tb.Headers[1] != "列2" {
-		t.Fatalf("空表头应命名为 列2，实际 headers=%q", tb.Headers)
+	if len(tb.Headers) != 3 || tb.Headers[1] != "Column 2" {
+		t.Fatalf("a blank header must be named 'Column 2', actual headers=%q", tb.Headers)
 	}
 	if len(tb.Rows) != 1 || tb.Rows[0][1] != "备注X" {
 		t.Fatalf("中间列的数据丢了: %q", tb.Rows)

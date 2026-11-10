@@ -39,10 +39,10 @@ type GroupResult struct {
 // GroupBy 按列分组并聚合。
 func GroupBy(t *Table, by []string, aggs []Agg) (*GroupResult, error) {
 	if len(by) == 0 {
-		return nil, fmt.Errorf("没给分组列")
+		return nil, fmt.Errorf("No grouping columns given")
 	}
 	if len(aggs) == 0 {
-		aggs = []Agg{{Func: "count", As: "行数"}}
+		aggs = []Agg{{Func: "count", As: "Row count"}}
 	}
 	byIdx, err := t.Cols(by)
 	if err != nil {
@@ -120,11 +120,11 @@ func aggName(aggs []Agg, i int, a Agg) string {
 	}
 	fn := strings.ToLower(a.Func)
 	if fn == "count" && a.Column == "" {
-		return "行数"
+		return "Row count"
 	}
 	label := map[string]string{
-		"count": "计数", "countdistinct": "去重计数", "sum": "合计", "avg": "平均",
-		"min": "最小", "max": "最大", "first": "首个", "last": "最后", "join": "合并",
+		"count": "Count", "countdistinct": "Distinct count", "sum": "Sum", "avg": "Average",
+		"min": "Min", "max": "Max", "first": "First", "last": "Last", "join": "Merged",
 	}[fn]
 	if label == "" {
 		label = a.Func

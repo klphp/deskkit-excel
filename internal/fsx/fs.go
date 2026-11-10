@@ -62,14 +62,14 @@ var forbidden = []string{
 func (g Guard) Check(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return "", errors.New("路径为空")
+		return "", errors.New("Path is empty")
 	}
 	// ~ 不展开的话，模型/用户写「~/Desktop」会得到 <cwd>/~/Desktop 这种
 	// 根本不存在、报错还看不懂的路径。
 	raw = expandHome(raw)
 	abs, err := filepath.Abs(raw)
 	if err != nil {
-		return "", fmt.Errorf("路径不合法: %w", err)
+		return "", fmt.Errorf("Invalid path: %w", err)
 	}
 	abs = filepath.Clean(abs)
 
@@ -79,13 +79,13 @@ func (g Guard) Check(raw string) (string, error) {
 	real, err := resolveSymlinks(abs)
 	if err != nil {
 		// 解析不出来（权限、损坏链接）就按拒绝处理：安全侧宁严不松
-		return "", fmt.Errorf("路径无法解析，已拒绝: %s（%v）", abs, err)
+		return "", fmt.Errorf("Path cannot be resolved and was rejected: %s (%v)", abs, err)
 	}
 
 	for _, bad := range forbidden {
 		for _, p := range []string{abs, real} {
 			if p == bad || strings.HasPrefix(p, bad+string(filepath.Separator)) {
-				return "", fmt.Errorf("拒绝操作系统目录: %s", abs)
+				return "", fmt.Errorf("Refusing to touch a system folder: %s", abs)
 			}
 		}
 	}
@@ -94,7 +94,7 @@ func (g Guard) Check(raw string) (string, error) {
 	if len(roots) == 0 {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return "", fmt.Errorf("无法确定用户目录: %w", err)
+			return "", fmt.Errorf("Cannot determine the user folder: %w", err)
 		}
 		roots = []string{home}
 	}
@@ -120,7 +120,7 @@ func (g Guard) Check(raw string) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("路径不在允许范围内: %s（只允许在 %s 下操作）", abs, strings.Join(roots, "、"))
+	return "", fmt.Errorf("Path is outside the allowed roots: %s (only paths under %s are allowed)", abs, strings.Join(roots, ", "))
 }
 
 // expandHome 把开头的 ~ 展开成用户主目录。
@@ -153,7 +153,7 @@ func resolveSymlinks(abs string) (string, error) {
 	for {
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", fmt.Errorf("找不到可解析的上级目录")
+			return "", fmt.Errorf("No parent folder that can be resolved was found")
 		}
 		if rest == "" {
 			rest = filepath.Base(dir)
@@ -213,10 +213,10 @@ func (g Guard) List(ctx context.Context, opt ListOptions) (ListResult, error) {
 	}
 	info, err := os.Stat(root)
 	if err != nil {
-		return ListResult{}, fmt.Errorf("打不开: %w", err)
+		return ListResult{}, fmt.Errorf("Cannot open: %w", err)
 	}
 	if !info.IsDir() {
-		return ListResult{}, fmt.Errorf("%s 不是目录", root)
+		return ListResult{}, fmt.Errorf("%s is not a folder", root)
 	}
 
 	// 递归走并行（1.4 万文件的目录实测快 3~6 倍）；单层目录就一次 ReadDir，
@@ -304,10 +304,10 @@ func (g Guard) MakeDir(path string) (string, error) {
 		if info.IsDir() {
 			return abs, nil
 		}
-		return "", fmt.Errorf("%s 已存在且不是目录", abs)
+		return "", fmt.Errorf("%s already exists and is not a folder", abs)
 	}
 	if err := os.MkdirAll(abs, 0o755); err != nil {
-		return "", fmt.Errorf("创建目录失败: %w", err)
+		return "", fmt.Errorf("Failed to create the folder: %w", err)
 	}
 	return abs, nil
 }
@@ -323,16 +323,16 @@ func (g Guard) Move(from, to string) (string, error) {
 		return "", err
 	}
 	if _, err := os.Stat(src); err != nil {
-		return "", fmt.Errorf("源不存在: %w", err)
+		return "", fmt.Errorf("Source does not exist: %w", err)
 	}
 	if _, err := os.Stat(dst); err == nil {
-		return "", fmt.Errorf("目标已存在，拒绝覆盖: %s", dst)
+		return "", fmt.Errorf("Target already exists; refusing to overwrite: %s", dst)
 	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return "", fmt.Errorf("创建目标目录失败: %w", err)
+		return "", fmt.Errorf("Failed to create the target folder: %w", err)
 	}
 	if err := os.Rename(src, dst); err != nil {
-		return "", fmt.Errorf("移动失败: %w", err)
+		return "", fmt.Errorf("Move failed: %w", err)
 	}
 	return dst, nil
 }
@@ -349,10 +349,10 @@ func (g Guard) Copy(from, to string) (string, error) {
 	}
 	info, err := os.Stat(src)
 	if err != nil {
-		return "", fmt.Errorf("源不存在: %w", err)
+		return "", fmt.Errorf("Source does not exist: %w", err)
 	}
 	if _, err := os.Stat(dst); err == nil {
-		return "", fmt.Errorf("目标已存在，拒绝覆盖: %s", dst)
+		return "", fmt.Errorf("Target already exists; refusing to overwrite: %s", dst)
 	}
 
 	if info.IsDir() {
@@ -423,7 +423,7 @@ type DeleteResult struct {
 // 同一个卷上移动几乎是瞬时的，几百个文件也很快。
 func (g Guard) Delete(paths []string, permanent bool) ([]DeleteResult, []string, error) {
 	if len(paths) == 0 {
-		return nil, nil, errors.New("没有要删除的路径")
+		return nil, nil, errors.New("There are no paths to delete")
 	}
 	var done []DeleteResult
 	var failed []string
@@ -435,11 +435,11 @@ func (g Guard) Delete(paths []string, permanent bool) ([]DeleteResult, []string,
 			continue
 		}
 		if abs == "/" || abs == filepath.Dir(abs) {
-			failed = append(failed, "拒绝删除根目录: "+abs)
+			failed = append(failed, "Refusing to delete a root folder: "+abs)
 			continue
 		}
 		if _, err := os.Stat(abs); err != nil {
-			failed = append(failed, "不存在: "+abs)
+			failed = append(failed, "Does not exist: "+abs)
 			continue
 		}
 
@@ -448,7 +448,7 @@ func (g Guard) Delete(paths []string, permanent bool) ([]DeleteResult, []string,
 				failed = append(failed, fmt.Sprintf("%s: %v", abs, err))
 				continue
 			}
-			done = append(done, DeleteResult{Path: abs, To: "（已永久删除）"})
+			done = append(done, DeleteResult{Path: abs, To: "(permanently deleted)"})
 			continue
 		}
 
@@ -476,7 +476,7 @@ func moveToTrash(path string) (string, error) {
 	}
 	trash := filepath.Join(home, ".Trash")
 	if info, err := os.Stat(trash); err != nil || !info.IsDir() {
-		return "", errors.New("废纸篓不可用")
+		return "", errors.New("The trash is not available")
 	}
 	target := filepath.Join(trash, filepath.Base(path))
 	if _, err := os.Stat(target); err == nil {

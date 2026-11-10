@@ -44,13 +44,13 @@ func EnsureSample(baseDir string) (SampleInfo, error) {
 				}
 			}
 			info.Reused = true
-			info.Note = "示例数据已存在，直接使用"
+			info.Note = "Sample data already exists; using it as is"
 			return info, nil
 		}
 	}
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return info, fmt.Errorf("创建示例目录失败: %w", err)
+		return info, fmt.Errorf("Failed to create the sample folder: %w", err)
 	}
 
 	type sheet struct {
@@ -96,7 +96,7 @@ func EnsureSample(baseDir string) (SampleInfo, error) {
 		}
 		info.Files = append(info.Files, s.name)
 	}
-	info.Note = "已生成 3 份示例报表（表头不一致、有空行与重复行、日期三种写法）"
+	info.Note = "Generated 3 sample reports (inconsistent headers, empty and duplicate rows, three date formats)"
 	return info, nil
 }
 

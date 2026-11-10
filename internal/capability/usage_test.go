@@ -91,7 +91,7 @@ func TestPackMissingAndBundled(t *testing.T) {
 	if doc.Bundled {
 		t.Error("doc.Bundled 应为 false")
 	}
-	if !strings.Contains(doc.Markdown, "依赖外部组件") {
+	if !strings.Contains(doc.Markdown, "Requires external components") {
 		t.Error("markdown 里应提示依赖")
 	}
 

@@ -42,20 +42,20 @@ func LoadWorkbookFile(ctx context.Context, path string) (*sql.DB, SingleInfo, er
 
 	stat, err := os.Stat(path)
 	if err != nil {
-		return nil, info, fmt.Errorf("找不到文件: %w", err)
+		return nil, info, fmt.Errorf("File not found: %w", err)
 	}
 	if stat.IsDir() {
-		return nil, info, fmt.Errorf("%s 是目录，请选一个文件", path)
+		return nil, info, fmt.Errorf("%s is a folder; choose a file instead", path)
 	}
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".xlsx", ".xlsm":
 	default:
-		return nil, info, fmt.Errorf("只支持 .xlsx / .xlsm（.xls 请先另存为 .xlsx）")
+		return nil, info, fmt.Errorf("Only .xlsx / .xlsm are supported (save .xls as .xlsx first)")
 	}
 
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
-		return nil, info, fmt.Errorf("打开内存库失败: %w", err)
+		return nil, info, fmt.Errorf("Failed to open the in-memory database: %w", err)
 	}
 	db.SetMaxOpenConns(1)
 
@@ -66,7 +66,7 @@ func LoadWorkbookFile(ctx context.Context, path string) (*sql.DB, SingleInfo, er
 	}
 	if len(tables) == 0 {
 		db.Close()
-		info.Note = "这个工作簿里没有可读的数据（空表，或第一行不是表头）"
+		info.Note = "This workbook has no readable data (the sheet is empty, or the first row is not a header)"
 		return nil, info, fmt.Errorf("%s", info.Note)
 	}
 	info.Tables = tables
@@ -146,7 +146,7 @@ func WriteRowsAlong(src, suffix string, columns []string, rows [][]string) (stri
 	}
 
 	if err := f.SaveAs(path); err != nil {
-		return "", fmt.Errorf("保存失败: %w", err)
+		return "", fmt.Errorf("Failed to save: %w", err)
 	}
 	return path, nil
 }
@@ -161,7 +161,7 @@ func QueryToFile(ctx context.Context, db *sql.DB, src, query, suffix string) (st
 		return "", 0, err
 	}
 	if len(res.Columns) == 0 {
-		return "", 0, fmt.Errorf("查询没有返回任何列")
+		return "", 0, fmt.Errorf("The query returned no columns")
 	}
 	path, err := WriteRowsAlong(src, suffix, res.Columns, res.Rows)
 	if err != nil {
@@ -206,23 +206,23 @@ func CleanFile(ctx context.Context, opt CleanFileOptions) (CleanFileResult, erro
 
 	f, err := openWorkbook(opt.Path)
 	if err != nil {
-		return res, fmt.Errorf("打不开文件: %w", err)
+		return res, fmt.Errorf("Cannot open the file: %w", err)
 	}
 	defer f.Close()
 
 	sheets := f.GetSheetList()
 	if len(sheets) == 0 {
-		return res, fmt.Errorf("这个文件里没有工作表")
+		return res, fmt.Errorf("This file has no sheets")
 	}
 	sheet := sheets[0]
 	if len(sheets) > 1 {
 		res.Warnings = append(res.Warnings,
-			fmt.Sprintf("文件里有 %d 张工作表，只处理了第一张「%s」", len(sheets), sheet))
+			fmt.Sprintf("The file has %d sheets; only the first one (%s) was processed", len(sheets), sheet))
 	}
 
 	rows, err := f.GetRows(sheet)
 	if err != nil || len(rows) == 0 {
-		return res, fmt.Errorf("读不到数据")
+		return res, fmt.Errorf("No data could be read")
 	}
 
 	headers := rows[0]
@@ -261,13 +261,13 @@ func CleanFile(ctx context.Context, opt CleanFileOptions) (CleanFileResult, erro
 					}
 				}
 				if found < 0 {
-					res.Warnings = append(res.Warnings, fmt.Sprintf("没有名为「%s」的列，忽略这个去重键", k))
+					res.Warnings = append(res.Warnings, fmt.Sprintf("There is no column named %s; this dedupe key is ignored", k))
 					continue
 				}
 				keyIdx = append(keyIdx, found)
 			}
 			if len(keyIdx) == 0 {
-				res.Warnings = append(res.Warnings, "去重键都不存在，改为按整行判重")
+				res.Warnings = append(res.Warnings, "None of the dedupe keys exist; dedupe falls back to whole rows")
 				keyIdx = []int{}
 			}
 		}

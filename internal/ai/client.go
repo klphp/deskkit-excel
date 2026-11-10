@@ -111,7 +111,7 @@ func (c *Client) Chat(ctx context.Context, req Request) (*Response, *Error) {
 	}
 	body, err := json.Marshal(prepared)
 	if err != nil {
-		return nil, &Error{Kind: KindConfig, Message: "请求序列化失败: " + err.Error()}
+		return nil, &Error{Kind: KindConfig, Message: "Failed to serialize request: " + err.Error()}
 	}
 
 	var last *Error
@@ -145,7 +145,7 @@ func (c *Client) ChatStream(ctx context.Context, req Request, onDelta func(Delta
 	prepared.Stream = true
 	body, err := json.Marshal(prepared)
 	if err != nil {
-		return nil, &Error{Kind: KindConfig, Message: "请求序列化失败: " + err.Error()}
+		return nil, &Error{Kind: KindConfig, Message: "Failed to serialize request: " + err.Error()}
 	}
 
 	var last *Error
@@ -201,7 +201,7 @@ func (c *Client) Models(ctx context.Context) ([]string, *Error) {
 		} `json:"models"`
 	}
 	if err := json.Unmarshal(raw, &wire); err != nil {
-		return nil, &Error{Kind: KindUpstream, Message: "模型列表不是合法 JSON", Raw: clip(string(raw), 200)}
+		return nil, &Error{Kind: KindUpstream, Message: "Model list is not valid JSON", Raw: clip(string(raw), 200)}
 	}
 	out := make([]string, 0, len(wire.Data)+len(wire.Models))
 	for _, d := range wire.Data {
@@ -236,12 +236,12 @@ func (c *Client) prepare(req Request) (Request, *Error) {
 	if req.Model == "" {
 		return req, &Error{
 			Kind:    KindConfig,
-			Message: "没有指定模型",
-			Hint:    "在设置里填写模型名（例如 gpt-4o-mini、deepseek-chat、qwen-plus）。",
+			Message: "No model specified",
+			Hint:    "Set a model name in Settings (for example gpt-4o-mini, deepseek-chat, qwen-plus).",
 		}
 	}
 	if len(req.Messages) == 0 {
-		return req, &Error{Kind: KindConfig, Message: "消息为空"}
+		return req, &Error{Kind: KindConfig, Message: "Message is empty"}
 	}
 	req.Stream = false
 	return req, nil
@@ -271,7 +271,7 @@ func (c *Client) once(ctx context.Context, body []byte) (*Response, *Error) {
 
 	var wire wireResponse
 	if err := json.Unmarshal(raw, &wire); err != nil {
-		return nil, &Error{Kind: KindUpstream, Message: "响应不是合法 JSON", Raw: clip(string(raw), 300)}
+		return nil, &Error{Kind: KindUpstream, Message: "Response is not valid JSON", Raw: clip(string(raw), 300)}
 	}
 	return wire.toResponse(), nil
 }
@@ -418,7 +418,7 @@ func consumeSSE(r io.Reader, onDelta func(Delta) error) (*Response, *Error) {
 
 		var chunk streamChunk
 		if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
-			return nil, &Error{Kind: KindStream, Message: "流式分片不是合法 JSON", Raw: clip(payload, 200)}
+			return nil, &Error{Kind: KindStream, Message: "Streaming chunk is not valid JSON", Raw: clip(payload, 200)}
 		}
 		if chunk.Usage != nil {
 			out.Usage = *chunk.Usage

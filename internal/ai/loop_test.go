@@ -132,8 +132,8 @@ func TestLoopToolErrorIsFedBack(t *testing.T) {
 			return
 		}
 		raw, _ := io.ReadAll(r.Body)
-		if !strings.Contains(string(raw), "错误:") {
-			t.Errorf("工具失败应以「错误:」前缀回灌，实际请求体: %s", string(raw))
+		if !strings.Contains(string(raw), "Error:") {
+			t.Errorf("a tool failure must be fed back with an 'Error:' prefix, actual body: %s", string(raw))
 		}
 		io.WriteString(w, `{"choices":[{"message":{"content":"那算了"},"finish_reason":"stop"}]}`)
 	}))

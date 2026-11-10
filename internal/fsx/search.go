@@ -41,7 +41,7 @@ const (
 
 // errEnough 内部哨兵：命中数够了，主动停掉其余 worker。
 // 不当错误上报给调用方，只是让 errgroup 提前 cancel。
-var errEnough = errors.New("搜索结果已足够")
+var errEnough = errors.New("Enough search results")
 
 // SearchOptions 搜索参数。
 type SearchOptions struct {
@@ -109,11 +109,11 @@ func (g Guard) Search(ctx context.Context, opt SearchOptions) (SearchResult, err
 		return SearchResult{}, err
 	}
 	if strings.TrimSpace(opt.Pattern) == "" {
-		return SearchResult{}, errors.New("pattern 为空：请给出要搜的关键字")
+		return SearchResult{}, errors.New("pattern is empty: give the keyword to search for")
 	}
 	info, err := os.Stat(root)
 	if err != nil {
-		return SearchResult{}, fmt.Errorf("打不开: %w", err)
+		return SearchResult{}, fmt.Errorf("Cannot open: %w", err)
 	}
 
 	maxResults := opt.MaxResults
@@ -153,7 +153,7 @@ func (g Guard) Search(ctx context.Context, opt SearchOptions) (SearchResult, err
 		}
 		compiled, err := regexp.Compile(expr)
 		if err != nil {
-			return SearchResult{}, fmt.Errorf("正则不合法: %w（不想用正则就把 regex 设成 false）", err)
+			return SearchResult{}, fmt.Errorf("Invalid regular expression: %w (set regex to false if you do not want a regex)", err)
 		}
 		re = compiled
 	} else if !opt.CaseSensitive {
@@ -372,19 +372,19 @@ func matchExt(path string, exts []string) bool {
 
 func searchHint(r SearchResult, total int) string {
 	st := r.Stats
-	parts := []string{fmt.Sprintf("扫了 %d 个文件（共 %d 个候选），命中 %d 处 / %d 个文件，耗时 %dms",
+	parts := []string{fmt.Sprintf("Scanned %d files (%d candidates), %d hits in %d files, took %dms",
 		st.FilesScanned, total, len(r.Matches), st.FilesMatched, st.ElapsedMS)}
 	if r.Truncated {
-		parts = append(parts, fmt.Sprintf("命中数已达上限，请缩小目录或加 extensions 过滤"))
+		parts = append(parts, fmt.Sprintf("Hit limit reached; narrow the folder or add an extensions filter"))
 	}
 	if st.FilesSkippedBig > 0 {
-		parts = append(parts, fmt.Sprintf("跳过 %d 个超大文件（>%d 字节，可用 maxFileSize 放宽）", st.FilesSkippedBig, defaultSearchMaxFileSize))
+		parts = append(parts, fmt.Sprintf("Skipped %d oversized files (over %d bytes; raise maxFileSize to include them)", st.FilesSkippedBig, defaultSearchMaxFileSize))
 	}
 	if st.FilesSkippedBin > 0 {
-		parts = append(parts, fmt.Sprintf("跳过 %d 个二进制文件", st.FilesSkippedBin))
+		parts = append(parts, fmt.Sprintf("Skipped %d binary files", st.FilesSkippedBin))
 	}
 	if len(r.Matches) == 0 && st.FilesScanned == 0 {
-		parts = append(parts, "一个文件都没扫（可能是后缀/大小过滤把候选全排除了）")
+		parts = append(parts, "No files were scanned (the extension or size filters may have excluded every candidate)")
 	}
 	return strings.Join(parts, "；") + "。"
 }

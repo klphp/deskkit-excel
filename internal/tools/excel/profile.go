@@ -118,19 +118,19 @@ func Profile(t *Table, sampleLimit int) []ColumnProfile {
 		if hasLeadingZero {
 			// 不管是哪一列都要提醒：工号、订单号、身份证这类东西一旦被当成数字，
 			// 前面的 0 就永久没了，而且是「看起来正常」的那种错。
-			p.Warnings = append(p.Warnings, "有前导零的值（如 00123），当数字处理会丢掉，导出时要保持文本")
+			p.Warnings = append(p.Warnings, "Values with leading zeros (like 00123) are lost when treated as numbers; keep them as text on export")
 		}
 		if hasCurrency {
-			p.Warnings = append(p.Warnings, "含货币符号，直接当数字算会失败")
+			p.Warnings = append(p.Warnings, "Contains a currency symbol; treating it as a number will fail")
 		}
 		if hasFullWidthDigit {
-			p.Warnings = append(p.Warnings, "含全角数字/字符，需要先转半角")
+			p.Warnings = append(p.Warnings, "Contains full-width digits or characters; convert them to half-width first")
 		}
 		if p.Kind == "mixed" {
-			p.Warnings = append(p.Warnings, fmt.Sprintf("类型混杂：%d 个像数字、%d 个不像，排序和汇总会出错", numberish, textish))
+			p.Warnings = append(p.Warnings, fmt.Sprintf("Mixed types: %d look like numbers, %d do not; sorting and totals will go wrong", numberish, textish))
 		}
 		if p.NonEmpty > 0 && p.Unique == 1 && p.NonEmpty > 3 {
-			p.Warnings = append(p.Warnings, "整列只有一个值，可能是常量列或取错了列")
+			p.Warnings = append(p.Warnings, "The whole column has a single value; it may be a constant column or the wrong column")
 		}
 		out = append(out, p)
 	}
@@ -208,7 +208,7 @@ func Validate(t *Table, r ValidateRules) (ValidateResult, error) {
 		}
 		re, err := regexp.Compile(expr)
 		if err != nil {
-			return res, fmt.Errorf("列 %q 的正则写错了: %w", col, err)
+			return res, fmt.Errorf("The regex for column %q is invalid: %w", col, err)
 		}
 		patIdx[i] = re
 	}
@@ -227,7 +227,7 @@ func Validate(t *Table, r ValidateRules) (ValidateResult, error) {
 		rowNo := ri + 1
 		for _, ci := range reqIdx {
 			if strings.TrimSpace(cellAt(row, ci)) == "" {
-				add(rowNo, ci, "", "必填但为空")
+				add(rowNo, ci, "", "Required but empty")
 			}
 		}
 		for _, ci := range numIdx {
@@ -236,7 +236,7 @@ func Validate(t *Table, r ValidateRules) (ValidateResult, error) {
 				continue
 			}
 			if _, ok := asNumber(v); !ok {
-				add(rowNo, ci, v, "不是数字")
+				add(rowNo, ci, v, "Not a number")
 			}
 		}
 		for _, ci := range dateIdx {
@@ -245,19 +245,19 @@ func Validate(t *Table, r ValidateRules) (ValidateResult, error) {
 				continue
 			}
 			if _, err := parseDate(v); err != nil {
-				add(rowNo, ci, v, "不是能识别的日期")
+				add(rowNo, ci, v, "Not a recognizable date")
 			}
 		}
 		for _, ci := range negIdx {
 			v := strings.TrimSpace(cellAt(row, ci))
 			if n, ok := asNumber(v); ok && n < 0 {
-				add(rowNo, ci, v, "不应为负数")
+				add(rowNo, ci, v, "Must not be negative")
 			}
 		}
 		for ci, re := range patIdx {
 			v := strings.TrimSpace(cellAt(row, ci))
 			if v != "" && !re.MatchString(v) {
-				add(rowNo, ci, v, "不符合格式 "+re.String())
+				add(rowNo, ci, v, "Does not match the format "+re.String())
 			}
 		}
 		if len(uniqIdx) > 0 {
@@ -268,7 +268,7 @@ func Validate(t *Table, r ValidateRules) (ValidateResult, error) {
 			key := strings.Join(parts, "\x00")
 			if first, ok := seenKeys[key]; ok {
 				add(rowNo, uniqIdx[0], strings.Join(parts, " / "),
-					fmt.Sprintf("与第 %d 行重复（按 %s）", first, strings.Join(r.Unique, "+")))
+					fmt.Sprintf("Duplicates row %d (by %s)", first, strings.Join(r.Unique, "+")))
 			} else {
 				seenKeys[key] = rowNo
 			}

@@ -32,7 +32,7 @@ func getManager() (*Manager, error) {
 	if m := managerPtr.Load(); m != nil {
 		return m, nil
 	}
-	return nil, fmt.Errorf("窗口管理器还没初始化（应用启动未完成）")
+	return nil, fmt.Errorf("The window manager is not initialized yet (app startup is not finished)")
 }
 
 // ServiceProvider 注册给 Wails 的空壳服务，实际逻辑转到 Manager。

@@ -68,29 +68,29 @@ func (g Guard) Peek(ctx context.Context, opt PeekOptions) (PeekResult, error) {
 
 	info, err := os.Stat(abs)
 	if err != nil {
-		return PeekResult{}, fmt.Errorf("读不到这个文件: %w", err)
+		return PeekResult{}, fmt.Errorf("Cannot read this file: %w", err)
 	}
 	if info.IsDir() {
-		return PeekResult{}, fmt.Errorf("%s 是个目录，peek 只用于文件；列目录请用 fs_list", abs)
+		return PeekResult{}, fmt.Errorf("%s is a folder; peek only works on files. Use fs_list to list a folder", abs)
 	}
 
 	out := PeekResult{Path: abs, Size: info.Size()}
 	if info.Size() == 0 {
 		out.Kind = "empty"
-		out.Hint = "这是一个空文件（0 字节）。"
+		out.Hint = "This is an empty file (0 bytes)."
 		return out, nil
 	}
 
 	f, err := os.Open(abs)
 	if err != nil {
-		return PeekResult{}, fmt.Errorf("打不开这个文件: %w", err)
+		return PeekResult{}, fmt.Errorf("Cannot open this file: %w", err)
 	}
 	defer f.Close()
 
 	buf := make([]byte, peekReadBytes)
 	n, err := f.Read(buf)
 	if err != nil && n == 0 {
-		return PeekResult{}, fmt.Errorf("读取失败: %w", err)
+		return PeekResult{}, fmt.Errorf("Read failed: %w", err)
 	}
 	buf = buf[:n]
 
@@ -98,7 +98,7 @@ func (g Guard) Peek(ctx context.Context, opt PeekOptions) (PeekResult, error) {
 	out.Encoding = enc
 	if !isText {
 		out.Kind = "binary"
-		out.Hint = "这不是文本文件（二进制），不要按表格读取。"
+		out.Hint = "This is not a text file (binary); do not read it as a table."
 		return out, nil
 	}
 	out.Kind = "text"
@@ -190,17 +190,17 @@ func looksTabular(lines []string, delim string, want int) bool {
 }
 
 func peekHint(r PeekResult) string {
-	parts := []string{fmt.Sprintf("%s 编码，%d 字节", r.Encoding, r.Size)}
+	parts := []string{fmt.Sprintf("%s encoding, %d bytes", r.Encoding, r.Size)}
 	if r.Encoding == "gb18030" {
-		parts = append(parts, "这是国标编码（GBK/GB18030），按 UTF-8 直接读会乱码，需要先转码")
+		parts = append(parts, "This is a Chinese national-standard encoding (GBK/GB18030); reading it as UTF-8 gives garbled text, so convert it first")
 	}
 	if r.Delimiter != "" {
-		parts = append(parts, fmt.Sprintf("看起来是分隔符为 %q 的表格，%d 列", r.Delimiter, r.Columns))
+		parts = append(parts, fmt.Sprintf("Looks like a table with separator %q and %d columns", r.Delimiter, r.Columns))
 	} else if r.Kind == "text" {
-		parts = append(parts, "没有明显的列分隔符，可能是纯文本或单列数据")
+		parts = append(parts, "No obvious column separator; it may be plain text or a single column")
 	}
 	if r.Truncated {
-		parts = append(parts, "样本已截断")
+		parts = append(parts, "The sample was truncated")
 	}
 	return strings.Join(parts, "；") + "。"
 }

@@ -62,12 +62,12 @@ func isLongInteger(v string) bool {
 func resolveOutputPath(base, outPath string, protect ...string) (string, error) {
 	outPath = strings.TrimSpace(outPath)
 	if outPath == "" {
-		return "", fmt.Errorf("输出路径为空")
+		return "", fmt.Errorf("The output path is empty")
 	}
 	// 两端分隔符都看：模型偶尔会照 Windows 习惯给 a\..\b.xlsx
 	for _, seg := range strings.FieldsFunc(outPath, func(r rune) bool { return r == '/' || r == '\\' }) {
 		if seg == ".." {
-			return "", fmt.Errorf("输出路径不能包含 .. 段：%q（请给绝对路径，或给基准目录内的相对路径）", outPath)
+			return "", fmt.Errorf("The output path must not contain a .. segment: %q (give an absolute path, or a relative path inside the base folder)", outPath)
 		}
 	}
 
@@ -77,13 +77,13 @@ func resolveOutputPath(base, outPath string, protect ...string) (string, error) 
 	} else {
 		baseAbs, err := filepath.Abs(base)
 		if err != nil {
-			return "", fmt.Errorf("输出基准目录不合法: %w", err)
+			return "", fmt.Errorf("The output base folder is not valid: %w", err)
 		}
 		path = filepath.Join(baseAbs, outPath)
 	}
 	for _, src := range protect {
 		if sameFile(path, src) {
-			return "", fmt.Errorf("拒绝写入源文件 %s：这会覆盖你的原始文件。请换一个输出路径", filepath.Base(path))
+			return "", fmt.Errorf("Refusing to write to the source file %s: that would overwrite your original file. Use a different output path", filepath.Base(path))
 		}
 	}
 	return path, nil
@@ -96,14 +96,14 @@ func resolveOutputPath(base, outPath string, protect ...string) (string, error) 
 func safeOutputPath(dir, name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "", fmt.Errorf("输出文件名为空")
+		return "", fmt.Errorf("The output file name is empty")
 	}
 	if filepath.IsAbs(name) || strings.ContainsAny(name, `/\`) || name == "." || name == ".." {
-		return "", fmt.Errorf("输出文件名不能带路径: %q（目录请用 outputDir 传，文件名只给名字）", name)
+		return "", fmt.Errorf("The output file name must not contain a path: %q (pass the folder as outputDir and give only the name)", name)
 	}
 	dirAbs, err := filepath.Abs(dir)
 	if err != nil {
-		return "", fmt.Errorf("输出目录不合法: %w", err)
+		return "", fmt.Errorf("The output folder is not valid: %w", err)
 	}
 	return filepath.Join(dirAbs, name), nil
 }

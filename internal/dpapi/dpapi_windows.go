@@ -33,7 +33,7 @@ import (
 )
 
 // ErrUnsupported 在非 Windows 平台返回，便于调用方退化到其它方案。
-var ErrUnsupported = errors.New("dpapi: 本平台不支持")
+var ErrUnsupported = errors.New("dpapi: not supported on this platform")
 
 const (
 	scopeUser    byte = 0x01
@@ -68,16 +68,16 @@ func protectOnce(plain []byte, flags uint32) ([]byte, error) {
 // Protect 加密。优先用户作用域；用户配置文件不可用时退化到本机作用域。
 func Protect(plain []byte) ([]byte, error) {
 	if len(plain) == 0 {
-		return nil, errors.New("dpapi: 输入为空")
+		return nil, errors.New("dpapi: input is empty")
 	}
 	if ct, err := protectOnce(plain, 0); err == nil {
 		return append([]byte{scopeUser}, ct...), nil
 	} else if !errors.Is(err, windows.ERROR_ACCESS_DENIED) {
-		return nil, fmt.Errorf("dpapi: 加密失败: %w", err)
+		return nil, fmt.Errorf("dpapi: encryption failed: %w", err)
 	}
 	ct, err := protectOnce(plain, windows.CRYPTPROTECT_LOCAL_MACHINE)
 	if err != nil {
-		return nil, fmt.Errorf("dpapi: 加密失败（用户与本机作用域均不可用）: %w", err)
+		return nil, fmt.Errorf("dpapi: encryption failed (neither user nor machine scope is available): %w", err)
 	}
 	return append([]byte{scopeMachine}, ct...), nil
 }
@@ -86,10 +86,10 @@ func Protect(plain []byte) ([]byte, error) {
 // 这是特性，不是 bug：调用方应当把它当成「密钥不可用」，而不是静默换新密钥。
 func Unprotect(secret []byte) ([]byte, error) {
 	if len(secret) == 0 {
-		return nil, errors.New("dpapi: 输入为空")
+		return nil, errors.New("dpapi: input is empty")
 	}
 	if len(secret) < 2 {
-		return nil, errors.New("dpapi: 数据不是本程序写的格式")
+		return nil, errors.New("dpapi: data was not written by this app")
 	}
 	scope, body := secret[0], secret[1:]
 	var flags uint32
@@ -99,13 +99,13 @@ func Unprotect(secret []byte) ([]byte, error) {
 	case scopeMachine:
 		flags = windows.CRYPTPROTECT_LOCAL_MACHINE
 	default:
-		return nil, fmt.Errorf("dpapi: 未知作用域 0x%02x", scope)
+		return nil, fmt.Errorf("dpapi: unknown scope 0x%02x", scope)
 	}
 	in := blob(body)
 	ent := blob(entropy)
 	var out windows.DataBlob
 	if err := windows.CryptUnprotectData(&in, nil, &ent, 0, nil, flags|windows.CRYPTPROTECT_UI_FORBIDDEN, &out); err != nil {
-		return nil, fmt.Errorf("dpapi: 解密失败（密钥可能来自其它用户或其它机器）: %w", err)
+		return nil, fmt.Errorf("dpapi: decryption failed (the key may come from another user or machine): %w", err)
 	}
 	defer windows.LocalFree(windows.Handle(unsafe.Pointer(out.Data)))
 	res := make([]byte, out.Size)

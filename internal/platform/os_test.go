@@ -42,7 +42,7 @@ func TestUnsupportedErrorNilWhenSupported(t *testing.T) {
 }
 
 func TestVersionStringUnknown(t *testing.T) {
-	if got := (Version{}).String(); got != "未知" {
-		t.Errorf("零值版本应显示「未知」，实际 %q", got)
+	if got := (Version{}).String(); got != "unknown" {
+		t.Errorf("a zero-value version must show 'unknown', actual %q", got)
 	}
 }

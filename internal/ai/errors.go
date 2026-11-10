@@ -73,20 +73,20 @@ func classify(status int, body []byte) *Error {
 	switch {
 	case status == 401 || status == 403:
 		e.Kind = KindAuth
-		e.Message = "认证失败"
-		e.Hint = "检查 API Key 是否正确、是否已过期。"
+		e.Message = "Authentication failed"
+		e.Hint = "Check that the API Key is correct and not expired."
 	case status == 404:
 		e.Kind = KindNotFound
-		e.Hint = "检查 Base URL 是否包含 /v1，以及模型名是否存在于该服务商。"
+		e.Hint = "Check that the Base URL includes /v1, and that the model name exists on this provider."
 	case status == 429:
 		e.Kind = KindRate
-		e.Hint = "触发限流，稍后重试，或在设置里换一个服务商。"
+		e.Hint = "Rate limited; retry later or switch to another provider in Settings."
 	case status == 400 || status == 422:
 		e.Kind = KindConfig
-		e.Hint = "请求被拒绝，通常是模型名不对、参数越界，或该模型不支持工具调用。"
+		e.Hint = "Request rejected; usually a wrong model name, out-of-range parameters, or a model that does not support tool calls."
 	case status >= 500:
 		e.Kind = KindUpstream
-		e.Hint = "服务商侧故障，通常稍等重试即可。"
+		e.Hint = "Provider-side failure; usually just wait and retry."
 	default:
 		e.Kind = KindUpstream
 	}
@@ -129,16 +129,16 @@ func fromTransport(err error) *Error {
 	}
 	switch {
 	case errors.Is(err, context.Canceled):
-		return &Error{Kind: KindCanceled, Message: "已取消"}
+		return &Error{Kind: KindCanceled, Message: "Canceled"}
 	case errors.Is(err, context.DeadlineExceeded):
-		return &Error{Kind: KindTimeout, Message: "请求超时", Hint: "网络慢或服务商响应慢；可在设置里加大超时。"}
+		return &Error{Kind: KindTimeout, Message: "Request timed out", Hint: "Network or provider is slow; you can raise the timeout in Settings."}
 	}
 
 	var nerr net.Error
 	if errors.As(err, &nerr) && nerr.Timeout() {
-		return &Error{Kind: KindTimeout, Message: "请求超时", Hint: "网络慢或服务商响应慢；可在设置里加大超时。"}
+		return &Error{Kind: KindTimeout, Message: "Request timed out", Hint: "Network or provider is slow; you can raise the timeout in Settings."}
 	}
-	return &Error{Kind: KindNetwork, Message: err.Error(), Hint: "检查网络、代理，以及 Base URL 是否可达。"}
+	return &Error{Kind: KindNetwork, Message: err.Error(), Hint: "Check the network, any proxy, and whether the Base URL is reachable."}
 }
 
 // retryable 判断该不该重试。

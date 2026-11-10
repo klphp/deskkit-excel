@@ -84,7 +84,7 @@ func (r *Runtime) DataDir() string {
 // Run 装配并运行应用，阻塞到退出。
 func Run(opts Options) error {
 	if opts.AppName == "" {
-		return errf("boot: AppName 不能为空")
+		return errf("boot: AppName must not be empty")
 	}
 
 	// 日志必须最先就位：后面任何一步失败都要能落盘。
@@ -107,7 +107,7 @@ func Run(opts Options) error {
 
 	cfg, err := loadConfig(opts.ConfigFS)
 	if err != nil {
-		return errf("加载配置失败: %v", err)
+		return errf("Failed to load config: %v", err)
 	}
 
 	// ── 内嵌本地 HTTP 服务 ──
@@ -236,12 +236,12 @@ func Run(opts Options) error {
 	}
 	if opts.After != nil {
 		if err := opts.After(rt); err != nil {
-			return errf("启动回调失败: %v", err)
+			return errf("Startup callback failed: %v", err)
 		}
 	}
 
 	if err := windowManager.Main(); err != nil {
-		return errf("打开主窗口失败: %v", err)
+		return errf("Failed to open main window: %v", err)
 	}
 
 	// 调试开关：AUTO_OPEN=settings 启动后自动打开指定窗口。
@@ -365,7 +365,7 @@ func warnFixedPort(cfg *config.Config) {
 	}
 	slog.Warn("已关闭禁止多开，但内嵌服务用了固定端口：多开时第二个实例会监听失败",
 		"addr", cfg.Server.Addr,
-		"建议", "把 server.addr 的端口写回 0（系统分配），或重新开启 app.singleInstance")
+		"Suggestion", "Set the server.addr port back to 0 (system-assigned), or re-enable app.singleInstance")
 }
 
 // ignoreWriteErr 包一层 writer，吞掉写入错误。
