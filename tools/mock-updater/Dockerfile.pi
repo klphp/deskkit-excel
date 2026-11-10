@@ -3,13 +3,13 @@
 # 用法（在控制端）：
 #   CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags "-w -s" \
 #     -o /tmp/pi-mock/mock-updater-linux-armv7 ./tools/mock-updater
-#   scp /tmp/pi-mock/mock-updater-linux-armv7 pi@192.168.0.246:~/deskkit-mock/
-#   scp tools/mock-updater/Dockerfile.pi pi@192.168.0.246:~/deskkit-mock/Dockerfile
+#   scp /tmp/pi-mock/mock-updater-linux-armv7 pi@<pi-host>:~/deskkit-mock/
+#   scp tools/mock-updater/Dockerfile.pi pi@<pi-host>:~/deskkit-mock/Dockerfile
 #
 # 在派上：
 #   cd ~/deskkit-mock && sudo docker build -t deskkit/mock-updater:pi .
 #   sudo docker run -d --name deskkit-mock --restart unless-stopped -p 8790:8790 \
-#     -e MOCK_VERSION=9.9.9 -e MOCK_PUBLIC_URL=http://192.168.0.246:8790 \
+#     -e MOCK_VERSION=9.9.9 -e MOCK_PUBLIC_URL=http://<pi-host>:8790 \
 #     deskkit/mock-updater:pi
 #
 # 两个坑（都踩过）：
