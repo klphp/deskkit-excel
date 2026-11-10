@@ -152,6 +152,7 @@ export const enUS = {
   "about.updateNotConfigured": "No update source configured.",
   "about.downloadAndInstall": "Download and install",
   "about.goToDownload": "Open download page",
+  "about.downloadDMG": "Download .dmg (macOS)",
 };
 
 export default enUS;

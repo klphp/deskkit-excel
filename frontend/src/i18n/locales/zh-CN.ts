@@ -159,6 +159,7 @@ export const zhCN = {
   "about.updateNotConfigured": "未配置更新源。",
   "about.downloadAndInstall": "下载并安装",
   "about.goToDownload": "前往下载",
+  "about.downloadDMG": "下载 .dmg 安装包",
 };
 
 export default zhCN;

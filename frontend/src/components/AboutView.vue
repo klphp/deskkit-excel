@@ -5,7 +5,7 @@
  * 刻意不列平台 / 架构 / 框架 / 样式 —— 用户不需要知道这个应用是用什么写的，
  * 那些只对开发者有意义，摆在界面上既占地方也显得可疑。
  */
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { Loader2, Download, AlertCircle, CheckCircle2, RefreshCw, ExternalLink } from "@lucide/vue";
 import { useI18n } from "../i18n";
 import logoURL from "../assets/logo.svg";
@@ -34,6 +34,8 @@ type UpdateResult = {
   notes: string;
   releaseUrl: string;
   autoInstall: boolean;
+  /** macOS 上给出的是 .dmg 直链：点了直接下载，不走发布页 */
+  downloadUrl?: string;
 };
 
 const props = defineProps<{ info: AppInfo | null }>();
@@ -41,6 +43,17 @@ const { t } = useI18n();
 
 /** 更新源是否在 config/app.yaml 里配好了。没配也能点，点了给一句明确提示。 */
 const updateConfigured = ref(false);
+
+// 按钮文案要跟着「点了会发生什么」走：
+//   Windows 会自动装 → "Download and install"
+//   macOS 拿到的是 .dmg 直链 → "Download .dmg"，点了浏览器就开始下
+//   只有拿不到直链时才退回发布页 → "Open download page"
+// （踩过：macOS 已经给出 dmg 直链，按钮却还写着发布页，用户以为会跳网页。）
+const installLabel = computed(() => {
+  if (result.value?.autoInstall) return t("about.downloadAndInstall");
+  if ((result.value?.downloadUrl ?? "").toLowerCase().endsWith(".dmg")) return t("about.downloadDMG");
+  return t("about.goToDownload");
+});
 /** 手动下载页：检查失败时给用户的出口 */
 const releasePage = ref("");
 const checking = ref(false);
@@ -186,7 +199,7 @@ async function installUpdate() {
         >
           <Loader2 v-if="installing" :size="13" class="animate-spin" />
           <Download v-else :size="13" />
-          {{ result.autoInstall ? t("about.downloadAndInstall") : t("about.goToDownload") }}
+          {{ installLabel }}
         </button>
       </div>
 
